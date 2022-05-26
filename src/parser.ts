@@ -14,9 +14,15 @@ type FrameValue =
   | { tag: "entries"; value: FrameEntry[] }
 
 type FrameEntry =
-  | { tag: "field"; key: string; value: Expr }
-  | { tag: "method"; value: MethodValue; body: Statement[] }
+  | { tag: "field"; key: string; params: Expr }
+  | {
+      tag: "method"
+      params: MethodParams
+      returnType: TypeExpr
+      body: Statement[]
+    }
 
+// TODO: 'set' arg
 type CallValue =
   | { tag: "tag"; value: string }
   | { tag: "args"; args: { key: string; value: Expr }[] }
@@ -36,17 +42,19 @@ export type Statement =
 
 export type Declaration =
   | { tag: "cluster"; name: string; body: Declaration[] }
-  | { tag: "struct"; params: CallParam[] }
+  | { tag: "struct"; params: MethodParams }
   | {
       tag: "method"
       receiver: MethodReceiver
-      value: MethodValue
+      params: MethodParams
+      returnType: TypeExpr
       body: Statement[]
     }
 
-type MethodReceiver = "cluster" | "instance"
+type MethodReceiver = "static" | "instance"
 
-type MethodValue =
+// TODO: 'set' param
+type MethodParams =
   | { tag: "tag"; value: string }
   | { tag: "params"; value: CallParam[] }
 
@@ -84,6 +92,13 @@ export class Parser {
   advance() {
     this.token = this.iterator.next().value
   }
+  program(): Declaration[] {
+    const program = []
+    while (!this.accept("end")) {
+      program.push(this.expect(this.declaration(), "declaration"))
+    }
+    return program
+  }
 
   expect<T>(value: T | null, expected: string): T {
     if (value === null) {
@@ -109,6 +124,43 @@ export class Parser {
     }
     return false
   }
+  declaration(): Declaration | null {
+    const tok = this.token
+    if (tok.tag !== "keyword") return null
+    switch (tok.value) {
+      case "cluster": {
+        this.advance()
+        const name = this.mustAccept("cluster").value
+        this.expect(this.keyword("is"), "is")
+        const body = []
+        while (!this.keyword("end")) {
+          body.push(this.expect(this.declaration(), "declaration"))
+        }
+        return { tag: "cluster", name, body }
+      }
+      case "struct": {
+        this.advance()
+        const params = this.methodParams()
+        return { tag: "struct", params }
+      }
+      // TODO
+      // case "interface":
+      // case "case":
+      case "static":
+      case "instance": {
+        this.advance()
+        const params = this.methodParams()
+        this.mustAccept(":")
+        const returnType = this.expect(this.typeExpr(), "type")
+        this.expect(this.keyword("is"), "is")
+        const body = this.body()
+        return { tag: "method", receiver: tok.value, params, returnType, body }
+      }
+      default:
+        return null
+    }
+  }
+
   binding(): Binding | null {
     const tok = this.token
     switch (tok.tag) {
@@ -333,7 +385,7 @@ export class Parser {
       }
       this.mustAccept(":")
       const value = this.mustExpr()
-      entries.push({ tag: "field", key: keyString, value })
+      entries.push({ tag: "field", key: keyString, params: value })
     }
 
     while (!this.accept("]")) {
@@ -341,13 +393,15 @@ export class Parser {
       if (keyString) {
         this.mustAccept(":")
         const value = this.mustExpr()
-        entries.push({ tag: "field", key: keyString, value })
+        entries.push({ tag: "field", key: keyString, params: value })
         continue
       }
-      const methodValue = this.expect(this.methodValue(), "method or field")
+      const params = this.expect(this.methodParams(), "method or field")
+      this.mustAccept(":")
+      const returnType = this.expect(this.typeExpr(), "type")
       this.expect(this.keyword("is"), "is")
       const body = this.body()
-      entries.push({ tag: "method", value: methodValue, body })
+      entries.push({ tag: "method", params, returnType, body })
     }
     return { tag: "frame", value: { tag: "entries", value: entries } }
   }
@@ -369,7 +423,7 @@ export class Parser {
       }
     }
   }
-  methodValue(): MethodValue {
+  methodParams(): MethodParams {
     this.mustAccept("{")
     const params = []
     const keyString = this.mustKeyString()
@@ -387,7 +441,7 @@ export class Parser {
   callParam(keyString: string): CallParam {
     const binding = this.binding()
     this.mustAccept(":")
-    const typeExpr = this.expect(this.typeExpr(), "type expr")
+    const typeExpr = this.expect(this.typeExpr(), "type")
     const typeAlias = this.accept("identifier")
     return {
       name: keyString,

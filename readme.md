@@ -1,458 +1,278 @@
 # Goblin
 
-A programming language for real sickos
+> my programming language brainworm is trying to get me to design a syntax that makes people as angry as Lisp does, but in a wholly original way, and without making the syntax intentionally obtuse or verbose
+> https://twitter.com/modernserf/status/1524117731326533632
 
-## general syntax philosophy
+Goblin is a programming language unconstrained by paradigm or taste.
 
-Separate module / expression "worlds"
-expressions only use operators in templates
-performance is not a concern
+# Syntax Basics
+
+Unlike most programming languages, Goblin's syntax is designed for rich text formatting & proportional-width fonts. Whitespace is not significant but encouraged.
+
+<!-- TODO: more example here, maybe figure out linebreak situation -->
+
+> let _a_ := "Hello" **assign "Hello" to _a_**
+>
+> Console{ log: _a_ ++ ", World" } **print "Hello, World" to console**
 
 ## Comments
 
-C-style comments `//` and `/* */`
+Comments are written in **boldface**, or using `**double asterisks**` in plain text.
 
-In rich text representation, comments are italicized.
-
-## Identifiers
-
-Identifiers are "stropped" with underscores.
-
-Whitespace is normalized, such that
+> **This is a comment**
 
 ```
-_hello world_
-_hello  world_
-_hello
-world_
+**This is a comment**
 ```
 
-refer to the same value
+## Number literals
 
-As shorthand, identifiers that start with lowercase letters & contain only letters, numbers & underscores can be used without underscore stropping. `a` and `_a_` refer to the same value.
+Decimal, hex, binary literals, `_` separators, prefix `-`, exponents, (are fraction literals needed anymore?)
 
-In rich text representation, identifers are underlined.
+## String literals
 
-## Strings
+String literals are written between double quotes, and may contain newlines.
 
-Strings are double-quoted, and can contain newlines. Backslash escapes characters. No interpolation, heredocs etc.
+> "Alice says \\"hello\\" to Bob"
 
-## Numbers
+## Identifiers & assignment
 
-`0x` prefix for hex, `0b` for binary, `_` for non-semantic separators, leading `0` required for decimals. Like other languages that lack "ambient" infix operators (e.g. Clojure), literals include negation `-3` and fractions `1/3`.
+Identifiers are written in _italics_, or using `_underscores_` in plain text. Whitespace in identifiers is normalized such that `_foo bar_` and `_foo bar_` refer to the same identifier & are rendered identically in rich text.
 
-Numbers are represented as arbitrary precision rationals.
+Values can be assigned to identifiers with "let":
+
+> let _x_ := 123
+
+## Method calls
+
+Call methods on values using curly braces. Some methods take no arguments:
+
+> 123{negate}
+
+Some methods take arguments, which can be provided in any order (though they are usually written to read best in one particular direction):
+
+> Range{from: 1 through: 10}
+>
+> Range{through: 10 from: 1}
+
+Method argument names can contain words, numbers, operators and whitespace. Whitespace is normalized just as it is in identifiers.
+
+> "hello"{to uppercase}
+
+Method arguments can be "punned":
+
+> let _x_ := 1
+>
+> let _y_ := 2
+>
+> let _p_ := Point{ _x_ _y_ } **equivalent to Point{x: _x_ y: _y_}**
+
+### Destructuring assignment
+
+Method calls can be done in "let" bindings:
+
+> let [x: _value_] := point **equivalent to let _value_ := point{x}**
+>
+> let [_x_] := point **equivalent to let _x_ := point{x}**
+>
+> let [{slice: 1 to: 3}: _slice_] := list ** equivalent to let _slice_ := list{slice: 1 to: 3}**
+
+## Operators
+
+When a method name consists of symbols, it can be called like a binary operator:
+
+> 1 + 2 **equivalent to 1{+: 2}**
+
+All operators have the same precedence and are evaluated left to right. Braced method calls have higher precedence than operators:
+
+> _foo_{x} + _bar_{y} + _baz_{z}
+>
+> **equivalent to _foo_{x}{+: _bar_{y} }{+: _baz_{z}}**
+
+## Clusters
+
+Goblin programs are organized into clusters. Clusters are conceptually similar to modules or classes in other programming languages. Cluster names always begin with an uppercase letter. Clusters have methods (and operators) like other values. The methods on clusters typically construct instances of the cluster.
+
+> Number{pi}
+>
+> Range{from: 1 through: 10}
+>
+> Vec , 1 , 2 , 3 ++ _more_
 
 ## Frames
 
-Frames are the core data structure in Goblin. A frame can be just a symbol, e.g. `[true] [false] [none]` or a key-value structure e.g. `[x: 1 y: 2]`.
+Frames are the basic composite data structure. They use similar syntax as method calls, but with square brackets. A frame can be just a symbol:
 
-The keys in frames can include numbers, (most) symbols and whitespace, and whitespace is normalized in the same way as identifiers. Leading & trailing whitespace is also ignored. `[left key: 1 right key: 2]`
+> [none]
 
-The order of keys is not relevant for equality or type compatibility, but it is preserved when stringifying.
+Or they can be key-value structures:
 
-### impl note
+> [x: 1 y: 2]
 
-Frames are implemented as anonymous clusters -- each frame literal has an anonymous cluster associated with it, and acts as a constructor for that cluster.
+Frame fields can be "punned" just like method arguments:
 
-### Frame types & methods
+> let _x_ := 1
+>
+> let _y_ := 2
+>
+> let _p_ := [_x_ _y_] **equivalent to [x: _x_ y: _y_]**
 
-given `let point := [x: 1 y: 2]`, you get
+### Frame field methods
 
-- get `point{x}` and `point{y}`
-- set `point{x: 3}` and`point{y: 4}`
-- update `point{update x: [++]}` and `point{update y} do |y| y[--]`
-- apply `point{apply: target}` calls `target{x: 1 y: 2}` -- this doesn't seem super useful but a bunch of stuff depends on it
-- equality, to hash, to string
+Frames have a number of methods defined on them. Frames with key-value pairs will have get, set & update methods for each field:
 
-### Extending frames
+> let _p_ := [x: 1 y: 2]
+>
+> _p_{x} **=> 1**
+>
+> _p_{x: 3} **=> [x: 3 y: 2]**
+>
+> _p_{update x: with _x_ do _x_ + 2} **=> [x: 3 y: 2]**
 
-`[frame :: x: 1 y: 2]` constructs a new frame from an old one and some new fields.
-TODO: how does this interact with methods? What if the "source" value isn't a frame? Does this create a new, "flat" anonymous cluster, or does it create a cluster that just _wraps_ the previous one?
+### Apply
 
-### Frame methods & closures
+Frames also have a "." operator method (pronounced "apply") that takes a value and calls a method on that value that matches the frame, e.g.
 
-Frames can have methods, in addition to fields, defined on them. These methods access the scope (including `self`) and control flow of the method they are defined in. All frame methods are public.
+> [pi].Number **equivalent to Number{pi}**
+>
+> [x: 1 y: 2].Point **equivalent to Point{x: 1 y: 2}**
+>
+> [to uppercase]."hello" **equivalent to "hello"{to uppercase}**
 
-```
-let f := [
-  // getters (return type is inferred)
-  {x} is 1
-  {y} is 2
-  // methods
-  {x _x_: Num} is
-    [x: _x_ y: me{y}]
-  {y _y_: Num} is
-    [x: me{x} y: y]
+## Blocks
 
-  // explicit return types
-  {== _right_: [x: Num y: Num]}: Bool is
-    Bool(
-      Cmp(me{x} == right{x}) &&
-      Cmp(me{y} == right{y})
-    )
-]
-```
+Unlike many languages, Goblin does not have for loops or if statements. Rather, it has methods that accept blocks:
 
-Frame methods return early with the `exit` keyword instead of `return`; `return` returns from the outer method. A frame that uses `return` in its methods has a restricted lifetime -- it cannot be stored beyond the scope of its method (ie it cannot exist adter the outer method returns.) This is also the case with `set`ing values in an outer scope.
+> Range{from: 1 through: 10}{each: with _x_ do
+>
+> &nbsp;&nbsp;Console{log: _x_}
+>
+> }
+>
+> let _result_ := (_x_ > 3)
+>
+> &nbsp;&nbsp;{then: do "bigger"}
+>
+> &nbsp;&nbsp;{else if: _x_ = 3 then: do "equal"}
+>
+> &nbsp;&nbsp;{else: do "smaller"}
 
-The equivalent of anonymous functions in Goblin are frames with a single `apply` method, like `[{apply _arg_: Point}: arg{x}]`. A consequence of this convention is that a frame _without_ a defined `apply` method has a default implementation such that you can write `list{map: [+:1]}` and that will expand to `list{map: [{apply _val_: Num}: val{+: 1}]}`.
+A block without arguments is "do ..." and with arguments is "with _arg_ do ..."
 
-TODO: how should multi-argument closures work? something like `[{apply: Num arg1: Num}: left{+: right}]`? If we work backwards from `list{with: 0 fold:[+]}` where do we end up?
-TODO: When would it be _necessary_ to annotate the return type? Just when its recursive, right? Are implicit conversions important here?
-TODO: Frames also have the `me` dynamic variable instead of `self` that accesses their own fields -- is this useful? You could rig this up explicitly if you really wanted it. If you did `let frame = [x: 1 y: 2 {apply} ...]` and then set `{y: 3}`, would `frame{y}` in the apply method return 2 or 3?
+Using "return" in a block returns from the outer method, not within the block.
 
-### Pattern matching
+A block expression creates a value with a "." method, and you can call a block with ".":
 
-TODO: do we want to discourage pattern matching, and thus force the awkward syntax? Or do we just want to have a solid theoretical basis for pattern matching, but also support it in syntax?
+<!-- TODO: should blocks be allowed in expressions, or _just_ in method arguments? How do I demonstrate a block being called inside a method? -->
 
-Pattern matching? also frames.
+> let _block_ := (with _x_ do _x_ + 1)
+>
+> _block_.3 **=> 4**
 
-```
-value{apply: [
-  {none}: 0
-  {some _value_: Vec}: value{length}
-]}
-```
+### Partial application
 
-A corrolary to this is that if `[x: 1]` can apply `[{x: Num}: T]` and `[y: 2]` can apply `[{y: Num}: T]` then the common type between them is:
+Methods that take blocks can also take frames (or any other value with a "." method). This can be used like:
 
-```
-[{apply: [
-  {x: Num}: T
-  {y: Num}: T
-]}: T]
-```
+> _points_{map: [x]} **get x values from a list of points**
+>
+> _scores_{filter: [<: 80]} **get scores < 80**
 
-For default/unknown cases, you need to use reflection:
+## Reassigning variables
 
-```
-Reflect{
-  match: value
-  on: [
-    {some: value}: value{length}
-  ]
-  with default: [{apply: __}: 0]
-}
-```
+Most values in Goblin are immutable, but variables can be reassigned. This allows for some imperative programming techniques that are rather tedious in purely functional languages. Reassignment is done with the "set" keyword.
 
-TODO: is this actually better than allowing any object to have something like `method_missing`?
+> let _fizz counter_ := 0
+>
+> items{each: with _x_ do
+>
+> &nbsp;&nbsp;(_x_ % 3 = 0){then: do
+>
+> &nbsp;&nbsp;&nbsp;&nbsp;set _fizz counter_ = _fizz counter_ + 1
+>
+> &nbsp;&nbsp;}
+>
+> }
 
-## Calls
+set can also be used directly on method calls if the receiver is an identifier:
 
-Functions, methods, module constants, type constructors, control flow all use a syntax similar to frames, but using curly braces.
+> set _point_{x: 3} **equivalent to set _point_ := _point_{x: 3}**
 
-- `[x: 1 y: 2]{x}` accessing the x field on a frame
-- `Num{pi}` a constant defined on the Num module
-- `"foo,bar,baz"{split: ","}` a method on a string
-- `Point{x: 1 y: 2}` a constructor
+Note that this does not mutate _point_, it creates a new frame from the old one & assigns it to the same name. Copies will be unchanged:
 
-a trailing `do` block is shorthand for passing a closure argument -- `foo{bar} do |arg| ...` expands to `foo{bar: [{apply: arg}: ...]}`
+> let _point_ := [x: 1 y: 2]
+>
+> let _other_ := _point_
+>
+> set _point_{x: 3} **_other_ is still [x: 1 y: 2]**
 
-- `Vec(1,2,3){with: 0 fold} do |l, r| l{+:r}` two-arg block
-- `Cmp(a <= b < c){else} do || return` block with control flow
+Also note that setting a frame's field cannot create a recursive frame; if you set a frame's field to itself, it will receive the _previous_ value of the frame:
 
-## Templates
+> let _point_ := [x: 1 y: 2]
+>
+> set _point_{x: _point_} **_point_ is [x: [x: 1 y: 2] y: 2]**
 
-Unlike many languages, Goblin does not have arithmetic or boolean operators in its core grammar. Instead, operators are used in _templates_. Templates are type-safe embedded domain specific languages for working with operators and expressions.
+Some methods will have "set" arguments that work a bit like `inout`, `var` or `mut` arguments in other languages. This is often used for methods that would both return a value & mutate their receiver:
 
-Arithmetic:
-`Num((a^2 + b^2)/2)`
+> let _vec_ := Vec, 1, 2, 3
+>
+> let _popped_ := Vec{pop: set _vec_} **_popped_ is 3, _vec_ is (Vec, 1, 2)**
 
-Regular expressions:
-`Regex([letter], ([letter]|[digit]|"_")*)`
+## Closures
 
-even data structure literals ("," "..." "=>" are operators):
-`Vec(1,2,3 ...rest)`
-`Map("foo" => 1, "bar" => 2)`
+Closures are like blocks, with both fewer abilities & fewer restrictions:
 
-See also "defining templates"
+- closures can be used anywhere a value is used (e.g. assigned to a variable, returned from a method, stored in another value), but blocks can only be defined as method arguments & called in that method.
+- blocks can set variables defined outside the block, but closures cannot
+- "return" in a block returns from the outer method; "return" in a closure just returns from the closure
+- any method that accepts a block will also accept a closure
 
-## Let & Set
+Closures use this syntax:
 
-Bindings are created like `let a := 1`
+> [._arg_ is _arg_ + 1]
 
-Values are immutable, but bindings can be updated
+Like blocks, closure literals can have multiple arguments, which are equivalent to nested closures:
 
-```
-let a := 1
-let b := a // a is 1, b is 1
-set a := 2 // a is 2, b is 1
-```
+> [._foo_ _bar_ is _foo_ + _bar_]
 
-"Setter" methods return a new value, but can reassign the receiver with "set"
-
-```
-let a := [x: 1 y: 2]
-let b := a{x: 2} // a is [x: 1 y: 2], b is [x: 2 y: 2]
-set a{x: 3} // -> set a := a{x: 3};
-```
-
-TODO: mutating parameters?
-
-Approach 1: `set` params.
-
-```
-// since receiver
-let v := Vec(1,2,3)
-let last := Vec{pop: set v} // v is Vec(1,2), last is 3
-// mutate arg
-set left{unify: set right}
-```
-
-Approach 2: `set` in destructuring
-
-```
-let v := Vec(1,2,3)
-let [last: last rest: set v] = v{pop}
-//
-let [left: set left right: set right] := left{unify: right}
-```
-
-Real mutation is done with stateful processes, like in Erlang. See "Ref", "Table" etc
-
-## binding & destructuring
-
-unrefutable binding in destructuring:
-
-- `let [x: x] := [x: 1 y: 2]` field destructuring
-- `let [{long name}: x] := ...` field with space in name
-- `let [x] := [x: 1 y: 2]` punning
-- `let [x y] := [x: 1 y: 2]` punning multiple fields
-  - note: `[x y: value]` is `[x: x y: value]`, not `[{x y}: value]`
-- `let [x: [a]] := [x: [a: 1 b: 2]]` nesting
-  - `let [x _x_: [a]] := ...` parent and child
-  - `let [x] _frame_ := ...` ditto
-- `let [magnitude: m] := Point{x: 1 y: 2}` 0-arg methods/"getters"
-- `let [{slice: 1 to: 3}: slice] := Vec(...)` 1+arg methods
-
-TODO: "if let"
-
-## Types
-
-Interface types are described with a syntax that matches frames:
-
-- `[x: Num y: Num]` will accept any value that has `{x}:Num` and `{y}:Num` fields/methods
-- `[]` will accept any value (but you can't do anything with it -- maybe useful as a free type constraint, only type for returning unit)
-- `[{x: Num}: Num]` will accept any value that has an `{x: Num}: Num` method
-
-When a cluster is used as a type, an implicit conversion is done on the type:
-When a struct or enum cluster is used as a method parameter type, the conversion constructs an instance using the argument value. Given a cluster:
-
-```
-cluster Point is
-* record {x: Num y: Num}
-
-* constructor {origin} is ...
-```
-
-A `Point` method parameter type will accept:
-
-- an instance of Point
-- a record with the shape `[x: Num y: Num]`, which is used as `Point{x: arg{x} y: arg{y}}`
-- a record with the shape `[empty]`, which is used as `Point{empty}`
-
-When an interface cluster is used as a method parameter type, the conversion constructs an instance of the interface cluster around the concrete cluster. Given a cluster:
-
-```
-cluster Keyable{Key: Hashable Value: []} is
-  interface
-* expect {get: Key}: Value
-
-* method {keys}: Set{Item: Key} is ...
-```
-
-A `Keyable` method parameter will accept any value with a `{get: Key}: Value` method & produce an instance of Keyable (e.g. with a `{keys}` method, without the argument's other fields)
-
-### Protocol details
-
-This is handled by the interaction of the methods `{of: _}: _` and `{apply: _}: _`.
-
-Framelike cluster:
-
-```
-cluster Frame_x is:
-* record {x: Num}
-
-  // note: apply is not implemented if frame has non-field methods
-* method {apply _Bar Module_: _}: _ is
-    _Bar Module_{x: self{x}}
-```
-
-Interface cluster:
-
-```
-cluster Keyable{Key: Hashable Value: []} is
-  struct
-  field interface: [{get: Key}: Value]
-
-* constructor {of _bar instance_: _} is
-    Keyable{interface: _bar instance_}
-
-* method {get: Key}: Value is
-    self{interface}{get: Key}
-
-  // does not implement apply
-```
-
-Concrete cluster:
-
-```
-cluster Bar is:
-* constructor {of _foo instance_: _} is
-    _foo instance_{apply: Bar}
-
-* method {apply: _}: Bar is
-    self
-
-* method {foo: Num}: Num is ...
-```
-
-A frame used as a mock of a cluster instance
-
-```
-[
-  {apply: _}:
-    me
-
-  {foo: value}:
-    ...
-]
-```
-
-### Type parameters
-
-- `Vec{Item: Num}` `Map{Key: String Value: Bool}` in type expressions
-- `type Vec{Item: []} is ...` in definitions
-- `type Map{Key: Hashable Value: []} is ...` with constraints
+> **equivalent to [._foo_ is [._bar_ is _foo_ + _bar_]]**
 
 # Clusters
 
-In Goblin, programs are organized into _clusters_. Clusters are a bit like "modules", "classes" or "traits" in other languages.
+The cluster is the powerhouse of the cell
 
-Like modules, clusters organize & encapsulate code. Every file is a cluster, and can contain imports, type aliases, values, methods and other clusters. These can be private or public.
+## Defining methods
 
-Like OOP classes, clusters can be instantiated and are themselves a both a type and a value. Instance methods can also be private or public.
+- types
+- set params
+- inline block params
+- pub
 
-Like traits or typeclasses, clusters provide additional behaviors to values that implement a baseline of behavior.
+## Instances
 
-## Visibility
+- self
+- struct { x: Num y: Num }
+- custom constructors
 
-TODO: visibility syntax -- `*` in margin
+## Enums & pattern matching
 
-## use
+- case constructors
+- pattern matching
+- Partially applied constructors
 
-`use` declares a dependency on another cluster.
+## Type parameters
 
-`use Math` `use Vec as V`
+## Interfaces
 
-TODO: name resolution, nested clusters etc
+## Context & providers
 
-## type alias
+## Module system / use
 
-`type alias` creates a shorthand for another type without converting or adding additional behavior.
+# Effects & Processes
 
-## framework
+## Methods with effects
 
-`use framework Foo`; at most one per cluster
+## Mutable values
 
-frameworks affect the syntax within a cluster:
-
-- define new statement-level keywords (eg control-flow syntax)
-- define new cluster behaviors & auto-generated methods (ie. how `record` defines constructor, fields, methods, conversions)
-- create dynamic scoped variables (like `self`)
-- construct anonymous frame clusters (ie. implement the methods available to all frames defined in a cluster)
-
-## cluster-level methods
-
-TODO: pick a better keyword
-
-- `c {pi}: Num is 3.1415927` constant
-- `c {sine: Num}: Num is ...` helper function
-- `c {x: Num y: Num}: Point is ...` constructor
-
-## instance
-
-`constructor` keyword allows the creation of fields & creates a constructor that matches the field names. `* constructor` makes the constructor public
-
-`field name : type` or `field name := expr` creates an instance variable. These variables are in scope in instance methods.
-`* field ...` for generating public getters & setters
-`i {name: type}: type` for instance methods
-
-## type params
-
-`type field Key: Hashable` for type parameters with constraints
-
----
-
-### Cluster methods
-
-### Instances
-
-A couple of different ways to create instances
-
-make default constructor with all fields & fields with separate visibility modifiers for get / set
-
-```
-cluster Foo is
-* struct // generates a constructor for fields, e.g. `{x: Num y: Num}`
-+ field {x}: Num // `+` is public get, `-` is public set, `*` is both?
-  field {y}: Num
-```
-
-default constructor, getters, setters, interfaces etc with identical visibility
-
-```
-cluster Bar is
-* record {x: Num y: Num}
-```
-
-enum, constructors for each case, `apply` for pattern matching, per-case method impls
-
-```
-cluster List is
-  enum
-  case {nil} is
-  * method {length} is 0
-  case {head: T tail: List{Item: T}} is
-  * method {length} is Num(1 + tail{length})
-```
-
-interfaces
-
-```
-cluster Hashable is
-  interface
-  * expect {hash}: String
-```
+## Processes
 
 ## Errors
-
-no throw/catch, errors are process-level
-
-## Effects
-
-While Goblin has a limited form of mutability in bindings, this does not introduce _shared_ mutable state. To share state, use refs:
-
-```
-cluster Foo is
-  eff method {example}: Num is
-    let value := eff Ref{of: 1}
-    let shared = [x: value]
-
-    value{update: [++]}
-    value // value = <Ref>
-    let result := eff value{current} // result = 2
-```
-
-Here, updating the value on `value` also updates the value on `shared{x}`.
-
-Any method can _create_ side effects (e.g. call `value{update: [++]}`), but only `eff` methods can _observe_ side effects (e.g. read `value`).
-
-`eff` propagates, such that to get the result of `example` is also an effect.
-
-Synchronizing between concurrent processes is also done through the effect system
-
-`read` will propagate an error; use `try read` or something to get a `[ok: result] | [error: message]`
-
-constructing an effectful value is itself effectful
