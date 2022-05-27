@@ -1,6 +1,7 @@
 # Goblin
 
 > my programming language brainworm is trying to get me to design a syntax that makes people as angry as Lisp does, but in a wholly original way, and without making the syntax intentionally obtuse or verbose
+>
 > https://twitter.com/modernserf/status/1524117731326533632
 
 Goblin is a programming language unconstrained by paradigm or taste.

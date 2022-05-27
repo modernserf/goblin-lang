@@ -3,16 +3,17 @@ export type Token =
   | { tag: "{" }
   | { tag: "}" }
   | { tag: "[" }
+  | { tag: "[." }
   | { tag: "]" }
   | { tag: "(" }
   | { tag: ")" }
   | { tag: ":" }
   | { tag: ":=" }
-  | { tag: "number"; value: string }
+  | { tag: "keyword"; value: string }
+  | { tag: "number"; value: number }
   | { tag: "string"; value: string }
   | { tag: "identifier"; value: string }
   | { tag: "cluster"; value: string }
-  | { tag: "keyword"; value: string }
   | { tag: "operator"; value: string }
 
 type PatternMap<Tok> = Record<
@@ -25,37 +26,40 @@ type PatternMap<Tok> = Record<
 >
 
 const patterns: PatternMap<Token> = {
-  // TODO: inline comments? maybe those only exist in the 'rich text' version
   comment: {
-    pattern: /;[^\n]*/,
+    pattern: /\*\*(?:\*[^*]|[^*])*\*\*/,
     ignore: true,
   },
   punctuation: {
-    pattern: /:=|[{}()\[\]:]/,
+    pattern: /:=|\[\.|[{}()\[\]:]/,
     map: (value) => ({ tag: value } as Token),
   },
-  // TODO: maybe these should all be distinct tokens
   hex: {
     pattern: /-?0x[0-9a-fA-F][0-9a-fA-F_]*/,
-    map: (value) => ({ tag: "number", value }),
+    map: (value) => ({ tag: "number", value: Number(value.replace(/_/g, "")) }),
   },
   binary: {
     pattern: /-?0b[0-1][0-1_]*/,
-    map: (value) => ({ tag: "number", value }),
+    map: (value) => ({ tag: "number", value: Number(value.replace(/_/g, "")) }),
   },
-  // hmm: `-123.45/67e+89`
+  // `-123.45e+67`
   decimal: {
-    pattern:
-      /-?[0-9][0-9_]*(?:\.[0-9][0-9_]*)?(?:\/[0-9][0-9_]*)?(?:[eE][+-]?[0-9][0-9_]*)?/,
-    map: (value) => ({ tag: "number", value }),
+    pattern: /-?[0-9][0-9_]*(?:\.[0-9][0-9_]*)?(?:[eE][+-]?[0-9][0-9_]*)?/,
+    map: (value) => ({ tag: "number", value: Number(value.replace(/_/g, "")) }),
   },
   string: {
     pattern: /"(?:\\"|[^"])*"/,
-    map: (value) => ({ tag: "string", value: value.slice(1, -1) }),
+    map: (value) => ({
+      tag: "string",
+      value: value.slice(1, -1).replace(/\\"/g, '"'),
+    }),
   },
   identifier: {
     pattern: /_[^_]*_/,
-    map: (value) => ({ tag: "identifier", value: value.slice(1, -1) }),
+    map: (value) => ({
+      tag: "identifier",
+      value: value.slice(1, -1).trim().replace(/\s+/g, " "),
+    }),
   },
   cluster: { pattern: /[A-Z][A-Za-z0-9_]*/ },
   keyword: { pattern: /[a-z]+/ },
