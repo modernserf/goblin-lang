@@ -14,31 +14,33 @@ const string = new Match(/"(?:\\"|[^"])*"/).map((str) =>
   str.slice(1, -1).replace(/\\"/g, `"`)
 )
 const identifier = new Match(/[a-zA-Z][a-zA-Z0-9_]*/).or(
+  // TODO: normalize idents (e.g. collapse interior whitespace)
   new Match(/_(?:\\_|[^_])*_/).map((str) => str.slice(1, -1))
 )
 const operator = new Match(/[-~!@$%^&*+|<>,?/=]+/)
+// TODO: normalize keys (e.g. collapse interior whitespace)
 const key = new Match(/[^:#\[\]\{\}]+/)
 
-type Binding = { tag: "identifier"; value: string }
+export type Binding = { tag: "identifier"; value: string }
 
-type Param =
+export type Param =
   | { tag: "pair"; key: string; binding: Binding }
   | { tag: "key"; key: string }
 
-type Method = { tag: "method"; params: Param[]; body: Statement[] }
+export type Method = { tag: "method"; params: Param[]; body: Statement[] }
 
-type Field =
+export type Field =
   | { tag: "pair"; key: string; argument: Expr }
   | { tag: "key"; key: string }
 
-type Expr =
+export type Expr =
   | { tag: "number"; value: number }
   | { tag: "string"; value: string }
   | { tag: "identifier"; value: string }
   | { tag: "object"; fields: (Method | Field)[] }
   | { tag: "call"; target: Expr; message: Field[] }
 
-type Statement =
+export type Statement =
   | { tag: "let"; binding: Binding; expr: Expr }
   | { tag: "return"; expr: Expr }
   | { tag: "expr"; expr: Expr }
@@ -65,6 +67,7 @@ const param = new Alt<Param>([
   key.map((key) => ({ tag: "key", key })),
 ])
 
+// TODO: multiple method heads
 const method = new Match(/\{/)
   .then(__)
   .then(param.skip(__).repeat())
