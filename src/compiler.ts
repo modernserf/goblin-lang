@@ -124,8 +124,6 @@ export class Compiler {
       case "call": {
         const target = this.expr(expr.target)
         const args: IRExpr[] = []
-
-        // TODO: sort fields so `{x: 1 y: 2}` and `{y: 2 x: 1}` are equivalent
         const selector = expr.message
           .map((field) => {
             switch (field.tag) {
@@ -148,7 +146,6 @@ export class Compiler {
             case "pair":
               throw new Error("todo frames")
             case "method": {
-              // TODO: sort params
               let selector = ""
               const params: Binding[] = []
               for (const param of field.params) {

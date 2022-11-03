@@ -200,15 +200,15 @@ test("frame key", () => {
   ])
 })
 
-test("frame pair", () => {
+test("frame pair sorting", () => {
   assert.deepEqual(program.parseString(`[foo: 1 bar: 2]`), [
     {
       tag: "expr",
       expr: {
         tag: "object",
         fields: [
-          { tag: "pair", key: "foo", argument: { tag: "number", value: 1 } },
           { tag: "pair", key: "bar", argument: { tag: "number", value: 2 } },
+          { tag: "pair", key: "foo", argument: { tag: "number", value: 1 } },
         ],
       },
     },

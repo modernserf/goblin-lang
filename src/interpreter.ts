@@ -9,7 +9,7 @@ export type PrimitiveMethod =
       tag: "native"
       call: (self: Value & { tag: "primitive" }, args: Value[]) => Value
     }
-  | { tag: "eval"; params: string[]; body: IRStmt[] }
+  | { tag: "eval"; body: IRStmt[] }
 
 type PrimitiveClass = Map<string, PrimitiveMethod>
 
@@ -64,23 +64,18 @@ function typedValue(value: Value | undefined, theClass: PrimitiveClass): any {
 }
 
 class Context {
-  private locals: Value[] = []
-  constructor(private self: Value | null = null) {}
+  constructor(
+    private locals: Value[] = [],
+    private self: Value | null = null
+  ) {}
   getLocal(index: number): Value {
     return this.locals[index]
   }
   setLocal(index: number, value: Value) {
     this.locals[index] = value
   }
-  setArgs(args: Value[]) {
-    args.forEach((arg, i) => {
-      this.locals[i] = arg
-    })
-  }
   getSelf(): Value {
-    if (!this.self) {
-      throw new Error("no self value")
-    }
+    if (!this.self) throw new Error("no self value")
     return this.self
   }
   getInstance(index: number): Value {
@@ -104,8 +99,6 @@ export class Interpreter {
         case "expr":
           this.expr(stmt.expr)
           break
-        default:
-          throw stmt
       }
     }
     return unit
@@ -142,8 +135,7 @@ export class Interpreter {
             return method.call(target, args)
           case "eval": {
             const oldCtx = this.context
-            this.context = new Context(target)
-            this.context.setArgs(args)
+            this.context = new Context(args, target)
             const returnValue = this.body(method.body)
             this.context = oldCtx
             return returnValue

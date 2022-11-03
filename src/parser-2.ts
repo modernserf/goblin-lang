@@ -14,8 +14,9 @@ const string = new Match(/"(?:\\"|[^"])*"/).map((str) =>
   str.slice(1, -1).replace(/\\"/g, `"`)
 )
 const identifier = new Match(/[a-zA-Z][a-zA-Z0-9_]*/).or(
-  // TODO: normalize idents (e.g. collapse interior whitespace)
-  new Match(/_(?:\\_|[^_])*_/).map((str) => str.slice(1, -1))
+  new Match(/_(?:\\_|[^_])*_/).map((str) =>
+    str.slice(1, -1).replace(/\s+/g, " ")
+  )
 )
 const operator = new Match(/[-~!@$%^&*+|<>,?/=]+/)
 // TODO: normalize keys (e.g. collapse interior whitespace)
@@ -98,7 +99,7 @@ const baseExpression = new Alt<Expr>([
     .then(method.or(field).skip(__).repeat())
     .skip(__)
     .skip(new Match(/\]/))
-    .map((fields) => ({ tag: "object", fields })),
+    .map((fields) => ({ tag: "object", fields: checkFields(fields) })),
 ])
 
 const message = new Match(/\{/)
@@ -111,7 +112,11 @@ const callExpression = baseExpression.map2(
   message.skip(__).repeat(),
   (target, fields) =>
     fields.reduce(
-      (target, message) => ({ tag: "call" as const, target, message }),
+      (target, message) => ({
+        tag: "call" as const,
+        target,
+        message: sortFields(message),
+      }),
       target
     )
 )
@@ -165,3 +170,25 @@ const statement = new Alt<Statement>([
 const body = statement.skip(__).repeat()
 
 export const program = __.then(body).skip(__)
+
+function checkFields<T extends Array<Field | Method>>(fields: T): T {
+  if (fields.length <= 1) return fields
+  const firstTag = fields[0].tag
+  for (const field of fields) {
+    if (field.tag !== firstTag) throw new Error("mixed field types")
+  }
+  if (firstTag === "pair") {
+    return sortFields(fields as Field[]) as T
+  } else {
+    return fields
+  }
+}
+
+function sortFields(fields: Field[]): Field[] {
+  if (fields.length <= 1) return fields
+
+  fields.sort((left, right) => {
+    return left.key.localeCompare(right.key)
+  })
+  return fields
+}
