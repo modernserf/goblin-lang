@@ -338,3 +338,40 @@ test("method definitons", () => {
     ].map((value) => ({ tag: "expr", value }))
   )
 })
+
+test("destructuring", () => {
+  assert.deepEqual(
+    parse(`
+      let [x: a y: b] := foo
+      let [:a :b] := foo
+      let [_x_ _y_] := foo
+    `),
+    [
+      {
+        tag: "object",
+        params: [
+          { tag: "pair", key: "x", value: { tag: "identifier", value: "a" } },
+          { tag: "pair", key: "y", value: { tag: "identifier", value: "b" } },
+        ],
+      },
+      {
+        tag: "object",
+        params: [
+          { tag: "pair", key: "", value: { tag: "identifier", value: "a" } },
+          { tag: "pair", key: "", value: { tag: "identifier", value: "b" } },
+        ],
+      },
+      {
+        tag: "object",
+        params: [
+          { tag: "pair", key: "x", value: { tag: "identifier", value: "x" } },
+          { tag: "pair", key: "y", value: { tag: "identifier", value: "y" } },
+        ],
+      },
+    ].map((binding) => ({
+      tag: "let",
+      binding,
+      value: { tag: "identifier", value: "foo" },
+    }))
+  )
+})

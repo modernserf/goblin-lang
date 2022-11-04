@@ -1,8 +1,9 @@
 import { Lexer, Token } from "./token"
 
-export type ASTBinding = { tag: "identifier"; value: string }
+export type ASTBinding =
+  | { tag: "identifier"; value: string }
+  | { tag: "object"; params: ASTParam[] }
 
-// NOTE: also used for object destructuring fields
 export type ASTParam =
   | { tag: "key"; key: string }
   | { tag: "pair"; key: string; value: ASTBinding }
@@ -33,6 +34,12 @@ function binding(lexer: Lexer): ASTBinding | null {
     case "quotedIdent":
       lexer.advance()
       return { tag: "identifier", value: token.value }
+    case "openBracket": {
+      lexer.advance()
+      const params = repeat(lexer, param)
+      expect(lexer, "closeBracket")
+      return { tag: "object", params }
+    }
     default:
       return null
   }
@@ -91,7 +98,7 @@ function keyComponent(lexer: Lexer): string | null {
   }
 }
 
-function methodParam(lexer: Lexer): ASTParam | null {
+function param(lexer: Lexer): ASTParam | null {
   const tok = lexer.peek()
   switch (tok.tag) {
     case "quotedIdent":
@@ -137,7 +144,7 @@ function callArg(lexer: Lexer): ASTArg | null {
     }
     case "openBrace": {
       lexer.advance()
-      const params = repeat(lexer, methodParam)
+      const params = repeat(lexer, param)
       expect(lexer, "closeBrace")
       const body = repeat(lexer, stmt)
       return { tag: "method", params, body }
