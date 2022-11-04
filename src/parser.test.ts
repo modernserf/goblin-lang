@@ -1,8 +1,8 @@
 const test = require("node:test")
 import assert from "node:assert/strict"
 
-import { Lexer } from "./token"
-import { program } from "./parser-3"
+import { Lexer } from "./lexer"
+import { program } from "./parser"
 
 // test
 

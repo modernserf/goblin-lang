@@ -1,9 +1,8 @@
 // import test from "node:test";
 const test = require("node:test")
 import assert from "node:assert/strict"
-import "./token.test"
-import "./parser-3.test"
-// import "./compiler.test"
+import "./lexer.test"
+import "./parser.test"
 import { run } from "./index"
 
 test("hello world", () => {
@@ -11,12 +10,12 @@ test("hello world", () => {
   assert.deepEqual(res.value, "Hello, world!")
 })
 
-test("addition", () => {
+test.skip("addition", () => {
   const res: any = run(`return 1 + 2`)
   assert.deepEqual(res.value, 3)
 })
 
-test("locals", () => {
+test.skip("locals", () => {
   const res: any = run(`
     let x := 1
     let y := 2

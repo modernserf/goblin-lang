@@ -1,7 +1,7 @@
 const test = require("node:test")
 import assert from "node:assert/strict"
 
-import { Lexer, Token } from "./token"
+import { Lexer, Token } from "./lexer"
 
 function tokens(text: string): Token[] {
   return Array.from(new Lexer(text))

@@ -1,4 +1,4 @@
-import { Lexer, Token } from "./token"
+import { Lexer, Token } from "./lexer"
 
 export type ASTBinding =
   | { tag: "identifier"; value: string }

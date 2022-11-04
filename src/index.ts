@@ -1,9 +1,10 @@
-import { program } from "./parser-2"
-import { Compiler } from "./compiler"
-import { Interpreter, Value } from "./interpreter"
+import { Lexer } from "./lexer"
+import { program as parse } from "./parser"
+import { program as compile } from "./compiler"
+import { program as interpret } from "./interpreter"
 
-export function run(source: string): Value {
-  const ast = program.parseString(source)
-  const ir = new Compiler().program(ast)
-  return new Interpreter().body(ir)
+export function run(source: string) {
+  const ast = parse(new Lexer(source))
+  const ir = compile(ast)
+  return interpret(ir)
 }
