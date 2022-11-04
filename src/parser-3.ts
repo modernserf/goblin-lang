@@ -1,300 +1,283 @@
-import {
-  ASTArgsBuilder,
-  ASTBind,
-  ASTCallExpr,
-  ASTCallKeyExpr,
-  ASTExpr,
-  ASTExprStmt,
-  ASTIdentifierBind,
-  ASTIdentifierExpr,
-  ASTIntegerExpr,
-  ASTLetStmt,
-  ASTMethodBuilder,
-  ASTObjectBuilder,
-  ASTProgram,
-  ASTReturnStmt,
-  ASTSelfExpr,
-  ASTSortedMap,
-  ASTSortedPair,
-  ASTStmt,
-  ASTStringExpr,
-} from "./ast-2"
-import { Token } from "./token"
+import { Lexer, Token } from "./token"
 
-function next<From, To>(
-  first: Matcher<From>,
-  fn: (parser: Parser, value: From) => To
-) {
-  return { first, fn }
-}
+export type ASTBinding = { tag: "identifier"; value: string }
 
-type Matcher<Result> = {
-  integer?(parser: Parser, value: number): Result
-  string?(parser: Parser, value: string): Result
-  identifier?(parser: Parser, value: string): Result
-  quotedIdent?(parser: Parser, value: string): Result
-  operator?(parser: Parser, value: string): Result
-  self?(parser: Parser): Result
-  openBracket?(parser: Parser): Result
-  closeBracket?(parser: Parser): Result
-  openParen?(parser: Parser): Result
-  closeParen?(parser: Parser): Result
-  openBrace?(parser: Parser): Result
-  closeBrace?(parser: Parser): Result
-  semicolon?(parser: Parser): Result
-  let?(parser: Parser): Result
-  return?(parser: Parser): Result
-  colonEquals?(parser: Parser): Result
-  colon?(parser: Parser): Result
-  // TODO: can I make this type flow?
-  next?: { first: Matcher<any>; fn: (parser: Parser, value: any) => Result }
-  default?(parser: Parser): Result
-  end?(parser: Parser): Result
-}
+// NOTE: also used for object destructuring fields
+export type ASTParam =
+  | { tag: "key"; key: string }
+  | { tag: "pair"; key: string; value: ASTBinding }
 
-interface Lexer {
-  peek(): Token
-  advance(): void
-}
+export type ASTExpr =
+  | { tag: "integer"; value: number }
+  | { tag: "string"; value: string }
+  | { tag: "identifier"; value: string }
+  | { tag: "self" }
+  | { tag: "call"; target: ASTExpr; args: ASTArg[] }
+  | { tag: "object"; args: ASTArg[] }
 
-export function parseProgram(lexer: Lexer): ASTProgram {
-  return new Parser(lexer).match(program)
-}
+// NOTE: used both for object literal & call (though methods are invalid syntax for calls)
+export type ASTArg =
+  | { tag: "key"; key: string }
+  | { tag: "pair"; key: string; value: ASTExpr }
+  | { tag: "method"; params: ASTParam[]; body: ASTStmt[] }
 
-class Parser {
-  constructor(private lexer: Lexer) {}
-  match<Result>(matcher: Matcher<Result>): Result {
-    const token = this.lexer.peek()
-    if (token.tag === "end") throw new Error("end of input")
-    const result = this.matchInner(token, matcher)
-    if (result) {
-      this.lexer.advance()
-      return result.value
-    }
-    if (matcher.default) return matcher.default(this)
-    throw new Error("no match")
+export type ASTStmt =
+  | { tag: "let"; binding: ASTBinding; value: ASTExpr }
+  | { tag: "return"; value: ASTExpr }
+  | { tag: "expr"; value: ASTExpr }
+
+function binding(lexer: Lexer): ASTBinding | null {
+  const token = lexer.peek()
+  switch (token.tag) {
+    case "identifier":
+    case "quotedIdent":
+      lexer.advance()
+      return { tag: "identifier", value: token.value }
+    default:
+      return null
   }
-  private matchInner<Result>(
-    token: Token,
-    matcher: Matcher<Result>
-  ): { value: Result } | null {
-    if (matcher[token.tag]) {
-      return { value: (matcher[token.tag] as any)(this, (token as any).value) }
-    }
+}
 
-    if (matcher.next) {
-      const next = this.matchInner(token, matcher.next.first)
-      if (next) {
-        return { value: matcher.next.fn(this, next.value) }
+function baseExpr(lexer: Lexer): ASTExpr | null {
+  const token = lexer.peek()
+  switch (token.tag) {
+    case "openParen": {
+      lexer.advance()
+      const value = expr(lexer)
+      expect(lexer, "closeParen")
+      return value
+    }
+    case "integer":
+      lexer.advance()
+      return { tag: "integer", value: token.value }
+    case "string":
+      lexer.advance()
+      return { tag: "string", value: token.value }
+    case "identifier":
+    case "quotedIdent":
+      lexer.advance()
+      return { tag: "identifier", value: token.value }
+    case "self":
+      lexer.advance()
+      return { tag: "self" }
+    case "openBracket": {
+      lexer.advance()
+      const args = repeat(lexer, callArg)
+      expect(lexer, "closeBracket")
+      return { tag: "object", args }
+    }
+    default:
+      return null
+  }
+}
+
+function keyComponent(lexer: Lexer): string | null {
+  const token = lexer.peek()
+  switch (token.tag) {
+    case "identifier":
+    case "operator":
+      lexer.advance()
+      return token.value
+    case "integer":
+      lexer.advance()
+      return String(token.value)
+    case "let":
+    case "self":
+    case "return":
+      lexer.advance()
+      return token.tag
+    default:
+      return null
+  }
+}
+
+function methodParam(lexer: Lexer): ASTParam | null {
+  const tok = lexer.peek()
+  switch (tok.tag) {
+    case "quotedIdent":
+      lexer.advance()
+      return {
+        tag: "pair",
+        key: tok.value,
+        value: { tag: "identifier", value: tok.value },
+      }
+    case "colon": {
+      lexer.advance()
+      const value = must(lexer, "binding", binding)
+      return { tag: "pair", key: "", value }
+    }
+    default:
+      const key = repeat(lexer, keyComponent).join(" ")
+      if (lexer.peek().tag === "colon") {
+        lexer.advance()
+        const value = must(lexer, "binding", binding)
+        return { tag: "pair", key, value }
+      } else if (key) {
+        return { tag: "key", key }
+      } else {
+        return null
+      }
+  }
+}
+
+function callArg(lexer: Lexer): ASTArg | null {
+  const tok = lexer.peek()
+  switch (tok.tag) {
+    case "quotedIdent":
+      lexer.advance()
+      return {
+        tag: "pair",
+        key: tok.value,
+        value: { tag: "identifier", value: tok.value },
+      }
+    case "colon": {
+      lexer.advance()
+      const value = must(lexer, "expr", expr)
+      return { tag: "pair", key: "", value }
+    }
+    case "openBrace": {
+      lexer.advance()
+      const params = repeat(lexer, methodParam)
+      expect(lexer, "closeBrace")
+      const body = repeat(lexer, stmt)
+      return { tag: "method", params, body }
+    }
+    default: {
+      const key = repeat(lexer, keyComponent).join(" ")
+      if (lexer.peek().tag === "colon") {
+        lexer.advance()
+        const value = must(lexer, "expr", expr)
+        return { tag: "pair", key, value }
+      } else if (key) {
+        return { tag: "key", key }
+      } else {
+        return null
       }
     }
-    return null
-  }
-  matchAll<Result>(matcher: Matcher<Result>): Result[] {
-    if (matcher.default) {
-      throw new Error("cannot use default matcher in matchAll")
-    }
-    const out: Result[] = []
-    while (true) {
-      const token = this.lexer.peek()
-      if (!token) break
-      const result = this.matchInner(token, matcher)
-      if (!result) break
-      this.lexer.advance()
-      out.push(result.value)
-    }
-    return out
   }
 }
 
-const keyPart: Matcher<string> = {
-  identifier(_, value) {
-    return value
-  },
-  integer(_, value) {
-    return String(value)
-  },
-  operator(_, value) {
-    return value
-  },
+function call(lexer: Lexer): ASTArg[] | null {
+  const tok = lexer.peek()
+  if (tok.tag !== "openBrace") return null
+  lexer.advance()
+  const args = repeat(lexer, callArg)
+  expect(lexer, "closeBrace")
+  return args
 }
 
-const key: Matcher<string> = {
-  next: next(keyPart, (parser, first) => {
-    const rest = parser.matchAll(keyPart)
-    return [first, ...rest].join(" ")
-  }),
+function callExpr(lexer: Lexer): ASTExpr | null {
+  const target = baseExpr(lexer)
+  if (!target) return null
+  return repeat(lexer, call).reduce((target, args) => {
+    return { tag: "call", target, args }
+  }, target)
 }
 
-const baseExpr: Matcher<ASTExpr> = {
-  integer(_, value) {
-    return new ASTIntegerExpr(value)
-  },
-  string(_, value) {
-    return new ASTStringExpr(value)
-  },
-  identifier(_, value) {
-    return new ASTIdentifierExpr(value)
-  },
-  quotedIdent(_, value) {
-    return new ASTIdentifierExpr(value)
-  },
-  self(_) {
-    return ASTSelfExpr
-  },
-  openBracket(parser) {
-    const builder = new ASTObjectBuilder()
-    parser.matchAll({
-      next: next(key, (parser, key) => {
-        parser.match({
-          colon(parser) {
-            const value = parser.match(expr)
-            builder.addKeyValue(key, value)
-          },
-          default(_) {
-            builder.addKey(key)
-          },
-        })
-      }),
-      // key-value pair
-      quotedIdent(_, key) {
-        builder.addKeyValue(key, new ASTIdentifierExpr(key))
-      },
-      // blank key
-      colon(parser) {
-        const value = parser.match(expr)
-        builder.addKeyValue("", value)
-      },
-      openBrace(parser) {
-        const mbuilder = new ASTMethodBuilder()
-        parser.matchAll({
-          next: next(key, (parser, key) => {
-            mbuilder.addKey(key)
-            parser.match({
-              colon(parser) {
-                const bind = parser.match(binding)
-                mbuilder.addKeyValue(key, bind)
-              },
-              default(_) {
-                builder.addKey(key)
-              },
-            })
-          }),
-          // key-value pair
-          quotedIdent(_, key) {
-            mbuilder.addKeyValue(key, new ASTIdentifierBind(key))
-          },
-          // blank key
-          colon(parser) {
-            const bind = parser.match(binding)
-            mbuilder.addKeyValue("", bind)
-          },
-        })
-        parser.match({ closeBrace() {} })
-        const body = parser.matchAll(stmt)
-        mbuilder.build(body)
-      },
-    })
-    return builder.build()
-  },
-  openParen(parser) {
-    const value = parser.match(expr)
-    parser.match({ closeParen() {} })
-    return value
-  },
+function unaryOpExpr(lexer: Lexer): ASTExpr | null {
+  const tok = accept(lexer, "operator")
+  if (!tok) return callExpr(lexer)
+  const target = must(lexer, "expr", unaryOpExpr)
+  return { tag: "call", target, args: [{ tag: "key", key: tok.value }] }
 }
 
-const callExpr: Matcher<ASTExpr> = {
-  next: next(baseExpr, (parser, result) => {
-    parser.matchAll({
-      openBrace(parser) {
-        const builder = new ASTArgsBuilder()
-        parser.matchAll({
-          next: next(key, (parser, key) => {
-            parser.match({
-              colon(parser) {
-                const value = parser.match(expr)
-                builder.addKeyValue(key, value)
-              },
-              default(parser) {
-                builder.addKey(key)
-              },
-            })
-          }),
-          colon(parser) {
-            const value = parser.match(expr)
-            builder.addKeyValue("", value)
-          },
-        })
-        parser.match({ closeBrace() {} })
-        result = builder.build(result)
-      },
-    })
-    return result
-  }),
+function opPair(lexer: Lexer): { op: string; value: ASTExpr } | null {
+  const tok = accept(lexer, "operator")
+  if (!tok) return null
+  const value = must(lexer, "expr", unaryOpExpr)
+  return { op: tok.value, value }
 }
 
-const prefixExpr: Matcher<ASTExpr> = {
-  operator(parser, value) {
-    const target = parser.match(prefixExpr)
-    return new ASTCallKeyExpr(target, value)
-  },
-  next: next(callExpr, (_, x) => x),
+function binaryOpExpr(lexer: Lexer): ASTExpr | null {
+  const left = unaryOpExpr(lexer)
+  if (!left) return null
+  return repeat(lexer, opPair).reduce((target, { op, value }) => {
+    return { tag: "call", target, args: [{ tag: "pair", key: op, value }] }
+  }, left)
 }
 
-const infixExpr: Matcher<ASTExpr> = {
-  next: next(prefixExpr, (parser, left) => {
-    return parser
-      .matchAll({
-        operator(parser, op) {
-          const right = parser.match(prefixExpr)
-          return { op, right }
-        },
-      })
-      .reduce((left, { op, right }) => {
-        return new ASTCallExpr(
-          left,
-          new ASTSortedMap([new ASTSortedPair(op, right)])
-        )
-      }, left)
-  }),
+function expr(lexer: Lexer): ASTExpr | null {
+  const res = binaryOpExpr(lexer)
+  if (!res) return null
+  accept(lexer, "semicolon")
+  return res
 }
 
-const expr: Matcher<ASTExpr> = {
-  next: next(infixExpr, (parser, val) => {
-    parser.match({ semicolon() {}, default() {} })
-    return val
-  }),
+function stmt(lexer: Lexer): ASTStmt | null {
+  const token = lexer.peek()
+  switch (token.tag) {
+    case "let": {
+      lexer.advance()
+      const bind = must(lexer, "binding", binding)
+      expect(lexer, "colonEquals")
+      const value = must(lexer, "expr", expr)
+      return { tag: "let", binding: bind, value }
+    }
+    case "return": {
+      lexer.advance()
+      const value = must(lexer, "expr", expr)
+      return { tag: "return", value }
+    }
+    default: {
+      const value = expr(lexer)
+      if (!value) return null
+      return { tag: "expr", value }
+    }
+  }
 }
 
-const binding: Matcher<ASTBind> = {
-  identifier(parser, value) {
-    return new ASTIdentifierBind(value)
-  },
-  quotedIdent(parser, value) {
-    return new ASTIdentifierBind(value)
-  },
+export function program(lexer: Lexer): ASTStmt[] {
+  const out = repeat(lexer, stmt)
+  expect(lexer, "end")
+  return out
 }
 
-const stmt: Matcher<ASTStmt> = {
-  let(parser) {
-    const bind = parser.match(binding)
-    parser.match({ colonEquals() {} })
-    const value = parser.match(expr)
-    return new ASTLetStmt(bind, value)
-  },
-  return(parser) {
-    const value = parser.match(expr)
-    return new ASTReturnStmt(value)
-  },
-  next: next(expr, (parser, value) => {
-    return new ASTExprStmt(value)
-  }),
+// utils
+
+function repeat<T>(lexer: Lexer, parser: (l: Lexer) => T | null): T[] {
+  const out: T[] = []
+  let lastToken = lexer.peek()
+  while (true) {
+    const res = parser(lexer)
+    if (res === null) break
+    out.push(res)
+    if (lexer.peek() === lastToken) {
+      throw new Error(`stuck at token ${JSON.stringify(lastToken)}`)
+    }
+    lastToken = lexer.peek()
+  }
+  return out
 }
 
-const program: Matcher<ASTProgram> = {
-  default(parser) {
-    const prog = parser.matchAll(stmt)
-    return new ASTProgram(prog)
-  },
+function accept<Tag extends Token["tag"]>(
+  lexer: Lexer,
+  tag: Tag
+): (Token & { tag: Tag }) | null {
+  const token = lexer.peek()
+  if (token.tag === tag) {
+    lexer.advance()
+    return token as Token & { tag: Tag }
+  }
+  return null
+}
+
+function expect(lexer: Lexer, tag: Token["tag"]): Token {
+  const token = lexer.peek()
+  if (tag !== token.tag) {
+    throw new Error(`Expected ${tag}, received ${token.tag}`)
+  }
+  lexer.advance()
+  return token
+}
+
+function must<T>(
+  lexer: Lexer,
+  name: string,
+  parser: (l: Lexer) => T | null
+): T {
+  const res = parser(lexer)
+  if (res === null) {
+    throw new Error(`Expected ${name}, received ${lexer.peek().tag}`)
+  }
+  return res
 }
