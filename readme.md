@@ -61,12 +61,15 @@ let z := []{:
 }
 ```
 
-# set statements
-
-"path" on left hand side
+# set & var paths
 
 ```
 set x{y}{z} := a => set x := x{y: x{y}{z: a}}
 set x{y}{z: a} => set x := x{y: x{y}{z: a}}
 
+foo{x: var bar{y}}
+=>
+var bar_y := bar{y}
+foo{x: var bar_y}
+set bar := bar{y: bar_y}
 ```

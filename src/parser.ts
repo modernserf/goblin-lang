@@ -2,15 +2,15 @@ import { Lexer, Token } from "./lexer"
 
 export type ASTBinding =
   | { tag: "identifier"; value: string }
-  | { tag: "object"; params: ASTStruct<ASTBinding> }
+  | { tag: "object"; params: ASTStruct<ASTParam> }
 
 export type ASTExpr =
   | { tag: "integer"; value: number }
   | { tag: "string"; value: string }
   | { tag: "identifier"; value: string }
   | { tag: "self" }
-  | { tag: "call"; target: ASTExpr; args: ASTStruct<ASTExpr> }
-  | { tag: "object"; args: ASTStruct<ASTExpr> }
+  | { tag: "call"; target: ASTExpr; args: ASTStruct<ASTArg> }
+  | { tag: "object"; args: ASTStruct<ASTArg> }
 
 export type ASTStmt =
   | { tag: "let"; binding: ASTBinding; value: ASTExpr }
@@ -19,23 +19,33 @@ export type ASTStmt =
   | { tag: "return"; value: ASTExpr }
   | { tag: "expr"; value: ASTExpr }
 
+export type ASTParam =
+  | { tag: "binding"; binding: ASTBinding }
+  | { tag: "var"; binding: ASTBinding }
+
+export type ASTArg =
+  | { tag: "expr"; value: ASTExpr }
+  | { tag: "var"; value: ASTExpr }
+
 // Same shape used for method params, frame fields, method calls,
 // though not all combinations are syntactically valid
 export type ASTPair<Value> = { key: string; value: Value }
-export type ASTMethod = { params: ASTStruct<ASTBinding>; body: ASTStmt[] }
+export type ASTMethod = { params: ASTStruct<ASTParam>; body: ASTStmt[] }
 export type ASTStruct<Value> =
   | { tag: "key"; selector: string }
   | { tag: "pairs"; selector: string; pairs: ASTPair<Value>[] }
   | { tag: "object"; methods: Map<string, ASTMethod> }
 
-interface StructBuilder<Value> {
+interface StructBuilder<Value extends { tag: string }> {
   key(key: string): StructBuilder<Value>
   pair(key: string, value: Value): StructBuilder<Value>
-  method(params: ASTStruct<ASTBinding>, body: ASTStmt[]): StructBuilder<Value>
+  method(params: ASTStruct<ASTParam>, body: ASTStmt[]): StructBuilder<Value>
   build(): ASTStruct<Value>
 }
 
-export class BaseBuilder<T> implements StructBuilder<T> {
+export class BaseBuilder<T extends { tag: string }>
+  implements StructBuilder<T>
+{
   key(key: string): StructBuilder<T> {
     return new KeyBuilder(key)
   }
@@ -43,7 +53,7 @@ export class BaseBuilder<T> implements StructBuilder<T> {
     const next = new PairBuilder<T>()
     return next.pair(key, value)
   }
-  method(params: ASTStruct<ASTBinding>, body: ASTStmt[]): StructBuilder<T> {
+  method(params: ASTStruct<ASTParam>, body: ASTStmt[]): StructBuilder<T> {
     const next = new ObjectBuilder<T>()
     return next.method(params, body)
   }
@@ -52,7 +62,7 @@ export class BaseBuilder<T> implements StructBuilder<T> {
   }
 }
 
-export class KeyBuilder<T> implements StructBuilder<T> {
+export class KeyBuilder<T extends { tag: string }> implements StructBuilder<T> {
   constructor(private selector: string) {}
   key(key: string): StructBuilder<T> {
     throw new Error("only one key permitted")
@@ -60,7 +70,7 @@ export class KeyBuilder<T> implements StructBuilder<T> {
   pair(key: string, value: T): StructBuilder<T> {
     throw new Error("cannot mix keys and pairs")
   }
-  method(params: ASTStruct<ASTBinding>, body: ASTStmt[]): StructBuilder<T> {
+  method(params: ASTStruct<ASTParam>, body: ASTStmt[]): StructBuilder<T> {
     throw new Error("cannot mix keys and methods")
   }
   build(): ASTStruct<T> {
@@ -68,7 +78,9 @@ export class KeyBuilder<T> implements StructBuilder<T> {
   }
 }
 
-export class PairBuilder<T> implements StructBuilder<T> {
+export class PairBuilder<T extends { tag: string }>
+  implements StructBuilder<T>
+{
   private map = new Map<string, T>()
   key(key: string): StructBuilder<T> {
     throw new Error("cannot mix keys and pairs")
@@ -78,7 +90,7 @@ export class PairBuilder<T> implements StructBuilder<T> {
     this.map.set(key, value)
     return this
   }
-  method(params: ASTStruct<ASTBinding>, body: ASTStmt[]): StructBuilder<T> {
+  method(params: ASTStruct<ASTParam>, body: ASTStmt[]): StructBuilder<T> {
     throw new Error("cannot mix pairs and methods")
   }
   build(): ASTStruct<T> {
@@ -87,12 +99,21 @@ export class PairBuilder<T> implements StructBuilder<T> {
       value,
     }))
     pairs.sort((a, b) => a.key.localeCompare(b.key))
-    const selector = pairs.map(({ key }) => `${key}:`).join("")
+    const selector = pairs
+      .map(({ key, value }) => {
+        if (value.tag === "var") {
+          return `${key}(var):`
+        }
+        return `${key}:`
+      })
+      .join("")
     return { tag: "pairs", selector, pairs }
   }
 }
 
-export class ObjectBuilder<T> implements StructBuilder<T> {
+export class ObjectBuilder<T extends { tag: string }>
+  implements StructBuilder<T>
+{
   private map = new Map<string, ASTMethod>()
   key(key: string): StructBuilder<T> {
     throw new Error("cannot mix keys and methods")
@@ -100,7 +121,7 @@ export class ObjectBuilder<T> implements StructBuilder<T> {
   pair(key: string, value: T): StructBuilder<T> {
     throw new Error("cannot mix pairs and methods")
   }
-  method(params: ASTStruct<ASTBinding>, body: ASTStmt[]): StructBuilder<T> {
+  method(params: ASTStruct<ASTParam>, body: ASTStmt[]): StructBuilder<T> {
     if (params.tag === "object") {
       throw new Error("method params must be key or pairs")
     }
@@ -115,25 +136,51 @@ export class ObjectBuilder<T> implements StructBuilder<T> {
   }
 }
 
-function structBinding(lexer: Lexer): ASTStruct<ASTBinding> {
-  return struct<ASTBinding>(
+function param(lexer: Lexer): ASTParam {
+  if (accept(lexer, "var")) {
+    return { tag: "var", binding: must(lexer, "binding", binding) }
+  }
+  return {
+    tag: "binding",
+    binding: must(lexer, "binding", binding),
+  }
+}
+
+function structBinding(lexer: Lexer): ASTStruct<ASTParam> {
+  return struct<ASTParam>(
     lexer,
     (value) => ({
-      tag: "identifier",
-      value: value,
+      tag: "binding",
+      binding: {
+        tag: "identifier",
+        value: value,
+      },
     }),
-    (lexer) => must(lexer, "binding", binding)
+    param
   )
 }
 
-function structExpr(lexer: Lexer): ASTStruct<ASTExpr> {
-  return struct<ASTExpr>(
+function arg(lexer: Lexer): ASTArg {
+  if (accept(lexer, "var")) {
+    return { tag: "var", value: must(lexer, "expr", expr) }
+  }
+  return {
+    tag: "expr",
+    value: must(lexer, "expr", expr),
+  }
+}
+
+function structExpr(lexer: Lexer): ASTStruct<ASTArg> {
+  return struct<ASTArg>(
     lexer,
     (value) => ({
-      tag: "identifier",
-      value: value,
+      tag: "expr",
+      value: {
+        tag: "identifier",
+        value: value,
+      },
     }),
-    (lexer) => must(lexer, "expr", expr)
+    arg
   )
 }
 
@@ -157,7 +204,7 @@ function keyComponent(lexer: Lexer): string | null {
   }
 }
 
-function struct<T>(
+function struct<T extends { tag: string }>(
   lexer: Lexer,
   quotedIdent: (key: string) => T,
   parseValue: (lexer: Lexer) => T
@@ -251,7 +298,7 @@ function baseExpr(lexer: Lexer): ASTExpr | null {
   }
 }
 
-function call(lexer: Lexer): ASTStruct<ASTExpr> | null {
+function call(lexer: Lexer): ASTStruct<ASTArg> | null {
   const tok = lexer.peek()
   if (tok.tag !== "openBrace") return null
   lexer.advance()
@@ -289,7 +336,11 @@ function binaryOpExpr(lexer: Lexer): ASTExpr | null {
     return {
       tag: "call",
       target,
-      args: { tag: "pairs", selector: `${op}:`, pairs: [{ key: op, value }] },
+      args: {
+        tag: "pairs",
+        selector: `${op}:`,
+        pairs: [{ key: op, value: { tag: "expr", value } }],
+      },
     }
   }, left)
 }

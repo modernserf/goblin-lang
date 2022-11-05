@@ -14,10 +14,24 @@ const intClass: PrimitiveClass = new Map([
       return { tag: "primitive", class: intClass, value: self + arg.value }
     },
   ],
+  [
+    "js debug",
+    (self, _) => {
+      console.log("DEBUG:", self)
+      // TODO: return unit
+      return { tag: "object", class: new Map([]), ivars: [] } as any
+    },
+  ],
 ])
 
-type Method = { body: IRStmt[] }
+export type Effect = { tag: "var"; argIndex: number; indexInMethod: number }
+
+type Method = { body: IRStmt[]; effects: Effect[] }
 export type IRClass = Map<string, Method>
+
+export type IRArg =
+  | { tag: "value"; value: IRExpr }
+  | { tag: "var"; index: number }
 
 export type IRExpr =
   | { tag: "local"; index: number }
@@ -25,7 +39,7 @@ export type IRExpr =
   | { tag: "self" }
   | { tag: "primitive"; class: PrimitiveClass; value: any }
   | { tag: "object"; class: IRClass; ivars: IRExpr[] }
-  | { tag: "call"; selector: string; target: IRExpr; args: IRExpr[] }
+  | { tag: "call"; selector: string; target: IRExpr; args: IRArg[] }
 
 export type IRStmt =
   | { tag: "assign"; index: number; value: IRExpr }
@@ -78,6 +92,12 @@ export class Scope {
     }
     return this.instance.lookup(key)
   }
+  varIndex(key: string): number {
+    const record = this.locals.get(key)
+    if (!record) throw new Error(`unknown var ${key}`)
+    if (record.type !== "var") throw new Error(`Binding ${key} is not var`)
+    return record.index
+  }
   use(key: string): ScopeRecord {
     if (this.locals.has(key)) {
       throw new Error(`duplicate binding ${key}`)
@@ -119,25 +139,50 @@ function object(
   for (const [selector, method] of methods) {
     const scope = instance.newScope()
     const methodBody: IRStmt[] = []
+    const methodEffects: Effect[] = []
     switch (method.params.tag) {
       case "object":
         throw new Error("invalid method definition")
       case "key":
         break
       case "pairs":
-        for (const { value: bind } of method.params.pairs) {
-          switch (bind.tag) {
-            case "identifier":
-              if (bind.value === selfBinding) {
-                selfBinding = null
+        for (const [
+          argIndex,
+          { value: param },
+        ] of method.params.pairs.entries()) {
+          switch (param.tag) {
+            case "binding":
+              switch (param.binding.tag) {
+                case "identifier":
+                  if (param.binding.value === selfBinding) {
+                    selfBinding = null
+                  }
+                  scope.use(param.binding.value)
+                  break
+                case "object": {
+                  const record = scope.useAnon()
+                  const local: IRExpr = { tag: "local", index: record.index }
+                  methodBody.push(...letStmt(scope, param.binding, local))
+                  break
+                }
               }
-              scope.use(bind.value)
               break
-            case "object": {
-              const record = scope.useAnon()
-              const local: IRExpr = { tag: "local", index: record.index }
-              methodBody.push(...letStmt(scope, bind, local))
-            }
+            case "var":
+              switch (param.binding.tag) {
+                case "object":
+                  throw new Error("Cannot use destructuring in var params")
+                case "identifier":
+                  if (param.binding.value === selfBinding) {
+                    selfBinding = null
+                  }
+                  const record = scope.useVar(param.binding.value)
+                  methodEffects.push({
+                    tag: "var",
+                    argIndex,
+                    indexInMethod: record.index,
+                  })
+                  break
+              }
           }
         }
     }
@@ -148,7 +193,7 @@ function object(
     }
 
     methodBody.push(...body(scope, method.body))
-    objectClass.set(selector, { body: methodBody })
+    objectClass.set(selector, { body: methodBody, effects: methodEffects })
   }
   return { tag: "object", class: objectClass, ivars: instance.ivars }
 }
@@ -175,6 +220,7 @@ function frame(
         },
       },
     ],
+    effects: [],
   })
   // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
   frameClass.set(":", {
@@ -185,15 +231,20 @@ function frame(
           tag: "call",
           selector: selector,
           target: { tag: "local", index: 0 },
-          args: args.map((_, index) => ({ tag: "ivar", index })),
+          args: args.map((_, index) => ({
+            tag: "value",
+            value: { tag: "ivar", index },
+          })),
         },
       } as IRStmt,
     ],
+    effects: [],
   })
   for (const [index, { key }] of args.entries()) {
     // getter: [x: 1 y: 2]{x}
     frameClass.set(key, {
       body: [{ tag: "return", value: { tag: "ivar", index } }],
+      effects: [],
     })
     // setter: [x: 1 y: 2]{x: 3}
     frameClass.set(`${key}:`, {
@@ -213,6 +264,7 @@ function frame(
           },
         },
       ],
+      effects: [],
     })
   }
   frameCache.set(selector, frameClass)
@@ -246,7 +298,22 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
             tag: "call",
             target,
             selector: value.args.selector,
-            args: value.args.pairs.map(({ value }) => expr(scope, value)),
+            args: value.args.pairs.map(({ value }) => {
+              switch (value.tag) {
+                case "expr":
+                  return { tag: "value", value: expr(scope, value.value) }
+                case "var":
+                  switch (value.value.tag) {
+                    case "identifier":
+                      return {
+                        tag: "var",
+                        index: scope.varIndex(value.value.value),
+                      }
+                    default:
+                      throw new Error("var arg must be identifier")
+                  }
+              }
+            }),
           }
       }
     }
@@ -257,10 +324,17 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
         case "pairs":
           return frame(
             value.args.selector,
-            value.args.pairs.map(({ key, value }) => ({
-              key,
-              value: expr(scope, value),
-            }))
+            value.args.pairs.map(({ key, value }) => {
+              switch (value.tag) {
+                case "var":
+                  throw new Error("cannot use var args in frame expression")
+                case "expr":
+                  return {
+                    key,
+                    value: expr(scope, value.value),
+                  }
+              }
+            })
           )
         case "key":
           return frame(value.args.selector, [])
@@ -295,14 +369,20 @@ function letStmt(scope: Scope, binding: ASTBinding, value: IRExpr): IRStmt[] {
       }
 
       for (const param of binding.params.pairs) {
-        out.push(
-          ...letStmt(scope, param.value, {
-            tag: "call",
-            selector: param.key,
-            target: value,
-            args: [],
-          })
-        )
+        switch (param.value.tag) {
+          case "binding":
+            out.push(
+              ...letStmt(scope, param.value.binding, {
+                tag: "call",
+                selector: param.key,
+                target: value,
+                args: [],
+              })
+            )
+            break
+          case "var":
+            throw new Error("cannot use var params in destructuring")
+        }
       }
       return out
   }
@@ -347,7 +427,7 @@ function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
     case "return":
       return [{ tag: "return", value: expr(scope, stmt.value) }]
     case "expr":
-      return [{ tag: "return", value: expr(scope, stmt.value) }]
+      return [{ tag: "expr", value: expr(scope, stmt.value) }]
   }
 }
 

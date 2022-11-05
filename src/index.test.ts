@@ -41,6 +41,14 @@ test("frames", () => {
   assert.deepEqual(res.value, 3)
 })
 
+test("destructuring", () => {
+  const res: any = run(`
+    let [x: foo y: [_a_ _b_]] := [x: 1 y: [a: 2 b: 3]]
+    foo + a + b
+  `)
+  assert.deepEqual(res.value, 6)
+})
+
 test("pattern matching", () => {
   const res: any = run(`
     let foo := [some: 1]
@@ -164,10 +172,42 @@ test("var & set", () => {
   })
 })
 
-test("destructuring", () => {
+test("var args", () => {
   const res: any = run(`
-    let [x: foo y: [_a_ _b_]] := [x: 1 y: [a: 2 b: 3]]
-    foo + a + b
+    let obj := [
+      {inc: var x}
+        set x := x + 1
+        self
+    ]
+    var x := 1
+    obj
+      {inc: var x}
+      {inc: var x}
+    x
   `)
-  assert.deepEqual(res.value, 6)
+  assert.deepEqual(res.value, 3)
+
+  assert.throws(() => {
+    run(`
+      let obj := [
+        {inc: var x}
+          set x := x + 1
+          self
+      ]
+      let x := 1
+      obj{inc: var x}
+    `)
+  })
+
+  assert.throws(() => {
+    run(`
+      let obj := [
+        {inc: var x}
+          set x := x + 1
+          self
+      ]
+      var x := 1
+      obj{inc: x}
+    `)
+  })
 })

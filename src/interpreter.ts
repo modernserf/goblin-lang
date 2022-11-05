@@ -1,8 +1,12 @@
-import { IRExpr, IRStmt, IRClass, PrimitiveClass } from "./compiler"
+import { IRExpr, IRStmt, IRClass, PrimitiveClass, IRArg } from "./compiler"
 
 export type Value =
   | { tag: "object"; class: IRClass; ivars: Value[] }
   | { tag: "primitive"; class: PrimitiveClass; value: any }
+
+type CallArg =
+  | { tag: "value"; value: Value } //
+  | { tag: "var"; index: number }
 
 const unit: Value = { tag: "object", class: new Map([]), ivars: [] }
 
@@ -22,19 +26,54 @@ class Interpreter {
   }
 }
 
-function call(selector: string, target: Value, args: Value[]): Value {
+function argValues(ctx: Interpreter, args: CallArg[]): Value[] {
+  return args.map((arg) => {
+    switch (arg.tag) {
+      case "value":
+        return arg.value
+      case "var":
+        return ctx.getLocal(arg.index)
+    }
+  })
+}
+
+function call(
+  parent: Interpreter,
+  selector: string,
+  target: Value,
+  args: CallArg[]
+): Value {
   switch (target.tag) {
     case "primitive": {
       const method = target.class.get(selector)
       if (!method) throw new Error(`No method with selector ${selector}`)
-      return method(target.value, args)
+      return method(target.value, argValues(parent, args))
     }
     case "object": {
       const method = target.class.get(selector)
       if (!method) throw new Error(`No method with selector ${selector}`)
-      const ctx = new Interpreter(target, args)
-      return body(ctx, method.body)
+      const ctx = new Interpreter(target, argValues(parent, args))
+      const result = body(ctx, method.body)
+      for (const effect of method.effects) {
+        switch (effect.tag) {
+          case "var":
+            const arg = args[effect.argIndex]
+            if (arg.tag !== "var") throw new Error("should be unreachable")
+            const result = ctx.getLocal(effect.indexInMethod)
+            parent.setLocal(arg.index, result)
+        }
+      }
+      return result
     }
+  }
+}
+
+function arg(ctx: Interpreter, value: IRArg): CallArg {
+  switch (value.tag) {
+    case "value":
+      return { tag: "value", value: expr(ctx, value.value) }
+    case "var":
+      return { tag: "var", index: value.index }
   }
 }
 
@@ -55,17 +94,18 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
         ivars: value.ivars.map((ivar) => expr(ctx, ivar)),
       }
     case "call":
-      const target = expr(ctx, value.target)
       return call(
+        ctx,
         value.selector,
         expr(ctx, value.target),
-        value.args.map((arg) => expr(ctx, arg))
+        value.args.map((x) => arg(ctx, x))
       )
     default:
       throw new Error(value)
   }
 }
 
+// TODO: non-local returns will complicate this
 function body(ctx: Interpreter, stmts: IRStmt[]): Value {
   let result = unit
 
