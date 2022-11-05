@@ -1,14 +1,5 @@
-import { IRExpr, IRStmt, IRClass, PrimitiveClass, IRArg } from "./compiler"
-
-export type Value =
-  | { tag: "object"; class: IRClass; ivars: Value[] }
-  | { tag: "primitive"; class: PrimitiveClass; value: any }
-
-type CallArg =
-  | { tag: "value"; value: Value } //
-  | { tag: "var"; index: number }
-
-const unit: Value = { tag: "object", class: new Map([]), ivars: [] }
+import { IRExpr, IRStmt, IRArg, Value } from "./ir"
+import { unit } from "./stdlib"
 
 class Interpreter {
   constructor(readonly self: Value, private locals: Value[]) {}
@@ -26,11 +17,11 @@ class Interpreter {
   }
 }
 
-function argValues(ctx: Interpreter, args: CallArg[]): Value[] {
+function argValues(ctx: Interpreter, args: IRArg[]): Value[] {
   return args.map((arg) => {
     switch (arg.tag) {
       case "value":
-        return arg.value
+        return expr(ctx, arg.value)
       case "var":
         return ctx.getLocal(arg.index)
     }
@@ -41,7 +32,7 @@ function call(
   parent: Interpreter,
   selector: string,
   target: Value,
-  args: CallArg[]
+  args: IRArg[]
 ): Value {
   switch (target.tag) {
     case "primitive": {
@@ -68,15 +59,6 @@ function call(
   }
 }
 
-function arg(ctx: Interpreter, value: IRArg): CallArg {
-  switch (value.tag) {
-    case "value":
-      return { tag: "value", value: expr(ctx, value.value) }
-    case "var":
-      return { tag: "var", index: value.index }
-  }
-}
-
 function expr(ctx: Interpreter, value: IRExpr): Value {
   switch (value.tag) {
     case "self":
@@ -94,12 +76,7 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
         ivars: value.ivars.map((ivar) => expr(ctx, ivar)),
       }
     case "call":
-      return call(
-        ctx,
-        value.selector,
-        expr(ctx, value.target),
-        value.args.map((x) => arg(ctx, x))
-      )
+      return call(ctx, value.selector, expr(ctx, value.target), value.args)
     default:
       throw new Error(value)
   }

@@ -1,50 +1,7 @@
-import { ASTBinding, ASTExpr, ASTMethod, ASTStmt } from "./ast"
-
-export type PrimitiveMethod = (value: any, args: any[]) => any
-
-export type PrimitiveClass = Map<string, PrimitiveMethod>
-
-const stringClass: PrimitiveClass = new Map([])
-const intClass: PrimitiveClass = new Map([
-  [
-    "+:",
-    (self, args: { class: PrimitiveClass; value: any }[]) => {
-      const arg = args[0]
-      if (arg.class !== intClass) throw new Error("Expected integer")
-      return { tag: "primitive", class: intClass, value: self + arg.value }
-    },
-  ],
-  [
-    "js debug",
-    (self, _) => {
-      console.log("DEBUG:", self)
-      // TODO: return unit
-      return { tag: "object", class: new Map([]), ivars: [] } as any
-    },
-  ],
-])
-
-export type Effect = { tag: "var"; argIndex: number; indexInMethod: number }
-
-type Method = { body: IRStmt[]; effects: Effect[] }
-export type IRClass = Map<string, Method>
-
-export type IRArg =
-  | { tag: "value"; value: IRExpr }
-  | { tag: "var"; index: number }
-
-export type IRExpr =
-  | { tag: "local"; index: number }
-  | { tag: "ivar"; index: number }
-  | { tag: "self" }
-  | { tag: "primitive"; class: PrimitiveClass; value: any }
-  | { tag: "object"; class: IRClass; ivars: IRExpr[] }
-  | { tag: "call"; selector: string; target: IRExpr; args: IRArg[] }
-
-export type IRStmt =
-  | { tag: "assign"; index: number; value: IRExpr }
-  | { tag: "return"; value: IRExpr }
-  | { tag: "expr"; value: IRExpr }
+import { ASTBinding, ASTExpr, ASTMethod, ASTParam, ASTStmt } from "./ast"
+import { Effect, IRClass, IRExpr, IRMethod, IRStmt } from "./ir"
+import { intClass, stringClass } from "./stdlib"
+import { frame } from "./frame"
 
 type ScopeType = "let" | "var"
 type ScopeRecord = { index: number; type: ScopeType }
@@ -78,6 +35,9 @@ export class Scope {
       throw new Error(`unknown binding ${key}`)
     }
     return this.instance.lookup(key)
+  }
+  hasLocal(key: string): boolean {
+    return this.locals.has(key)
   }
   lookupOuter(key: string): IRExpr {
     const record = this.locals.get(key)
@@ -129,6 +89,41 @@ export class Scope {
   }
 }
 
+function methodParam(
+  scope: Scope,
+  method: IRMethod,
+  argIndex: number,
+  param: ASTParam
+) {
+  switch (param.tag) {
+    case "binding":
+      switch (param.binding.tag) {
+        case "identifier":
+          scope.use(param.binding.value)
+          return
+        case "object": {
+          const record = scope.useAnon()
+          const local: IRExpr = { tag: "local", index: record.index }
+          method.body.push(...letStmt(scope, param.binding, local))
+          return
+        }
+      }
+    case "var":
+      switch (param.binding.tag) {
+        case "object":
+          throw new Error("Cannot use destructuring in var params")
+        case "identifier":
+          const record = scope.useVar(param.binding.value)
+          method.effects.push({
+            tag: "var",
+            argIndex,
+            indexInMethod: record.index,
+          })
+          return
+      }
+  }
+}
+
 function object(
   parentCompiler: Scope,
   selfBinding: string | null,
@@ -138,137 +133,27 @@ function object(
   const objectClass: IRClass = new Map()
   for (const [selector, method] of methods) {
     const scope = instance.newScope()
-    const methodBody: IRStmt[] = []
-    const methodEffects: Effect[] = []
+    const out: IRMethod = { body: [], effects: [] }
     switch (method.params.tag) {
       case "object":
         throw new Error("invalid method definition")
       case "key":
         break
       case "pairs":
-        for (const [
-          argIndex,
-          { value: param },
-        ] of method.params.pairs.entries()) {
-          switch (param.tag) {
-            case "binding":
-              switch (param.binding.tag) {
-                case "identifier":
-                  if (param.binding.value === selfBinding) {
-                    selfBinding = null
-                  }
-                  scope.use(param.binding.value)
-                  break
-                case "object": {
-                  const record = scope.useAnon()
-                  const local: IRExpr = { tag: "local", index: record.index }
-                  methodBody.push(...letStmt(scope, param.binding, local))
-                  break
-                }
-              }
-              break
-            case "var":
-              switch (param.binding.tag) {
-                case "object":
-                  throw new Error("Cannot use destructuring in var params")
-                case "identifier":
-                  if (param.binding.value === selfBinding) {
-                    selfBinding = null
-                  }
-                  const record = scope.useVar(param.binding.value)
-                  methodEffects.push({
-                    tag: "var",
-                    argIndex,
-                    indexInMethod: record.index,
-                  })
-                  break
-              }
-          }
+        for (const [argIndex, pair] of method.params.pairs.entries()) {
+          methodParam(scope, out, argIndex, pair.value)
         }
     }
 
-    if (selfBinding !== null) {
+    if (selfBinding !== null && !scope.hasLocal(selfBinding)) {
       const { index } = scope.use(selfBinding)
-      methodBody.push({ tag: "assign", index, value: { tag: "self" } })
+      out.body.push({ tag: "assign", index, value: { tag: "self" } })
     }
 
-    methodBody.push(...body(scope, method.body))
-    objectClass.set(selector, { body: methodBody, effects: methodEffects })
+    out.body.push(...body(scope, method.body))
+    objectClass.set(selector, out)
   }
   return { tag: "object", class: objectClass, ivars: instance.ivars }
-}
-
-const frameCache = new Map<string, IRClass>()
-function frame(
-  selector: string,
-  args: { key: string; value: IRExpr }[]
-): IRExpr {
-  const ivars = args.map((arg) => arg.value)
-  const cachedClass = frameCache.get(selector)
-  if (cachedClass) return { tag: "object", ivars, class: cachedClass }
-
-  const frameClass: IRClass = new Map()
-  // constructor: [x: 1 y: 2]{x: 3 y: 4}
-  frameClass.set(selector, {
-    body: [
-      {
-        tag: "return",
-        value: {
-          tag: "object",
-          class: frameClass,
-          ivars: args.map((_, index) => ({ tag: "local", index })),
-        },
-      },
-    ],
-    effects: [],
-  })
-  // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
-  frameClass.set(":", {
-    body: [
-      {
-        tag: "return",
-        value: {
-          tag: "call",
-          selector: selector,
-          target: { tag: "local", index: 0 },
-          args: args.map((_, index) => ({
-            tag: "value",
-            value: { tag: "ivar", index },
-          })),
-        },
-      } as IRStmt,
-    ],
-    effects: [],
-  })
-  for (const [index, { key }] of args.entries()) {
-    // getter: [x: 1 y: 2]{x}
-    frameClass.set(key, {
-      body: [{ tag: "return", value: { tag: "ivar", index } }],
-      effects: [],
-    })
-    // setter: [x: 1 y: 2]{x: 3}
-    frameClass.set(`${key}:`, {
-      body: [
-        {
-          tag: "return",
-          value: {
-            tag: "object",
-            class: frameClass,
-            ivars: args.map((_, j) => {
-              if (j === index) {
-                return { tag: "local", index: 0 }
-              } else {
-                return { tag: "ivar", index }
-              }
-            }),
-          },
-        },
-      ],
-      effects: [],
-    })
-  }
-  frameCache.set(selector, frameClass)
-  return { tag: "object", ivars, class: frameClass }
 }
 
 function expr(scope: Scope, value: ASTExpr): IRExpr {
