@@ -1,4 +1,4 @@
-import { ASTArg, ASTBinding, ASTExpr, ASTStmt, ASTParam } from "./parser"
+import { ASTBinding, ASTExpr, ASTMethod, ASTStmt, ASTStruct } from "./parser"
 
 export type PrimitiveMethod = <Value>(value: any, args: Value[]) => Value
 
@@ -71,93 +71,33 @@ export class Scope {
   }
 }
 
-type ArgList =
-  | { tag: "pairs"; selector: string; args: { key: string; value: IRExpr }[] }
-  | { tag: "methods"; methods: { params: ASTParam[]; body: ASTStmt[] }[] }
-
-// TODO:
-// - check for duplicate method selectors / field names
-// - replace blank fields with indexes
-// - also do this in bindings
-// - maybe this happens
-function argList(compiler: Scope, args: ASTArg[]): ArgList {
-  if (args.length === 0) {
-    return { tag: "pairs", selector: "", args: [] }
-  }
-  if (args.length === 1 && args[0].tag === "key") {
-    return { tag: "pairs", selector: args[0].key, args: [] }
-  }
-  const methods: { params: ASTParam[]; body: ASTStmt[] }[] = []
-  const fields: { key: string; value: IRExpr }[] = []
-  for (const arg of args) {
-    switch (arg.tag) {
-      case "key":
-        throw new Error("key must be only field in object")
-      case "method":
-        if (fields.length) throw new Error("mixed methods and fields")
-        methods.push(arg)
-        break
-      case "pair":
-        if (methods.length) throw new Error("mixed methods and fields")
-        fields.push({ key: arg.key, value: expr(compiler, arg.value) })
-    }
-  }
-  if (methods.length) {
-    return { tag: "methods", methods }
-  }
-
-  fields.sort((a, b) => a.key.localeCompare(b.key))
-  return {
-    tag: "pairs",
-    selector: fields.map((f) => `${f.key}:`).join(""),
-    args: fields,
-  }
-}
-
-function objectParams(params: ASTParam[]): {
-  selector: string
-  bindings: ASTBinding[]
-} {
-  if (params.length === 0) return { selector: "", bindings: [] }
-  if (params.length === 1 && params[0].tag === "key") {
-    return { selector: params[0].key, bindings: [] }
-  }
-
-  const pairs: { key: string; value: ASTBinding }[] = []
-  for (const param of params) {
-    if (param.tag === "key") {
-      throw new Error("mixed keys and pairs in method params")
-    }
-    pairs.push(param)
-  }
-  pairs.sort((a, b) => a.key.localeCompare(b.key))
-  const selector = pairs.map((p) => `${p.key}:`).join("")
-  const bindings = pairs.map((p) => p.value)
-
-  return { selector, bindings }
-}
-
 function object(
   parentCompiler: Scope,
-  methods: { params: ASTParam[]; body: ASTStmt[] }[]
+  methods: Map<string, ASTMethod>
 ): IRExpr {
   const instance = parentCompiler.newInstance()
   const objectClass: IRClass = new Map()
-  for (const method of methods) {
+  for (const [selector, method] of methods) {
     const scope = instance.newScope()
-    const { selector, bindings } = objectParams(method.params)
     const methodBody: IRStmt[] = []
-    for (const bind of bindings) {
-      switch (bind.tag) {
-        case "identifier":
-          scope.use(bind.value)
-          break
-        case "object": {
-          const record = scope.useAnon()
-          const local: IRExpr = { tag: "local", index: record.index }
-          methodBody.push(...letStmt(scope, bind, local))
+    switch (method.params.tag) {
+      case "object":
+        throw new Error("invalid method definition")
+      case "key":
+        break
+      case "pairs":
+        for (const { value: bind } of method.params.pairs) {
+          switch (bind.tag) {
+            case "identifier":
+              scope.use(bind.value)
+              break
+            case "object": {
+              const record = scope.useAnon()
+              const local: IRExpr = { tag: "local", index: record.index }
+              methodBody.push(...letStmt(scope, bind, local))
+            }
+          }
         }
-      }
     }
 
     methodBody.push(...body(scope, method.body))
@@ -224,7 +164,7 @@ function frame(
   return { tag: "object", ivars, class: frameClass }
 }
 
-function expr(compiler: Scope, value: ASTExpr): IRExpr {
+function expr(scope: Scope, value: ASTExpr): IRExpr {
   switch (value.tag) {
     case "self":
       return { tag: "self" }
@@ -233,84 +173,92 @@ function expr(compiler: Scope, value: ASTExpr): IRExpr {
     case "string":
       return { tag: "primitive", class: stringClass, value: value.value }
     case "identifier":
-      return compiler.lookup(value.value)
+      return scope.lookup(value.value)
     case "call": {
-      const target = expr(compiler, value)
-      const args = argList(compiler, value.args)
-      switch (args.tag) {
-        case "methods":
+      const target = expr(scope, value)
+      switch (value.args.tag) {
+        case "object":
           throw new Error("cannot define methods in method call")
+        case "key":
+          return {
+            tag: "call",
+            target,
+            selector: value.args.selector,
+            args: [],
+          }
         case "pairs":
           return {
             tag: "call",
             target,
-            selector: args.selector,
-            args: args.args.map(({ value }) => value),
+            selector: value.args.selector,
+            args: value.args.pairs.map(({ value }) => expr(scope, value)),
           }
       }
     }
     case "object": {
-      const args = argList(compiler, value.args)
-      switch (args.tag) {
-        case "methods":
-          return object(compiler, args.methods)
+      switch (value.args.tag) {
+        case "object":
+          return object(scope, value.args.methods)
         case "pairs":
-          return frame(args.selector, args.args)
+          return frame(
+            value.args.selector,
+            value.args.pairs.map(({ key, value }) => ({
+              key,
+              value: expr(scope, value),
+            }))
+          )
+        case "key":
+          return frame(value.args.selector, [])
       }
     }
   }
 }
 
-function letStmt(
-  compiler: Scope,
-  binding: ASTBinding,
-  value: IRExpr
-): IRStmt[] {
+function letStmt(scope: Scope, binding: ASTBinding, value: IRExpr): IRStmt[] {
   switch (binding.tag) {
     case "identifier": {
-      const record = compiler.use(binding.value)
+      const record = scope.use(binding.value)
       return [{ tag: "let", index: record.index, value }]
     }
     case "object":
-      const record = compiler.useAnon()
+      const record = scope.useAnon()
       const out: IRStmt[] = [{ tag: "let", index: record.index, value }]
-      for (const param of binding.params) {
-        switch (param.tag) {
-          case "key":
-            throw new Error(`Invalid destructuring with key ${param.key}`)
-          case "pair":
-            out.push(
-              ...letStmt(compiler, param.value, {
-                tag: "call",
-                selector: param.key,
-                target: value,
-                args: [],
-              })
-            )
-        }
+      if (binding.params.tag !== "pairs") {
+        throw new Error("invalid destructuring")
+      }
+
+      for (const param of binding.params.pairs) {
+        out.push(
+          ...letStmt(scope, param.value, {
+            tag: "call",
+            selector: param.key,
+            target: value,
+            args: [],
+          })
+        )
       }
       return out
   }
 }
 
-function stmt(compiler: Scope, stmt: ASTStmt): IRStmt[] {
+function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
   switch (stmt.tag) {
     case "let": {
-      const value = expr(compiler, stmt.value)
-      return letStmt(compiler, stmt.binding, value)
+      const value = expr(scope, stmt.value)
+      return letStmt(scope, stmt.binding, value)
     }
     case "return":
-      return [{ tag: "return", value: expr(compiler, stmt.value) }]
+      return [{ tag: "return", value: expr(scope, stmt.value) }]
     case "expr":
-      return [{ tag: "return", value: expr(compiler, stmt.value) }]
+      return [{ tag: "return", value: expr(scope, stmt.value) }]
   }
 }
 
-function body(compiler: Scope, stmts: ASTStmt[]): IRStmt[] {
-  return stmts.flatMap((s) => stmt(compiler, s))
+function body(scope: Scope, stmts: ASTStmt[]): IRStmt[] {
+  return stmts.flatMap((s) => stmt(scope, s))
 }
 
 export function program(stmts: ASTStmt[]): IRStmt[] {
-  const compiler = new Scope()
-  return body(compiler, stmts)
+  const scope = new Scope()
+  return body(scope, stmts)
 }
