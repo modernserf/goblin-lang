@@ -111,6 +111,7 @@ export class Scope {
 
 function object(
   parentCompiler: Scope,
+  selfBinding: string | null,
   methods: Map<string, ASTMethod>
 ): IRExpr {
   const instance = parentCompiler.newInstance()
@@ -127,6 +128,9 @@ function object(
         for (const { value: bind } of method.params.pairs) {
           switch (bind.tag) {
             case "identifier":
+              if (bind.value === selfBinding) {
+                selfBinding = null
+              }
               scope.use(bind.value)
               break
             case "object": {
@@ -136,6 +140,11 @@ function object(
             }
           }
         }
+    }
+
+    if (selfBinding !== null) {
+      const { index } = scope.use(selfBinding)
+      methodBody.push({ tag: "assign", index, value: { tag: "self" } })
     }
 
     methodBody.push(...body(scope, method.body))
@@ -244,7 +253,7 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
     case "object": {
       switch (value.args.tag) {
         case "object":
-          return object(scope, value.args.methods)
+          return object(scope, null, value.args.methods)
         case "pairs":
           return frame(
             value.args.selector,
@@ -257,6 +266,18 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
           return frame(value.args.selector, [])
       }
     }
+  }
+}
+
+function bindExpr(scope: Scope, binding: ASTBinding, value: ASTExpr): IRExpr {
+  if (
+    binding.tag === "identifier" &&
+    value.tag === "object" &&
+    value.args.tag === "object"
+  ) {
+    return object(scope, binding.value, value.args.methods)
+  } else {
+    return expr(scope, value)
   }
 }
 
@@ -310,11 +331,19 @@ function setStmt(scope: Scope, binding: ASTBinding, value: IRExpr): IRStmt[] {
 function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
   switch (stmt.tag) {
     case "let":
-      return letStmt(scope, stmt.binding, expr(scope, stmt.value))
+      return letStmt(
+        scope,
+        stmt.binding,
+        bindExpr(scope, stmt.binding, stmt.value)
+      )
+    case "var":
+      return varStmt(
+        scope,
+        stmt.binding,
+        bindExpr(scope, stmt.binding, stmt.value)
+      )
     case "set":
       return setStmt(scope, stmt.binding, expr(scope, stmt.value))
-    case "var":
-      return varStmt(scope, stmt.binding, expr(scope, stmt.value))
     case "return":
       return [{ tag: "return", value: expr(scope, stmt.value) }]
     case "expr":

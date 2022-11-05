@@ -74,20 +74,27 @@ test("self", () => {
     obj{y}
   `)
   assert.deepEqual(res.value, 1)
+
+  const indirect: any = run(`
+    let obj := [
+      {x} 1;
+      {y} obj{x};
+    ]
+    obj{y}
+  `)
+  assert.deepEqual(indirect.value, 1)
 })
 
 test("classes, closures", () => {
   const res: any = run(`
     let Opt := [
-      {some: value}
-        let class := self
-        return [
-          {map: fn}
-            let next := fn{: value}
-            class{some: next};
-          {or default: __}
-            value;
-        ];
+      {some: value} [
+        {map: fn}
+          let next := fn{: value}
+          Opt{some: next};
+        {or default: __}
+          value;
+      ];
       {none} [
         {map: fn}
           self;
@@ -110,6 +117,14 @@ test("var & set", () => {
     x 
   `)
   assert.deepEqual(res.value, 2)
+
+  const res2: any = run(`
+    var x := 1
+    let y := x
+    set x := 2
+    x + y
+  `)
+  assert.deepEqual(res2.value, 3)
 
   assert.throws(() => {
     run(`
