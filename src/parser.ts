@@ -14,6 +14,8 @@ export type ASTExpr =
 
 export type ASTStmt =
   | { tag: "let"; binding: ASTBinding; value: ASTExpr }
+  | { tag: "set"; binding: ASTBinding; value: ASTExpr }
+  | { tag: "var"; binding: ASTBinding; value: ASTExpr }
   | { tag: "return"; value: ASTExpr }
   | { tag: "expr"; value: ASTExpr }
 
@@ -53,7 +55,7 @@ export class BaseBuilder<T> implements StructBuilder<T> {
 export class KeyBuilder<T> implements StructBuilder<T> {
   constructor(private selector: string) {}
   key(key: string): StructBuilder<T> {
-    throw new Error("duplicate key")
+    throw new Error("only one key permitted")
   }
   pair(key: string, value: T): StructBuilder<T> {
     throw new Error("cannot mix keys and pairs")
@@ -72,7 +74,7 @@ export class PairBuilder<T> implements StructBuilder<T> {
     throw new Error("cannot mix keys and pairs")
   }
   pair(key: string, value: T): StructBuilder<T> {
-    if (this.map.has(key)) throw new Error(`duplicate key ${key}`)
+    if (this.map.has(key)) throw new Error(`duplicate key "${key}"`)
     this.map.set(key, value)
     return this
   }
@@ -308,6 +310,20 @@ function stmt(lexer: Lexer): ASTStmt | null {
       expect(lexer, "colonEquals")
       const value = must(lexer, "expr", expr)
       return { tag: "let", binding: bind, value }
+    }
+    case "set": {
+      lexer.advance()
+      const bind = must(lexer, "binding", binding)
+      expect(lexer, "colonEquals")
+      const value = must(lexer, "expr", expr)
+      return { tag: "set", binding: bind, value }
+    }
+    case "var": {
+      lexer.advance()
+      const bind = must(lexer, "binding", binding)
+      expect(lexer, "colonEquals")
+      const value = must(lexer, "expr", expr)
+      return { tag: "var", binding: bind, value }
     }
     case "return": {
       lexer.advance()

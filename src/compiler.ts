@@ -16,7 +16,8 @@ const intClass: PrimitiveClass = new Map([
   ],
 ])
 
-export type IRClass = Map<string, IRStmt[]>
+type Method = { body: IRStmt[] }
+export type IRClass = Map<string, Method>
 
 export type IRExpr =
   | { tag: "local"; index: number }
@@ -27,11 +28,12 @@ export type IRExpr =
   | { tag: "call"; selector: string; target: IRExpr; args: IRExpr[] }
 
 export type IRStmt =
-  | { tag: "let"; index: number; value: IRExpr }
+  | { tag: "assign"; index: number; value: IRExpr }
   | { tag: "return"; value: IRExpr }
   | { tag: "expr"; value: IRExpr }
 
-type ScopeRecord = { index: number }
+type ScopeType = "let" | "var"
+type ScopeRecord = { index: number; type: ScopeType }
 
 class Instance {
   private ivarMap = new Map<string, ScopeRecord>()
@@ -42,8 +44,8 @@ class Instance {
     if (found) return { tag: "ivar", index: found.index }
 
     const index = this.ivars.length
-    this.ivars.push(this.parent.lookup(key))
-    this.ivarMap.set(key, { index })
+    this.ivars.push(this.parent.lookupOuter(key))
+    this.ivarMap.set(key, { index, type: "let" })
     return { tag: "ivar", index }
   }
   newScope(): Scope {
@@ -59,20 +61,47 @@ export class Scope {
     const record = this.locals.get(key)
     if (record) return { tag: "local", index: record.index }
     if (!this.instance) {
-      throw new Error(`unknown variable ${key}`)
+      throw new Error(`unknown binding ${key}`)
+    }
+    return this.instance.lookup(key)
+  }
+  lookupOuter(key: string): IRExpr {
+    const record = this.locals.get(key)
+    if (record) {
+      if (record.type == "var") {
+        throw new Error(`cannot access var ${key} from outer scope`)
+      }
+      return { tag: "local", index: record.index }
+    }
+    if (!this.instance) {
+      throw new Error(`unknown binding ${key}`)
     }
     return this.instance.lookup(key)
   }
   use(key: string): ScopeRecord {
     if (this.locals.has(key)) {
-      throw new Error(`duplicate variable ${key}`)
+      throw new Error(`duplicate binding ${key}`)
     }
-    const record = { index: this.localsIndex++ }
+    const record: ScopeRecord = { index: this.localsIndex++, type: "let" }
     this.locals.set(key, record)
     return record
   }
   useAnon(): ScopeRecord {
-    const record = { index: this.localsIndex++ }
+    const record: ScopeRecord = { index: this.localsIndex++, type: "let" }
+    return record
+  }
+  useVar(key: string): ScopeRecord {
+    if (this.locals.has(key)) {
+      throw new Error(`duplicate binding ${key}`)
+    }
+    const record: ScopeRecord = { index: this.localsIndex++, type: "var" }
+    this.locals.set(key, record)
+    return record
+  }
+  set(key: string): ScopeRecord {
+    const record = this.locals.get(key)
+    if (!record) throw new Error(`unknown binding ${key}`)
+    if (record.type !== "var") throw new Error(`Binding ${key} is not var`)
     return record
   }
   newInstance(): Instance {
@@ -110,7 +139,7 @@ function object(
     }
 
     methodBody.push(...body(scope, method.body))
-    objectClass.set(selector, methodBody)
+    objectClass.set(selector, { body: methodBody })
   }
   return { tag: "object", class: objectClass, ivars: instance.ivars }
 }
@@ -126,48 +155,56 @@ function frame(
 
   const frameClass: IRClass = new Map()
   // constructor: [x: 1 y: 2]{x: 3 y: 4}
-  frameClass.set(selector, [
-    {
-      tag: "return",
-      value: {
-        tag: "object",
-        class: frameClass,
-        ivars: args.map((_, index) => ({ tag: "local", index })),
-      },
-    },
-  ])
-  // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
-  frameClass.set(":", [
-    {
-      tag: "return",
-      value: {
-        tag: "call",
-        selector: selector,
-        target: { tag: "local", index: 0 },
-        args: args.map((_, index) => ({ tag: "ivar", index })),
-      },
-    } as IRStmt,
-  ])
-  for (const [index, { key }] of args.entries()) {
-    // getter: [x: 1 y: 2]{x}
-    frameClass.set(key, [{ tag: "return", value: { tag: "ivar", index } }])
-    // setter: [x: 1 y: 2]{x: 3}
-    frameClass.set(`${key}:`, [
+  frameClass.set(selector, {
+    body: [
       {
         tag: "return",
         value: {
           tag: "object",
           class: frameClass,
-          ivars: args.map((_, j) => {
-            if (j === index) {
-              return { tag: "local", index: 0 }
-            } else {
-              return { tag: "ivar", index }
-            }
-          }),
+          ivars: args.map((_, index) => ({ tag: "local", index })),
         },
       },
-    ])
+    ],
+  })
+  // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
+  frameClass.set(":", {
+    body: [
+      {
+        tag: "return",
+        value: {
+          tag: "call",
+          selector: selector,
+          target: { tag: "local", index: 0 },
+          args: args.map((_, index) => ({ tag: "ivar", index })),
+        },
+      } as IRStmt,
+    ],
+  })
+  for (const [index, { key }] of args.entries()) {
+    // getter: [x: 1 y: 2]{x}
+    frameClass.set(key, {
+      body: [{ tag: "return", value: { tag: "ivar", index } }],
+    })
+    // setter: [x: 1 y: 2]{x: 3}
+    frameClass.set(`${key}:`, {
+      body: [
+        {
+          tag: "return",
+          value: {
+            tag: "object",
+            class: frameClass,
+            ivars: args.map((_, j) => {
+              if (j === index) {
+                return { tag: "local", index: 0 }
+              } else {
+                return { tag: "ivar", index }
+              }
+            }),
+          },
+        },
+      ],
+    })
   }
   frameCache.set(selector, frameClass)
   return { tag: "object", ivars, class: frameClass }
@@ -227,11 +264,11 @@ function letStmt(scope: Scope, binding: ASTBinding, value: IRExpr): IRStmt[] {
   switch (binding.tag) {
     case "identifier": {
       const record = scope.use(binding.value)
-      return [{ tag: "let", index: record.index, value }]
+      return [{ tag: "assign", index: record.index, value }]
     }
     case "object":
       const record = scope.useAnon()
-      const out: IRStmt[] = [{ tag: "let", index: record.index, value }]
+      const out: IRStmt[] = [{ tag: "assign", index: record.index, value }]
       if (binding.params.tag !== "pairs") {
         throw new Error("invalid destructuring")
       }
@@ -250,10 +287,34 @@ function letStmt(scope: Scope, binding: ASTBinding, value: IRExpr): IRStmt[] {
   }
 }
 
+function varStmt(scope: Scope, binding: ASTBinding, value: IRExpr): IRStmt[] {
+  switch (binding.tag) {
+    case "object":
+      throw new Error("Cannot destructure var binding")
+    case "identifier":
+      const record = scope.useVar(binding.value)
+      return [{ tag: "assign", index: record.index, value }]
+  }
+}
+
+function setStmt(scope: Scope, binding: ASTBinding, value: IRExpr): IRStmt[] {
+  switch (binding.tag) {
+    case "object":
+      throw new Error("Cannot destructure set binding")
+    case "identifier":
+      const record = scope.set(binding.value)
+      return [{ tag: "assign", index: record.index, value }]
+  }
+}
+
 function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
   switch (stmt.tag) {
     case "let":
       return letStmt(scope, stmt.binding, expr(scope, stmt.value))
+    case "set":
+      return setStmt(scope, stmt.binding, expr(scope, stmt.value))
+    case "var":
+      return varStmt(scope, stmt.binding, expr(scope, stmt.value))
     case "return":
       return [{ tag: "return", value: expr(scope, stmt.value) }]
     case "expr":

@@ -7,6 +7,8 @@ export type Token =
   | { tag: "self" }
   | { tag: "let" }
   | { tag: "return" }
+  | { tag: "var" }
+  | { tag: "set" }
   | { tag: "openBracket" }
   | { tag: "closeBracket" }
   | { tag: "openBrace" }
@@ -27,6 +29,15 @@ const re = {
   operator: /[-~!@$%^&*+|<>,?/=]+/y,
   punctuation: /:=|[\[\]\(\)\{\}:;]/y,
 }
+
+const keywords: Set<Token["tag"]> = new Set([
+  "self",
+  "let",
+  "return",
+  "var",
+  "set",
+])
+
 const matcherTable = {
   ":=": "colonEquals",
   ":": "colon",
@@ -79,16 +90,10 @@ export class Lexer {
 
     const ident = this.callRe(re.identKw)
     if (ident) {
-      switch (ident.value) {
-        case "self":
-          return { tag: "self" }
-        case "let":
-          return { tag: "let" }
-        case "return":
-          return { tag: "return" }
-        default:
-          return { tag: "identifier", value: ident.value }
+      if (keywords.has(ident.value as any)) {
+        return { tag: ident.value as any }
       }
+      return { tag: "identifier", value: ident.value }
     }
 
     const identU = this.callRe(re.identUnderscore)

@@ -1,4 +1,3 @@
-// import test from "node:test";
 const test = require("node:test")
 import assert from "node:assert/strict"
 import "./lexer.test"
@@ -102,4 +101,58 @@ test("classes, closures", () => {
       + bar{map: [+: 1]}{or default: 10}
   `)
   assert.deepEqual(res.value, 12)
+})
+
+test("var & set", () => {
+  const res: any = run(`
+    var x := 1
+    set x := 2
+    x 
+  `)
+  assert.deepEqual(res.value, 2)
+
+  assert.throws(() => {
+    run(`
+      let x := 1
+      set x := 2
+      x
+    `)
+  })
+
+  assert.throws(() => {
+    run(`
+      set x := 2
+      x
+    `)
+  })
+
+  assert.throws(() => {
+    run(`
+      var [x: a y: b] := [x: 1 y: 2] 
+    `)
+  })
+
+  assert.throws(() => {
+    run(`
+      var p := 1
+      set [x: p] := [x: 2]
+    `)
+  })
+
+  assert.throws(() => {
+    run(`
+      var x := 1
+      [
+        {foo} x
+      ]
+    `)
+  })
+})
+
+test("destructuring", () => {
+  const res: any = run(`
+    let [x: foo y: [_a_ _b_]] := [x: 1 y: [a: 2 b: 3]]
+    foo + a + b
+  `)
+  assert.deepEqual(res.value, 6)
 })

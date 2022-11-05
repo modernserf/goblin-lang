@@ -103,7 +103,7 @@ test("calls", () => {
         args: {
           tag: "pairs",
           selector: ":",
-          pairs: [{ key: "0", value: { tag: "integer", value: 1 } }],
+          pairs: [{ key: "", value: { tag: "integer", value: 1 } }],
         },
       },
       {

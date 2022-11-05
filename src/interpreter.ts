@@ -33,7 +33,7 @@ function call(selector: string, target: Value, args: Value[]): Value {
       const method = target.class.get(selector)
       if (!method) throw new Error(`No method with selector ${selector}`)
       const ctx = new Interpreter(target, args)
-      return body(ctx, method)
+      return body(ctx, method.body)
     }
   }
 }
@@ -71,7 +71,7 @@ function body(ctx: Interpreter, stmts: IRStmt[]): Value {
 
   for (const stmt of stmts) {
     switch (stmt.tag) {
-      case "let":
+      case "assign":
         ctx.setLocal(stmt.index, expr(ctx, stmt.value))
         result = unit
         break
