@@ -2,9 +2,7 @@ const test = require("node:test")
 import assert from "node:assert/strict"
 
 import { Lexer } from "./lexer"
-import { ASTExpr, ASTStmt, program } from "./parser"
-
-// test
+import { program } from "./parser"
 
 function parse(code: string) {
   return program(new Lexer(code))

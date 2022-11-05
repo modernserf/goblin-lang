@@ -1,4 +1,4 @@
-import { ASTBinding, ASTExpr, ASTMethod, ASTStmt } from "./parser"
+import { ASTBinding, ASTExpr, ASTMethod, ASTStmt } from "./ast"
 
 export type PrimitiveMethod = (value: any, args: any[]) => any
 
