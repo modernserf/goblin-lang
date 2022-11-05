@@ -68,15 +68,10 @@ export class KeyBuilder<T> implements StructBuilder<T> {
 
 export class PairBuilder<T> implements StructBuilder<T> {
   private map = new Map<string, T>()
-  private blankIndex = 0
   key(key: string): StructBuilder<T> {
     throw new Error("cannot mix keys and pairs")
   }
   pair(key: string, value: T): StructBuilder<T> {
-    if (key === "") {
-      key = String(this.blankIndex++)
-    }
-
     if (this.map.has(key)) throw new Error(`duplicate key ${key}`)
     this.map.set(key, value)
     return this
@@ -138,6 +133,26 @@ function structExpr(lexer: Lexer): ASTStruct<ASTExpr> {
     }),
     (lexer) => must(lexer, "expr", expr)
   )
+}
+
+function keyComponent(lexer: Lexer): string | null {
+  const token = lexer.peek()
+  switch (token.tag) {
+    case "identifier":
+    case "operator":
+      lexer.advance()
+      return token.value
+    case "integer":
+      lexer.advance()
+      return String(token.value)
+    case "let":
+    case "self":
+    case "return":
+      lexer.advance()
+      return token.tag
+    default:
+      return null
+  }
 }
 
 function struct<T>(
@@ -229,26 +244,6 @@ function baseExpr(lexer: Lexer): ASTExpr | null {
       expect(lexer, "closeBracket")
       return { tag: "object", args }
     }
-    default:
-      return null
-  }
-}
-
-function keyComponent(lexer: Lexer): string | null {
-  const token = lexer.peek()
-  switch (token.tag) {
-    case "identifier":
-    case "operator":
-      lexer.advance()
-      return token.value
-    case "integer":
-      lexer.advance()
-      return String(token.value)
-    case "let":
-    case "self":
-    case "return":
-      lexer.advance()
-      return token.tag
     default:
       return null
   }

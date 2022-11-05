@@ -55,11 +55,14 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
         ivars: value.ivars.map((ivar) => expr(ctx, ivar)),
       }
     case "call":
+      const target = expr(ctx, value.target)
       return call(
         value.selector,
         expr(ctx, value.target),
         value.args.map((arg) => expr(ctx, arg))
       )
+    default:
+      throw new Error(value)
   }
 }
 
@@ -71,10 +74,12 @@ function body(ctx: Interpreter, stmts: IRStmt[]): Value {
       case "let":
         ctx.setLocal(stmt.index, expr(ctx, stmt.value))
         result = unit
+        break
       case "return":
         return expr(ctx, stmt.value)
       case "expr":
         result = expr(ctx, stmt.value)
+        break
     }
   }
   return result

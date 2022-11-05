@@ -102,7 +102,7 @@ test("calls", () => {
         target: { tag: "identifier", value: "x" },
         args: {
           tag: "pairs",
-          selector: "0:",
+          selector: ":",
           pairs: [{ key: "0", value: { tag: "integer", value: 1 } }],
         },
       },
@@ -134,7 +134,6 @@ test("objects", () => {
     [foo bar]
     [_foo_ _bar_]
     [foo: 1 bar: 2]
-    [:1 :2]
   `),
     [
       { tag: "object", args: { tag: "pairs", selector: "", pairs: [] } },
@@ -173,23 +172,6 @@ test("objects", () => {
           ],
         },
       },
-      {
-        tag: "object",
-        args: {
-          tag: "pairs",
-          selector: "0:1:",
-          pairs: [
-            {
-              key: "0",
-              value: { tag: "integer", value: 1 },
-            },
-            {
-              key: "1",
-              value: { tag: "integer", value: 2 },
-            },
-          ],
-        },
-      },
     ].map((value) => ({ tag: "expr", value }))
   )
 })
@@ -217,199 +199,199 @@ test("let, return stmts", () => {
   )
 })
 
-test.skip("operators", () => {
-  assert.deepEqual(
-    parse(`
-      +x
-      x + y
-      x + +y; # disambiguate from "x + + y + x + y"
-      +x + y
-    `),
-    [
-      {
-        tag: "call",
-        target: { tag: "identifier", value: "x" },
-        args: [{ tag: "key", key: "+" }],
-      },
-      {
-        tag: "call",
-        target: { tag: "identifier", value: "x" },
-        args: [
-          { tag: "pair", key: "+", value: { tag: "identifier", value: "y" } },
-        ],
-      },
-      {
-        tag: "call",
-        target: { tag: "identifier", value: "x" },
-        args: [
-          {
-            tag: "pair",
-            key: "+",
-            value: {
-              tag: "call",
-              target: { tag: "identifier", value: "y" },
-              args: [{ tag: "key", key: "+" }],
-            },
-          },
-        ],
-      },
-      {
-        tag: "call",
-        target: {
-          tag: "call",
-          target: { tag: "identifier", value: "x" },
-          args: [{ tag: "key", key: "+" }],
-        },
-        args: [
-          { tag: "pair", key: "+", value: { tag: "identifier", value: "y" } },
-        ],
-      },
-    ].map((value) => ({ tag: "expr", value }))
-  )
-})
+// test("operators", () => {
+//   assert.deepEqual(
+//     parse(`
+//       +x
+//       x + y
+//       x + +y; # disambiguate from "x + + y + x + y"
+//       +x + y
+//     `),
+//     [
+//       {
+//         tag: "call",
+//         target: { tag: "identifier", value: "x" },
+//         args: [{ tag: "key", key: "+" }],
+//       },
+//       {
+//         tag: "call",
+//         target: { tag: "identifier", value: "x" },
+//         args: [
+//           { tag: "pair", key: "+", value: { tag: "identifier", value: "y" } },
+//         ],
+//       },
+//       {
+//         tag: "call",
+//         target: { tag: "identifier", value: "x" },
+//         args: [
+//           {
+//             tag: "pair",
+//             key: "+",
+//             value: {
+//               tag: "call",
+//               target: { tag: "identifier", value: "y" },
+//               args: [{ tag: "key", key: "+" }],
+//             },
+//           },
+//         ],
+//       },
+//       {
+//         tag: "call",
+//         target: {
+//           tag: "call",
+//           target: { tag: "identifier", value: "x" },
+//           args: [{ tag: "key", key: "+" }],
+//         },
+//         args: [
+//           { tag: "pair", key: "+", value: { tag: "identifier", value: "y" } },
+//         ],
+//       },
+//     ].map((value) => ({ tag: "expr", value }))
+//   )
+// })
 
-test.skip("method definitons", () => {
-  assert.deepEqual(
-    parse(`
-    [{x} 1]
-    [{x: y} y]
-    [{_x_} x]
-    [{: x} x]
-    [{x: x y: y} y]
-    [{x} 1; {y} 2]
-  `),
-    [
-      {
-        tag: "object",
-        args: [
-          {
-            tag: "method",
-            params: [{ tag: "key", key: "x" }],
-            body: [{ tag: "expr", value: { tag: "integer", value: 1 } }],
-          },
-        ],
-      },
-      {
-        tag: "object",
-        args: [
-          {
-            tag: "method",
-            params: [
-              {
-                tag: "pair",
-                key: "x",
-                value: { tag: "identifier", value: "y" },
-              },
-            ],
-            body: [{ tag: "expr", value: { tag: "identifier", value: "y" } }],
-          },
-        ],
-      },
-      {
-        tag: "object",
-        args: [
-          {
-            tag: "method",
-            params: [
-              {
-                tag: "pair",
-                key: "x",
-                value: { tag: "identifier", value: "x" },
-              },
-            ],
-            body: [{ tag: "expr", value: { tag: "identifier", value: "x" } }],
-          },
-        ],
-      },
-      {
-        tag: "object",
-        args: [
-          {
-            tag: "method",
-            params: [
-              {
-                tag: "pair",
-                key: "",
-                value: { tag: "identifier", value: "x" },
-              },
-            ],
-            body: [{ tag: "expr", value: { tag: "identifier", value: "x" } }],
-          },
-        ],
-      },
-      {
-        tag: "object",
-        args: [
-          {
-            tag: "method",
-            params: [
-              {
-                tag: "pair",
-                key: "x",
-                value: { tag: "identifier", value: "x" },
-              },
-              {
-                tag: "pair",
-                key: "y",
-                value: { tag: "identifier", value: "y" },
-              },
-            ],
-            body: [{ tag: "expr", value: { tag: "identifier", value: "y" } }],
-          },
-        ],
-      },
-      {
-        tag: "object",
-        args: [
-          {
-            tag: "method",
-            params: [{ tag: "key", key: "x" }],
-            body: [{ tag: "expr", value: { tag: "integer", value: 1 } }],
-          },
-          {
-            tag: "method",
-            params: [{ tag: "key", key: "y" }],
-            body: [{ tag: "expr", value: { tag: "integer", value: 2 } }],
-          },
-        ],
-      },
-    ].map((value) => ({ tag: "expr", value }))
-  )
-})
+// test("method definitons", () => {
+//   assert.deepEqual(
+//     parse(`
+//     [{x} 1]
+//     [{x: y} y]
+//     [{_x_} x]
+//     [{: x} x]
+//     [{x: x y: y} y]
+//     [{x} 1; {y} 2]
+//   `),
+//     [
+//       {
+//         tag: "object",
+//         args: [
+//           {
+//             tag: "method",
+//             params: [{ tag: "key", key: "x" }],
+//             body: [{ tag: "expr", value: { tag: "integer", value: 1 } }],
+//           },
+//         ],
+//       },
+//       {
+//         tag: "object",
+//         args: [
+//           {
+//             tag: "method",
+//             params: [
+//               {
+//                 tag: "pair",
+//                 key: "x",
+//                 value: { tag: "identifier", value: "y" },
+//               },
+//             ],
+//             body: [{ tag: "expr", value: { tag: "identifier", value: "y" } }],
+//           },
+//         ],
+//       },
+//       {
+//         tag: "object",
+//         args: [
+//           {
+//             tag: "method",
+//             params: [
+//               {
+//                 tag: "pair",
+//                 key: "x",
+//                 value: { tag: "identifier", value: "x" },
+//               },
+//             ],
+//             body: [{ tag: "expr", value: { tag: "identifier", value: "x" } }],
+//           },
+//         ],
+//       },
+//       {
+//         tag: "object",
+//         args: [
+//           {
+//             tag: "method",
+//             params: [
+//               {
+//                 tag: "pair",
+//                 key: "",
+//                 value: { tag: "identifier", value: "x" },
+//               },
+//             ],
+//             body: [{ tag: "expr", value: { tag: "identifier", value: "x" } }],
+//           },
+//         ],
+//       },
+//       {
+//         tag: "object",
+//         args: [
+//           {
+//             tag: "method",
+//             params: [
+//               {
+//                 tag: "pair",
+//                 key: "x",
+//                 value: { tag: "identifier", value: "x" },
+//               },
+//               {
+//                 tag: "pair",
+//                 key: "y",
+//                 value: { tag: "identifier", value: "y" },
+//               },
+//             ],
+//             body: [{ tag: "expr", value: { tag: "identifier", value: "y" } }],
+//           },
+//         ],
+//       },
+//       {
+//         tag: "object",
+//         args: [
+//           {
+//             tag: "method",
+//             params: [{ tag: "key", key: "x" }],
+//             body: [{ tag: "expr", value: { tag: "integer", value: 1 } }],
+//           },
+//           {
+//             tag: "method",
+//             params: [{ tag: "key", key: "y" }],
+//             body: [{ tag: "expr", value: { tag: "integer", value: 2 } }],
+//           },
+//         ],
+//       },
+//     ].map((value) => ({ tag: "expr", value }))
+//   )
+// })
 
-test.skip("destructuring", () => {
-  assert.deepEqual(
-    parse(`
-      let [x: a y: b] := foo
-      let [:a :b] := foo
-      let [_x_ _y_] := foo
-    `),
-    [
-      {
-        tag: "object",
-        params: [
-          { tag: "pair", key: "x", value: { tag: "identifier", value: "a" } },
-          { tag: "pair", key: "y", value: { tag: "identifier", value: "b" } },
-        ],
-      },
-      {
-        tag: "object",
-        params: [
-          { tag: "pair", key: "", value: { tag: "identifier", value: "a" } },
-          { tag: "pair", key: "", value: { tag: "identifier", value: "b" } },
-        ],
-      },
-      {
-        tag: "object",
-        params: [
-          { tag: "pair", key: "x", value: { tag: "identifier", value: "x" } },
-          { tag: "pair", key: "y", value: { tag: "identifier", value: "y" } },
-        ],
-      },
-    ].map((binding) => ({
-      tag: "let",
-      binding,
-      value: { tag: "identifier", value: "foo" },
-    }))
-  )
-})
+// test("destructuring", () => {
+//   assert.deepEqual(
+//     parse(`
+//       let [x: a y: b] := foo
+//       let [:a :b] := foo
+//       let [_x_ _y_] := foo
+//     `),
+//     [
+//       {
+//         tag: "object",
+//         params: [
+//           { tag: "pair", key: "x", value: { tag: "identifier", value: "a" } },
+//           { tag: "pair", key: "y", value: { tag: "identifier", value: "b" } },
+//         ],
+//       },
+//       {
+//         tag: "object",
+//         params: [
+//           { tag: "pair", key: "", value: { tag: "identifier", value: "a" } },
+//           { tag: "pair", key: "", value: { tag: "identifier", value: "b" } },
+//         ],
+//       },
+//       {
+//         tag: "object",
+//         params: [
+//           { tag: "pair", key: "x", value: { tag: "identifier", value: "x" } },
+//           { tag: "pair", key: "y", value: { tag: "identifier", value: "y" } },
+//         ],
+//       },
+//     ].map((binding) => ({
+//       tag: "let",
+//       binding,
+//       value: { tag: "identifier", value: "foo" },
+//     }))
+//   )
+// })

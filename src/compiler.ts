@@ -1,11 +1,20 @@
-import { ASTBinding, ASTExpr, ASTMethod, ASTStmt, ASTStruct } from "./parser"
+import { ASTBinding, ASTExpr, ASTMethod, ASTStmt } from "./parser"
 
-export type PrimitiveMethod = <Value>(value: any, args: Value[]) => Value
+export type PrimitiveMethod = (value: any, args: any[]) => any
 
 export type PrimitiveClass = Map<string, PrimitiveMethod>
 
 const stringClass: PrimitiveClass = new Map([])
-const intClass: PrimitiveClass = new Map([])
+const intClass: PrimitiveClass = new Map([
+  [
+    "+:",
+    (self, args: { class: PrimitiveClass; value: any }[]) => {
+      const arg = args[0]
+      if (arg.class !== intClass) throw new Error("Expected integer")
+      return { tag: "primitive", class: intClass, value: self + arg.value }
+    },
+  ],
+])
 
 export type IRClass = Map<string, IRStmt[]>
 
@@ -175,7 +184,7 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
     case "identifier":
       return scope.lookup(value.value)
     case "call": {
-      const target = expr(scope, value)
+      const target = expr(scope, value.target)
       switch (value.args.tag) {
         case "object":
           throw new Error("cannot define methods in method call")
@@ -243,10 +252,8 @@ function letStmt(scope: Scope, binding: ASTBinding, value: IRExpr): IRStmt[] {
 
 function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
   switch (stmt.tag) {
-    case "let": {
-      const value = expr(scope, stmt.value)
-      return letStmt(scope, stmt.binding, value)
-    }
+    case "let":
+      return letStmt(scope, stmt.binding, expr(scope, stmt.value))
     case "return":
       return [{ tag: "return", value: expr(scope, stmt.value) }]
     case "expr":
