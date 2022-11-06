@@ -11,7 +11,7 @@ class Interpreter {
   }
   getIvar(index: number): Value {
     if (this.self.tag === "primitive") {
-      throw new Error("should be unreachable")
+      throw new Error("getIvar should be unreachable")
     }
     return this.self.ivars[index]
   }
@@ -49,7 +49,12 @@ function call(
         switch (effect.tag) {
           case "var":
             const arg = args[effect.argIndex]
-            if (arg.tag !== "var") throw new Error("should be unreachable")
+            if (arg.tag !== "var") {
+              // HERE: why is the arg not a var?
+              console.log({ effect, arg })
+              throw new Error("should be unreachable")
+            }
+
             const result = ctx.getLocal(effect.indexInMethod)
             parent.setLocal(arg.index, result)
         }

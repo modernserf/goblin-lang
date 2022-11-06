@@ -1,130 +1,79 @@
-import {
-  ASTArg,
-  ASTBinding,
-  ASTExpr,
-  ASTParam,
-  ASTStmt,
-  ASTStruct,
-  BaseBuilder,
-} from "./ast"
+// Parse tree -- a loose grammar that covers the basic shape of the language
+
 import { Lexer, Token } from "./lexer"
 
-function param(lexer: Lexer): ASTParam {
-  if (accept(lexer, "var")) {
-    return { tag: "var", binding: must(lexer, "binding", binding) }
-  }
-  return {
-    tag: "binding",
-    binding: must(lexer, "binding", binding),
-  }
-}
+export type ParseArg =
+  | { tag: "value"; value: ParseExpr }
+  | { tag: "var"; value: ParseExpr }
+// TODO: curly brace => block
 
-function structBinding(lexer: Lexer): ASTStruct<ASTParam> {
-  return struct<ASTParam>(
-    lexer,
-    (value) => ({
-      tag: "binding",
-      binding: {
-        tag: "identifier",
-        value: value,
-      },
-    }),
-    param
-  )
-}
-
-function arg(lexer: Lexer): ASTArg {
-  if (accept(lexer, "var")) {
-    return { tag: "var", value: must(lexer, "expr", expr) }
-  }
-  return {
-    tag: "expr",
-    value: must(lexer, "expr", expr),
-  }
-}
-
-function structExpr(lexer: Lexer): ASTStruct<ASTArg> {
-  return struct<ASTArg>(
-    lexer,
-    (value) => ({
-      tag: "expr",
-      value: {
-        tag: "identifier",
-        value: value,
-      },
-    }),
-    arg
-  )
-}
-
-function struct<T extends { tag: string }>(
-  lexer: Lexer,
-  quotedIdent: (key: string) => T,
-  parseValue: (lexer: Lexer) => T
-): ASTStruct<T> {
-  let builder = new BaseBuilder<T>()
-  while (true) {
-    const tok = lexer.peek()
-    switch (tok.tag) {
-      case "quotedIdent":
-        lexer.advance()
-        builder = builder.pair(tok.value, quotedIdent(tok.value))
-        break
-      case "colon": {
-        lexer.advance()
-        const value = parseValue(lexer)
-        builder = builder.pair("", value)
-        break
-      }
-      case "openBrace": {
-        lexer.advance()
-        const params = structBinding(lexer)
-        expect(lexer, "closeBrace")
-        const body = repeat(lexer, stmt)
-        builder = builder.method(params, body)
-        break
-      }
-      default: {
-        const key = lexer.acceptKey()
-        if (!key) return builder.build()
-        if (accept(lexer, "colon")) {
-          const value = parseValue(lexer)
-          builder = builder.pair(key, value)
-        } else {
-          builder = builder.key(key)
-        }
-      }
-    }
-  }
-}
-
-function binding(lexer: Lexer): ASTBinding | null {
+function arg(lexer: Lexer): ParseArg {
   const token = lexer.peek()
   switch (token.tag) {
-    case "identifier":
+    case "var":
+      lexer.advance()
+      return { tag: "var", value: must(lexer, "expr", expr) }
+    default:
+      return { tag: "value", value: must(lexer, "expr", expr) }
+  }
+}
+
+export type ParseItem =
+  | { tag: "key"; key: string }
+  | { tag: "pair"; key: string; value: ParseArg }
+  | { tag: "punPair"; key: string }
+  | { tag: "method"; params: ParseItem[]; body: ParseStmt[] }
+// TODO: multiple method heads, decorators
+
+function item(lexer: Lexer): ParseItem | null {
+  const token = lexer.peek()
+  switch (token.tag) {
+    case "openBrace": {
+      lexer.advance()
+      const params = repeat(lexer, item)
+      mustToken(lexer, "closeBrace")
+      const body = repeat(lexer, stmt)
+      return { tag: "method", params, body }
+    }
     case "quotedIdent":
       lexer.advance()
-      return { tag: "identifier", value: token.value }
-    case "openBracket": {
+      return { tag: "punPair", key: token.value }
+    case "colon": {
       lexer.advance()
-      const params = structBinding(lexer)
-      expect(lexer, "closeBracket")
-      return { tag: "object", params }
+      const value = must(lexer, "arg", arg)
+      return { tag: "pair", key: "", value }
     }
-    default:
-      return null
+    default: {
+      const key = lexer.acceptKey()
+      if (!key) return null
+      if (accept(lexer, "colon")) {
+        const value = must(lexer, "arg", arg)
+        return { tag: "pair", key: key || "", value }
+      } else {
+        return { tag: "key", key }
+      }
+    }
   }
 }
 
-function baseExpr(lexer: Lexer): ASTExpr | null {
+// used for both ast exprs and bindings
+export type ParseExpr =
+  | { tag: "self" }
+  | { tag: "integer"; value: number }
+  | { tag: "string"; value: string }
+  | { tag: "identifier"; value: string }
+  | { tag: "parens"; value: ParseExpr }
+  | { tag: "object"; items: ParseItem[] }
+  | { tag: "call"; target: ParseExpr; items: ParseItem[] }
+  | { tag: "unaryOp"; target: ParseExpr; operator: string }
+  | { tag: "binaryOp"; target: ParseExpr; arg: ParseExpr; operator: string }
+
+function baseExpr(lexer: Lexer): ParseExpr | null {
   const token = lexer.peek()
   switch (token.tag) {
-    case "openParen": {
+    case "self":
       lexer.advance()
-      const value = expr(lexer)
-      expect(lexer, "closeParen")
-      return value
-    }
+      return { tag: "self" }
     case "integer":
       lexer.advance()
       return { tag: "integer", value: token.value }
@@ -135,103 +84,81 @@ function baseExpr(lexer: Lexer): ASTExpr | null {
     case "quotedIdent":
       lexer.advance()
       return { tag: "identifier", value: token.value }
-    case "self":
+    case "openParen": {
       lexer.advance()
-      return { tag: "self" }
+      const value = must(lexer, "expr", expr)
+      mustToken(lexer, "closeParen")
+      return { tag: "parens", value }
+    }
     case "openBracket": {
       lexer.advance()
-      const args = structExpr(lexer)
-      expect(lexer, "closeBracket")
-      return { tag: "object", args }
+      const items = repeat(lexer, item)
+      mustToken(lexer, "closeBracket")
+      return { tag: "object", items }
     }
     default:
       return null
   }
 }
 
-function call(lexer: Lexer): ASTStruct<ASTArg> | null {
-  const tok = lexer.peek()
-  if (tok.tag !== "openBrace") return null
-  lexer.advance()
-  const args = structExpr(lexer)
-  expect(lexer, "closeBrace")
-  return args
-}
-
-function callExpr(lexer: Lexer): ASTExpr | null {
-  const target = baseExpr(lexer)
+function callExpr(lexer: Lexer): ParseExpr | null {
+  let target = baseExpr(lexer)
   if (!target) return null
-  return repeat(lexer, call).reduce((target, args) => {
-    return { tag: "call", target, args }
-  }, target)
+  while (true) {
+    if (!accept(lexer, "openBrace")) return target
+    const items = repeat(lexer, item)
+    mustToken(lexer, "closeBrace")
+    target = { tag: "call", target, items }
+  }
 }
 
-function unaryOpExpr(lexer: Lexer): ASTExpr | null {
-  const tok = accept(lexer, "operator")
-  if (!tok) return callExpr(lexer)
+function unaryOpExpr(lexer: Lexer): ParseExpr | null {
+  const op = accept(lexer, "operator")
+  if (!op) return callExpr(lexer)
   const target = must(lexer, "expr", unaryOpExpr)
-  return { tag: "call", target, args: { tag: "key", selector: tok.value } }
+  return { tag: "unaryOp", operator: op.value, target }
 }
 
-function opPair(lexer: Lexer): { op: string; value: ASTExpr } | null {
-  const tok = accept(lexer, "operator")
-  if (!tok) return null
-  const value = must(lexer, "expr", unaryOpExpr)
-  return { op: tok.value, value }
+function binaryOpExpr(lexer: Lexer): ParseExpr | null {
+  let target = unaryOpExpr(lexer)
+  if (!target) return null
+  while (true) {
+    const op = accept(lexer, "operator")
+    if (!op) return target
+    const arg = must(lexer, "expr", unaryOpExpr)
+    target = { tag: "binaryOp", target, operator: op.value, arg }
+  }
 }
 
-function binaryOpExpr(lexer: Lexer): ASTExpr | null {
-  const left = unaryOpExpr(lexer)
-  if (!left) return null
-  return repeat(lexer, opPair).reduce((target, { op, value }) => {
-    return {
-      tag: "call",
-      target,
-      args: {
-        tag: "pairs",
-        selector: `${op}:`,
-        pairs: [{ key: op, value: { tag: "expr", value } }],
-      },
-    }
-  }, left)
-}
-
-function expr(lexer: Lexer): ASTExpr | null {
-  const res = binaryOpExpr(lexer)
-  if (!res) return null
+function expr(lexer: Lexer): ParseExpr | null {
+  const value = binaryOpExpr(lexer)
+  if (!value) return null
   accept(lexer, "semicolon")
-  return res
+  return value
 }
 
-function stmt(lexer: Lexer): ASTStmt | null {
+export type ParseStmt =
+  | { tag: "let"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "set"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "var"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "return"; value: ParseExpr }
+  | { tag: "expr"; value: ParseExpr }
+
+function stmt(lexer: Lexer): ParseStmt | null {
   const token = lexer.peek()
   switch (token.tag) {
-    case "let": {
-      lexer.advance()
-      const bind = must(lexer, "binding", binding)
-      expect(lexer, "colonEquals")
-      const value = must(lexer, "expr", expr)
-      return { tag: "let", binding: bind, value }
-    }
-    case "set": {
-      lexer.advance()
-      const bind = must(lexer, "binding", binding)
-      expect(lexer, "colonEquals")
-      const value = must(lexer, "expr", expr)
-      return { tag: "set", binding: bind, value }
-    }
+    case "let":
+    case "set":
     case "var": {
       lexer.advance()
-      const bind = must(lexer, "binding", binding)
-      expect(lexer, "colonEquals")
+      const binding = must(lexer, "binding", expr)
+      mustToken(lexer, "colonEquals")
       const value = must(lexer, "expr", expr)
-      return { tag: "var", binding: bind, value }
+      return { tag: token.tag, binding, value }
     }
-    case "return": {
+    case "return":
       lexer.advance()
-      const value = must(lexer, "expr", expr)
-      return { tag: "return", value }
-    }
+      return { tag: "return", value: must(lexer, "expr", expr) }
     default: {
       const value = expr(lexer)
       if (!value) return null
@@ -240,9 +167,9 @@ function stmt(lexer: Lexer): ASTStmt | null {
   }
 }
 
-export function program(lexer: Lexer): ASTStmt[] {
+export function program(lexer: Lexer): ParseStmt[] {
   const out = repeat(lexer, stmt)
-  expect(lexer, "end")
+  mustToken(lexer, "end")
   return out
 }
 
@@ -275,7 +202,7 @@ function accept<Tag extends Token["tag"]>(
   return null
 }
 
-function expect(lexer: Lexer, tag: Token["tag"]): Token {
+function mustToken(lexer: Lexer, tag: Token["tag"]): Token {
   const token = lexer.peek()
   if (tag !== token.tag) {
     throw new Error(`Expected ${tag}, received ${token.tag}`)
