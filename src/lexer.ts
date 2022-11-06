@@ -9,6 +9,8 @@ export type Token =
   | { tag: "return" }
   | { tag: "var" }
   | { tag: "set" }
+  | { tag: "provide" }
+  | { tag: "use" }
   | { tag: "openBracket" }
   | { tag: "closeBracket" }
   | { tag: "openBrace" }
@@ -38,6 +40,8 @@ const keywords: Set<Token["tag"]> = new Set([
   "return",
   "var",
   "set",
+  "provide",
+  "use",
 ])
 
 const matcherTable = {

@@ -210,3 +210,40 @@ test("var args", () => {
     `)
   })
 })
+
+test("use/provide", () => {
+  const res: any = run(`
+    let obj := [{get} use foo]
+
+    provide foo := 1
+    let x := obj{get}
+    provide foo := 2
+    let y := obj{get}
+
+    x + y
+  `)
+  assert.deepEqual(res.value, 3)
+
+  const res2: any = run(`
+    let a := [{get} use foo]
+    provide foo := 3
+    let b := [
+      {provide 1: fn} 
+        provide foo := 1
+        fn{get};
+      {provide 2: fn}
+        provide foo := 2
+        fn{get};
+    ]
+    
+    b{provide 1: a} + b{provide 2: a} + a{get}
+  `)
+  assert.deepEqual(res2.value, 6)
+
+  assert.throws(() => {
+    run(`
+      let obj := [{get} use foo]
+      obj{get}
+    `)
+  })
+})

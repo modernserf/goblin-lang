@@ -186,6 +186,8 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
       )
     case "object":
       return object(scope, null, value.methods)
+    case "use":
+      return { tag: "use", key: value.value }
   }
 }
 
@@ -244,6 +246,10 @@ function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
       const value = expr(scope, stmt.value)
       const record = scope.useSet(stmt.binding.value)
       return [{ tag: "assign", index: record.index, value }]
+    }
+    case "provide": {
+      const value = expr(scope, stmt.value)
+      return [{ tag: "provide", key: stmt.binding.value, value }]
     }
     case "return":
       return [{ tag: "return", value: expr(scope, stmt.value) }]

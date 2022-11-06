@@ -65,6 +65,7 @@ export type ParseExpr =
   | { tag: "parens"; value: ParseExpr }
   | { tag: "object"; items: ParseItem[] }
   | { tag: "call"; target: ParseExpr; items: ParseItem[] }
+  | { tag: "use"; value: string }
   | { tag: "unaryOp"; target: ParseExpr; operator: string }
   | { tag: "binaryOp"; target: ParseExpr; arg: ParseExpr; operator: string }
 
@@ -95,6 +96,12 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
       const items = repeat(lexer, item)
       mustToken(lexer, "closeBracket")
       return { tag: "object", items }
+    }
+    case "use": {
+      lexer.advance()
+      const value =
+        accept(lexer, "quotedIdent") || mustToken(lexer, "identifier")
+      return { tag: "use", value: value.value }
     }
     default:
       return null
@@ -141,6 +148,7 @@ export type ParseStmt =
   | { tag: "let"; binding: ParseExpr; value: ParseExpr }
   | { tag: "set"; binding: ParseExpr; value: ParseExpr }
   | { tag: "var"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "provide"; binding: ParseExpr; value: ParseExpr }
   | { tag: "return"; value: ParseExpr }
   | { tag: "expr"; value: ParseExpr }
 
@@ -149,7 +157,8 @@ function stmt(lexer: Lexer): ParseStmt | null {
   switch (token.tag) {
     case "let":
     case "set":
-    case "var": {
+    case "var":
+    case "provide": {
       lexer.advance()
       const binding = must(lexer, "binding", expr)
       mustToken(lexer, "colonEquals")
@@ -202,13 +211,17 @@ function accept<Tag extends Token["tag"]>(
   return null
 }
 
-function mustToken(lexer: Lexer, tag: Token["tag"]): Token {
+function mustToken<Tag extends Token["tag"]>(
+  lexer: Lexer,
+  tag: Tag
+): Token & { tag: Tag } {
   const token = lexer.peek()
-  if (tag !== token.tag) {
-    throw new Error(`Expected ${tag}, received ${token.tag}`)
+  if (tag === token.tag) {
+    lexer.advance()
+    return token as Token & { tag: Tag }
   }
-  lexer.advance()
-  return token
+
+  throw new Error(`Expected ${tag}, received ${token.tag}`)
 }
 
 function must<T>(

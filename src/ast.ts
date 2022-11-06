@@ -28,6 +28,7 @@ export type ASTExpr =
   | { tag: "call"; target: ASTExpr; selector: string; args: ASTArg[] }
   | { tag: "frame"; selector: string; args: ASTFrameArg[] }
   | { tag: "object"; methods: Map<string, ASTMethod> }
+  | { tag: "use"; value: string }
 
 function methodParam(param: ParseArg): ASTParam {
   switch (param.tag) {
@@ -205,6 +206,7 @@ function expr(value: ParseExpr): ASTExpr {
     case "integer":
     case "string":
     case "identifier":
+    case "use":
       return value
     case "parens":
       return expr(value.value)
@@ -236,11 +238,13 @@ export type ASTLetBinding =
 // TODO: `set` paths
 export type ASTSetBinding = { tag: "identifier"; value: string }
 export type ASTVarBinding = { tag: "identifier"; value: string }
+export type ASTProvideBinding = { tag: "identifier"; value: string }
 
 export type ASTStmt =
   | { tag: "let"; binding: ASTLetBinding; value: ASTExpr }
   | { tag: "set"; binding: ASTSetBinding; value: ASTExpr }
   | { tag: "var"; binding: ASTVarBinding; value: ASTExpr }
+  | { tag: "provide"; binding: ASTProvideBinding; value: ASTExpr }
   | { tag: "return"; value: ASTExpr }
   | { tag: "expr"; value: ASTExpr }
 
@@ -285,6 +289,11 @@ function varBinding(value: ParseExpr): ASTVarBinding {
   throw new Error("invalid var binding")
 }
 
+function provideBinding(value: ParseExpr): ASTProvideBinding {
+  if (value.tag === "identifier") return value
+  throw new Error("invalid provide binding")
+}
+
 function stmt(value: ParseStmt): ASTStmt {
   switch (value.tag) {
     case "let":
@@ -303,6 +312,12 @@ function stmt(value: ParseStmt): ASTStmt {
       return {
         tag: "var",
         binding: varBinding(value.binding),
+        value: expr(value.value),
+      }
+    case "provide":
+      return {
+        tag: "provide",
+        binding: provideBinding(value.binding),
         value: expr(value.value),
       }
     case "return":

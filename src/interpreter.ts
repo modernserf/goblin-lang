@@ -2,7 +2,14 @@ import { IRExpr, IRStmt, IRArg, Value } from "./ir"
 import { unit } from "./stdlib"
 
 class Interpreter {
-  constructor(readonly self: Value, private locals: Value[]) {}
+  static root(): Interpreter {
+    return new Interpreter(unit, [], new Map())
+  }
+  constructor(
+    readonly self: Value,
+    private locals: Value[],
+    private provideScope: Map<string, Value>
+  ) {}
   setLocal(index: number, value: Value) {
     this.locals[index] = value
   }
@@ -14,6 +21,19 @@ class Interpreter {
       throw new Error("getIvar should be unreachable")
     }
     return this.self.ivars[index]
+  }
+  use(key: string): Value {
+    const res = this.provideScope.get(key)
+    if (!res) throw new Error(`No provider for ${key}`)
+    return res
+  }
+  provide(key: string, value: Value) {
+    const next = new Map(this.provideScope)
+    next.set(key, value)
+    this.provideScope = next
+  }
+  createChild(self: Value, args: IRArg[]) {
+    return new Interpreter(self, argValues(this, args), this.provideScope)
   }
 }
 
@@ -43,7 +63,7 @@ function call(
     case "object": {
       const method = target.class.get(selector)
       if (!method) throw new Error(`No method with selector ${selector}`)
-      const ctx = new Interpreter(target, argValues(parent, args))
+      const ctx = parent.createChild(target, args)
       const result = body(ctx, method.body)
       for (const effect of method.effects) {
         switch (effect.tag) {
@@ -82,6 +102,8 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
       }
     case "call":
       return call(ctx, value.selector, expr(ctx, value.target), value.args)
+    case "use":
+      return ctx.use(value.key)
     default:
       throw new Error(value)
   }
@@ -102,12 +124,15 @@ function body(ctx: Interpreter, stmts: IRStmt[]): Value {
       case "expr":
         result = expr(ctx, stmt.value)
         break
+      case "provide":
+        ctx.provide(stmt.key, expr(ctx, stmt.value))
+        break
     }
   }
   return result
 }
 
 export function program(stmts: IRStmt[]): Value {
-  const ctx = new Interpreter(unit, [])
+  const ctx = Interpreter.root()
   return body(ctx, stmts)
 }

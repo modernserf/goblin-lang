@@ -18,11 +18,13 @@ export type IRExpr =
   | { tag: "primitive"; class: PrimitiveClass; value: any }
   | { tag: "object"; class: IRClass; ivars: IRExpr[] }
   | { tag: "call"; selector: string; target: IRExpr; args: IRArg[] }
+  | { tag: "use"; key: string }
 
 export type IRStmt =
   | { tag: "assign"; index: number; value: IRExpr }
   | { tag: "return"; value: IRExpr }
   | { tag: "expr"; value: IRExpr }
+  | { tag: "provide"; key: string; value: IRExpr }
 
 export type Value =
   | { tag: "object"; class: IRClass; ivars: Value[] }
