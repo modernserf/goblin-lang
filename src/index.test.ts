@@ -122,7 +122,7 @@ test("var & set", () => {
   const res: any = run(`
     var x := 1
     set x := 2
-    x 
+    x
   `)
   assert.deepEqual(res.value, 2)
 
@@ -151,7 +151,7 @@ test("var & set", () => {
 
   assert.throws(() => {
     run(`
-      var [x: a y: b] := [x: 1 y: 2] 
+      var [x: a y: b] := [x: 1 y: 2]
     `)
   })
 

@@ -30,6 +30,8 @@ const re = {
   punctuation: /:=|[\[\]\(\)\{\}:;]/y,
 }
 
+const keyRe = /[^\[\]\(\)\{\}:;]*/y
+
 const keywords: Set<Token["tag"]> = new Set([
   "self",
   "let",
@@ -55,6 +57,7 @@ type Option<T> = { value: T } | null
 
 export class Lexer {
   private index = 0
+  private lastIndex = 0
   private peekCache: Token | null = null
   constructor(private code: string) {}
   *[Symbol.iterator](): Iterator<Token> {
@@ -71,6 +74,14 @@ export class Lexer {
     const next = this.next()
     this.peekCache = next
     return next
+  }
+  acceptKey(): string {
+    this.advance()
+    this.ignoreWhitespace()
+    this.index = this.lastIndex
+    const res = this.callRe(keyRe)
+    if (!res) return ""
+    return res.value.trim().replace(/\s+/g, " ")
   }
   advance() {
     this.peekCache = null
@@ -126,6 +137,7 @@ export class Lexer {
     }
   }
   private callRe(re: RegExp): Option<string> {
+    this.lastIndex = this.index
     re.lastIndex = this.index
     const out = re.exec(this.code)
     if (out) {

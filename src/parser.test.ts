@@ -31,8 +31,9 @@ test("parens", () => {
 
 test("calls", () => {
   parse(`
-    x{}
-    x{foo}
+    zz
+    xy{}
+    xz{foo}
     x{foo: 1}
     x{_foo_}
     x{foo: 1 bar: 2}
@@ -44,7 +45,7 @@ test("calls", () => {
 test("objects", () => {
   parse(`
   []
-  [foo bar]
+  [foo-bar]
   [_foo_ _bar_]
   [foo: 1 bar: 2]
 `)
@@ -61,7 +62,7 @@ test("let, return stmts", () => {
 test("var params", () => {
   parse(`
     let foo := [
-      {x: var x} 
+      {x: var x}
         set x := 1
         self
     ]

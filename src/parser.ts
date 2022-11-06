@@ -57,26 +57,6 @@ function structExpr(lexer: Lexer): ASTStruct<ASTArg> {
   )
 }
 
-function keyComponent(lexer: Lexer): string | null {
-  const token = lexer.peek()
-  switch (token.tag) {
-    case "identifier":
-    case "operator":
-      lexer.advance()
-      return token.value
-    case "integer":
-      lexer.advance()
-      return String(token.value)
-    case "let":
-    case "self":
-    case "return":
-      lexer.advance()
-      return token.tag
-    default:
-      return null
-  }
-}
-
 function struct<T extends { tag: string }>(
   lexer: Lexer,
   quotedIdent: (key: string) => T,
@@ -105,15 +85,13 @@ function struct<T extends { tag: string }>(
         break
       }
       default: {
-        const key = repeat(lexer, keyComponent).join(" ")
-        if (lexer.peek().tag === "colon") {
-          lexer.advance()
+        const key = lexer.acceptKey()
+        if (!key) return builder.build()
+        if (accept(lexer, "colon")) {
           const value = parseValue(lexer)
           builder = builder.pair(key, value)
-        } else if (key) {
-          builder = builder.key(key)
         } else {
-          return builder.build()
+          builder = builder.key(key)
         }
       }
     }

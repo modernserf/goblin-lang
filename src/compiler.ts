@@ -1,5 +1,5 @@
 import { ASTBinding, ASTExpr, ASTMethod, ASTParam, ASTStmt } from "./ast"
-import { Effect, IRClass, IRExpr, IRMethod, IRStmt } from "./ir"
+import { IRClass, IRExpr, IRMethod, IRStmt } from "./ir"
 import { intClass, stringClass } from "./stdlib"
 import { frame } from "./frame"
 
