@@ -82,11 +82,12 @@ export class Lexer {
   acceptKey(): string {
     this.advance()
     this.ignoreWhitespace()
-    this.index = this.lastIndex
-    const res = this.callRe(keyRe)
-    if (!res) return ""
-    this.lastIndex = this.index
-    return res.value.trim().replace(/\s+/g, " ")
+
+    keyRe.lastIndex = this.lastIndex
+    const out = keyRe.exec(this.code)![0] // should always match
+    this.lastIndex = this.index = keyRe.lastIndex
+
+    return out.trim().replace(/\s+/g, " ")
   }
   advance() {
     this.peekCache = null
