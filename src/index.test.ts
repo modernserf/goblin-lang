@@ -1,6 +1,6 @@
 const test = require("node:test")
 import assert from "node:assert/strict"
-import "./lexer.test"
+import "./parser.test"
 import { run } from "./index"
 
 test("hello world", () => {

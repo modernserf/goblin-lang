@@ -7,6 +7,39 @@ export type ParseArg =
   | { tag: "var"; value: ParseExpr }
 // TODO: curly brace => block
 
+export type ParseItem =
+  | { tag: "key"; key: string }
+  | { tag: "pair"; key: string; value: ParseArg }
+  | { tag: "punPair"; key: string }
+  | { tag: "method"; params: ParseItem[]; body: ParseStmt[] }
+// TODO: multiple method heads, decorators
+
+// used for both ast exprs and bindings
+export type ParseExpr =
+  | { tag: "self" }
+  | { tag: "integer"; value: number }
+  | { tag: "string"; value: string }
+  | { tag: "identifier"; value: string }
+  | { tag: "parens"; value: ParseExpr }
+  | { tag: "object"; items: ParseItem[] }
+  | { tag: "call"; target: ParseExpr; items: ParseItem[] }
+  | { tag: "use"; value: string }
+  | { tag: "unaryOp"; target: ParseExpr; operator: string }
+  | { tag: "binaryOp"; target: ParseExpr; arg: ParseExpr; operator: string }
+
+export type ParseStmt =
+  | { tag: "let"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "set"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "var"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "provide"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "import"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "return"; value: ParseExpr }
+  | { tag: "expr"; value: ParseExpr }
+
+export class ParseError {
+  constructor(readonly expected: string, readonly received: string) {}
+}
+
 function arg(lexer: Lexer): ParseArg {
   const token = lexer.peek()
   switch (token.tag) {
@@ -17,13 +50,6 @@ function arg(lexer: Lexer): ParseArg {
       return { tag: "value", value: must(lexer, "expr", expr) }
   }
 }
-
-export type ParseItem =
-  | { tag: "key"; key: string }
-  | { tag: "pair"; key: string; value: ParseArg }
-  | { tag: "punPair"; key: string }
-  | { tag: "method"; params: ParseItem[]; body: ParseStmt[] }
-// TODO: multiple method heads, decorators
 
 function item(lexer: Lexer): ParseItem | null {
   const token = lexer.peek()
@@ -55,19 +81,6 @@ function item(lexer: Lexer): ParseItem | null {
     }
   }
 }
-
-// used for both ast exprs and bindings
-export type ParseExpr =
-  | { tag: "self" }
-  | { tag: "integer"; value: number }
-  | { tag: "string"; value: string }
-  | { tag: "identifier"; value: string }
-  | { tag: "parens"; value: ParseExpr }
-  | { tag: "object"; items: ParseItem[] }
-  | { tag: "call"; target: ParseExpr; items: ParseItem[] }
-  | { tag: "use"; value: string }
-  | { tag: "unaryOp"; target: ParseExpr; operator: string }
-  | { tag: "binaryOp"; target: ParseExpr; arg: ParseExpr; operator: string }
 
 function baseExpr(lexer: Lexer): ParseExpr | null {
   const token = lexer.peek()
@@ -144,15 +157,6 @@ function expr(lexer: Lexer): ParseExpr | null {
   return value
 }
 
-export type ParseStmt =
-  | { tag: "let"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "set"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "var"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "provide"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "import"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "return"; value: ParseExpr }
-  | { tag: "expr"; value: ParseExpr }
-
 function stmt(lexer: Lexer): ParseStmt | null {
   const token = lexer.peek()
   switch (token.tag) {
@@ -185,7 +189,6 @@ export function program(lexer: Lexer): ParseStmt[] {
 }
 
 // utils
-
 function repeat<T>(lexer: Lexer, parser: (l: Lexer) => T | null): T[] {
   const out: T[] = []
   let lastToken = lexer.peek()
@@ -223,7 +226,7 @@ function mustToken<Tag extends Token["tag"]>(
     return token as Token & { tag: Tag }
   }
 
-  throw new Error(`Expected ${tag}, received ${token.tag}`)
+  throw new ParseError(tag, token.tag)
 }
 
 function must<T>(
@@ -232,8 +235,6 @@ function must<T>(
   parser: (l: Lexer) => T | null
 ): T {
   const res = parser(lexer)
-  if (res === null) {
-    throw new Error(`Expected ${name}, received ${lexer.peek().tag}`)
-  }
+  if (res === null) throw new ParseError(name, lexer.peek().tag)
   return res
 }

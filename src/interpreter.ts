@@ -1,4 +1,11 @@
-import { IRExpr, IRStmt, IRArg, Value } from "./ir"
+import {
+  IRExpr,
+  IRStmt,
+  IRArg,
+  Value,
+  NoMethodError,
+  NoProviderError,
+} from "./ir"
 import { unit } from "./stdlib"
 
 class Interpreter {
@@ -24,7 +31,7 @@ class Interpreter {
   }
   use(key: string): Value {
     const res = this.provideScope.get(key)
-    if (!res) throw new Error(`No provider for ${key}`)
+    if (!res) throw new NoProviderError(key)
     return res
   }
   provide(key: string, value: Value) {
@@ -55,7 +62,7 @@ function call(
   args: IRArg[]
 ): Value {
   const method = target.class.methods.get(selector)
-  if (!method) throw new Error(`No method with selector ${selector}`)
+  if (!method) throw new NoMethodError(selector)
   const primitiveValue = target.tag === "primitive" ? target.value : null
 
   switch (method.tag) {
@@ -100,8 +107,6 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
       return call(ctx, value.selector, expr(ctx, value.target), value.args)
     case "use":
       return ctx.use(value.key)
-    default:
-      throw new Error(value)
   }
 }
 

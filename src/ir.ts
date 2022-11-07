@@ -27,3 +27,15 @@ export type IRStmt =
 export type Value =
   | { tag: "object"; class: IRClass; ivars: Value[] }
   | { tag: "primitive"; class: IRClass; value: any }
+
+export class PrimitiveTypeError {
+  constructor(readonly expected: string) {}
+}
+
+export class NoMethodError {
+  constructor(readonly selector: string) {}
+}
+
+export class NoProviderError {
+  constructor(readonly key: string) {}
+}

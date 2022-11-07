@@ -61,18 +61,15 @@ type MatcherTable = typeof matcherTable
 
 type Option<T> = { value: T } | null
 
+export class LexerError {
+  constructor(readonly index: number) {}
+}
+
 export class Lexer {
   private index = 0
   private lastIndex = 0
   private peekCache: Token | null = null
   constructor(private code: string) {}
-  *[Symbol.iterator](): Iterator<Token> {
-    while (true) {
-      this.ignoreWhitespace()
-      if (this.index >= this.code.length) return
-      yield this.next()
-    }
-  }
   peek(): Token {
     if (this.peekCache) return this.peekCache
     this.ignoreWhitespace()
@@ -81,12 +78,14 @@ export class Lexer {
     this.peekCache = next
     return next
   }
+  // TODO: this feels pretty janky; can this be refactored into a transition between lexer states?
   acceptKey(): string {
     this.advance()
     this.ignoreWhitespace()
     this.index = this.lastIndex
     const res = this.callRe(keyRe)
     if (!res) return ""
+    this.lastIndex = this.index
     return res.value.trim().replace(/\s+/g, " ")
   }
   advance() {
@@ -131,9 +130,7 @@ export class Lexer {
       return { tag: matcherTable[punc.value as keyof MatcherTable] }
     }
 
-    console.error()
-
-    throw new Error("Unknown token")
+    throw new LexerError(this.index)
   }
   private ignoreWhitespace() {
     re.commentWhitespace.lastIndex = this.index

@@ -1,4 +1,4 @@
-import { IRClass, Value, IRMethod } from "./ir"
+import { IRClass, Value, IRMethod, PrimitiveTypeError } from "./ir"
 
 class IRClassBuilder {
   private methods = new Map<string, IRMethod>()
@@ -21,7 +21,7 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("+:", (self, args) => {
     const arg = args[0]
     if (arg.tag !== "primitive" || arg.class !== intClass) {
-      throw new Error("Expected integer")
+      throw new PrimitiveTypeError("integer")
     }
     return { tag: "primitive", class: intClass, value: self + arg.value }
   })

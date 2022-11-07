@@ -30,12 +30,17 @@ export type ASTExpr =
   | { tag: "object"; methods: Map<string, ASTMethod> }
   | { tag: "use"; value: string }
 
+export class InvalidVarParamError {}
+export class DuplicateKeyError {
+  constructor(readonly key: string) {}
+}
+
 function methodParam(param: ParseArg): ASTParam {
   switch (param.tag) {
     case "value":
       return { tag: "binding", binding: letBinding(param.value) }
     case "var":
-      if (param.value.tag !== "identifier") throw new Error("invalid var param")
+      if (param.value.tag !== "identifier") throw new InvalidVarParamError()
       return { tag: "var", binding: param.value }
   }
 }
@@ -44,27 +49,30 @@ class MapBuilder<T> {
   private map = new Map<string, T>()
   add(key: string, value: T, arg: ParseArg | null) {
     key = arg?.tag === "var" ? `${key}[var]` : key
-    if (this.map.has(key)) throw new Error("duplicate key")
+    if (this.map.has(key)) throw new DuplicateKeyError(key)
     this.map.set(key, value)
   }
   build(): { selector: string; values: T[] } {
     const sortedKeys = Array.from(this.map.keys()).sort()
-    // TODO: selector needs to contain `(var)` annotation
     const selector = sortedKeys.map((k) => `${k}:`).join("")
     const values = sortedKeys.map((k) => this.map.get(k)!)
     return { selector, values }
   }
 }
 
+export class InvalidMethodError {}
+export class InvalidCallStructureError {}
+export class InvalidMethodParamsError {}
+
 function method(item: ParseItem): ASTMethod {
-  if (item.tag !== "method") throw new Error("invalid method")
+  if (item.tag !== "method") throw new InvalidMethodError()
   const body = item.body.map(stmt)
 
   if (item.params.length === 0) {
     return { selector: "", params: [], body }
   }
   if (item.params[0].tag === "key") {
-    if (item.params.length > 1) throw new Error("invalid call structure")
+    if (item.params.length > 1) throw new InvalidCallStructureError()
     return { selector: item.params[0].key, params: [], body }
   }
 
@@ -73,7 +81,7 @@ function method(item: ParseItem): ASTMethod {
     switch (param.tag) {
       case "key":
       case "method":
-        throw new Error("invalid method params")
+        throw new InvalidMethodParamsError()
       case "punPair": {
         map.add(
           param.key,
@@ -95,8 +103,11 @@ function method(item: ParseItem): ASTMethod {
   return { selector, params, body }
 }
 
+export class InvalidFrameEntryError {}
+export class InvalidFrameStructureError {}
+
 function frameArg(key: string, arg: ParseArg): ASTFrameArg {
-  if (arg.tag !== "value") throw new Error("Invalid frame entry")
+  if (arg.tag !== "value") throw new InvalidFrameEntryError()
   return { key, value: expr(arg.value) }
 }
 
@@ -106,7 +117,7 @@ function frame(items: ParseItem[]): ASTExpr {
     switch (item.tag) {
       case "key":
       case "method":
-        throw new Error("invalid frame structure")
+        throw new InvalidFrameStructureError()
       case "punPair": {
         map.add(
           item.key,
@@ -128,19 +139,26 @@ function frame(items: ParseItem[]): ASTExpr {
   return { tag: "frame", selector, args }
 }
 
+export class DuplicateMethodError {
+  constructor(readonly selector: string) {}
+}
+
 function object(items: ParseItem[]): ASTExpr {
   if (items.length === 0) {
     return { tag: "frame", selector: "", args: [] }
   }
   switch (items[0].tag) {
     case "key":
-      if (items.length > 1) throw new Error("invalid frame structure")
+      if (items.length > 1) throw new InvalidFrameStructureError()
       return { tag: "frame", selector: items[0].key, args: [] }
     case "method": {
-      const methodList = items.map(method)
-      const methods = new Map(methodList.map((m) => [m.selector, m]))
-      if (methods.size !== methodList.length) {
-        throw new Error("duplicate method selector")
+      const methods = new Map<string, ASTMethod>()
+      for (const item of items) {
+        const m = method(item)
+        if (methods.has(m.selector)) {
+          throw new DuplicateMethodError(m.selector)
+        }
+        methods.set(m.selector, m)
       }
       return { tag: "object", methods }
     }
@@ -149,6 +167,8 @@ function object(items: ParseItem[]): ASTExpr {
       return frame(items)
   }
 }
+
+export class InvalidVarArgError {}
 
 function callArg(arg: ParseArg): ASTArg {
   switch (arg.tag) {
@@ -159,7 +179,7 @@ function callArg(arg: ParseArg): ASTArg {
         case "identifier":
           return { tag: "var", value: arg.value }
         default:
-          throw new Error("invalid var arg")
+          throw new InvalidVarArgError()
       }
   }
 }
@@ -169,7 +189,7 @@ function call(target: ASTExpr, items: ParseItem[]): ASTExpr {
     return { tag: "call", target, selector: "", args: [] }
   }
   if (items[0].tag === "key") {
-    if (items.length > 1) throw new Error("invalid call structure")
+    if (items.length > 1) throw new InvalidCallStructureError()
     return { tag: "call", target, selector: items[0].key, args: [] }
   }
 
@@ -178,7 +198,7 @@ function call(target: ASTExpr, items: ParseItem[]): ASTExpr {
     switch (item.tag) {
       case "key":
       case "method":
-        throw new Error("invalid call structure")
+        throw new InvalidCallStructureError()
       case "punPair": {
         map.add(
           item.key,
@@ -255,11 +275,13 @@ export type ASTStmt =
   | { tag: "return"; value: ASTExpr }
   | { tag: "expr"; value: ASTExpr }
 
+export class InvalidDestructuringError {}
+
 function destructureItem(item: ParseItem): ASTDestructuredBinding {
   switch (item.tag) {
     case "key":
     case "method":
-      throw new Error("invalid destructuring")
+      throw new InvalidDestructuringError()
     case "punPair":
       return {
         key: item.key,
@@ -268,12 +290,19 @@ function destructureItem(item: ParseItem): ASTDestructuredBinding {
     case "pair":
       switch (item.value.tag) {
         case "var":
-          throw new Error("invalid destructuring")
+          throw new InvalidDestructuringError()
         case "value":
           return { key: item.key, value: letBinding(item.value.value) }
       }
   }
 }
+
+export class InvalidLetBindingError {}
+export class InvalidVarBindingError {}
+export class InvalidSetTargetError {}
+export class InvalidProvideBindingError {}
+export class InvalidImportBindingError {}
+export class InvalidImportSourceError {}
 
 function letBinding(value: ParseExpr): ASTLetBinding {
   switch (value.tag) {
@@ -282,23 +311,23 @@ function letBinding(value: ParseExpr): ASTLetBinding {
     case "object":
       return { tag: "object", params: value.items.map(destructureItem) }
     default:
-      throw new Error("invalid let binding")
+      throw new InvalidLetBindingError()
   }
 }
 
 function setBinding(value: ParseExpr): ASTSetBinding {
   if (value.tag === "identifier") return value
-  throw new Error("invalid set target")
+  throw new InvalidSetTargetError()
 }
 
 function varBinding(value: ParseExpr): ASTVarBinding {
   if (value.tag === "identifier") return value
-  throw new Error("invalid var binding")
+  throw new InvalidVarBindingError()
 }
 
 function provideBinding(value: ParseExpr): ASTProvideBinding {
   if (value.tag === "identifier") return value
-  throw new Error("invalid provide binding")
+  throw new InvalidProvideBindingError()
 }
 
 function importBinding(value: ParseExpr): ASTImportBinding {
@@ -306,13 +335,13 @@ function importBinding(value: ParseExpr): ASTImportBinding {
     case "object":
       return { tag: "object", params: value.items.map(destructureItem) }
     default:
-      throw new Error("invalid import binding")
+      throw new InvalidImportBindingError()
   }
 }
 
 function importSource(value: ParseExpr): ASTImportSource {
   if (value.tag === "string") return value
-  throw new Error("invalid import source")
+  throw new InvalidImportSourceError()
 }
 
 function stmt(value: ParseStmt): ASTStmt {
