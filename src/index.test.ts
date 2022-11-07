@@ -146,6 +146,21 @@ test("classes, closures", () => {
   assert.deepEqual(res.value, 12)
 })
 
+test("deep closures", () => {
+  const res: any = run(`
+    let val := 1
+    let obj := [
+      {foo} [
+        {bar} [
+          {baz} val
+        ]
+      ]
+    ]
+    obj{foo}{bar}{baz}
+  `)
+  assert.deepEqual(res.value, 1)
+})
+
 test("var & set", () => {
   const res: any = run(`
     var x := 1
@@ -161,43 +176,6 @@ test("var & set", () => {
     x + y
   `)
   assert.deepEqual(res2.value, 3)
-
-  assert.throws(() => {
-    run(`
-      let x := 1
-      set x := 2
-      x
-    `)
-  })
-
-  assert.throws(() => {
-    run(`
-      set x := 2
-      x
-    `)
-  })
-
-  assert.throws(() => {
-    run(`
-      var [x: a y: b] := [x: 1 y: 2]
-    `)
-  })
-
-  assert.throws(() => {
-    run(`
-      var p := 1
-      set [x: p] := [x: 2]
-    `)
-  })
-
-  assert.throws(() => {
-    run(`
-      var x := 1
-      [
-        {foo} x
-      ]
-    `)
-  })
 })
 
 test("var args", () => {

@@ -13,6 +13,20 @@ import { core, intClass, stringClass } from "./stdlib"
 type ScopeType = "let" | "var"
 type ScopeRecord = { index: number; type: ScopeType }
 
+export class ReferenceError {
+  constructor(readonly key: string) {}
+}
+export class NotVarError {
+  constructor(readonly key: string) {}
+}
+export class OuterScopeVarError {
+  constructor(readonly key: string) {}
+}
+export class DuplicateBindingError {
+  constructor(readonly key: string) {}
+}
+export class NoModuleSelfError {}
+
 class Scope {
   private locals = new Map<string, ScopeRecord>()
   constructor(
@@ -28,20 +42,20 @@ class Scope {
     const record = this.locals.get(key)
     if (record) {
       if (record.type == "var") {
-        throw new Error(`cannot access var ${key} from outer scope`)
+        throw new OuterScopeVarError(key)
       }
       return { tag: "local", index: record.index }
     }
     return this.lookupInstance(key)
   }
   private lookupInstance(key: string): IRExpr {
-    if (!this.instance) throw new Error(`Unknown binding ${key}`)
+    if (!this.instance) throw new ReferenceError(key)
     return this.instance.lookup(key)
   }
   lookupVarIndex(key: string): number {
     const record = this.locals.get(key)
-    if (!record) throw new Error(`unknown var ${key}`)
-    if (record.type !== "var") throw new Error(`Binding ${key} is not var`)
+    if (!record) throw new ReferenceError(key)
+    if (record.type !== "var") throw new NotVarError(key)
     return record.index
   }
   hasLocal(key: string): boolean {
@@ -58,12 +72,12 @@ class Scope {
   }
   useSet(key: string): ScopeRecord {
     const record = this.locals.get(key)
-    if (!record) throw new Error(`unknown binding ${key}`)
-    if (record.type !== "var") throw new Error(`Binding ${key} is not var`)
+    if (!record) throw new ReferenceError(key)
+    if (record.type !== "var") throw new NotVarError(key)
     return record
   }
   private setLocal(key: string, value: ScopeRecord): ScopeRecord {
-    if (this.locals.has(key)) throw new Error(`Duplicate key ${key}`)
+    if (this.locals.has(key)) throw new DuplicateBindingError(key)
     this.locals.set(key, value)
     return value
   }
@@ -71,9 +85,7 @@ class Scope {
     return { index: this.localsIndex++, type }
   }
   getSelf(): IRExpr {
-    if (!this.instance) {
-      throw new Error("No self at module root")
-    }
+    if (!this.instance) throw new NoModuleSelfError()
     return { tag: "self" }
   }
   newInstance(): Instance {
