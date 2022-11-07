@@ -17,13 +17,25 @@ export const unit: Value = { tag: "object", class: unitClass, ivars: [] }
 
 export const stringClass = new IRClassBuilder().build()
 
+function intValue(arg: Value): number {
+  if (arg.tag !== "primitive" || arg.class !== intClass) {
+    throw new PrimitiveTypeError("integer")
+  }
+  return arg.value
+}
+
 export const intClass: IRClass = new IRClassBuilder()
-  .addPrimitive("+:", (self, args) => {
-    const arg = args[0]
-    if (arg.tag !== "primitive" || arg.class !== intClass) {
-      throw new PrimitiveTypeError("integer")
-    }
-    return { tag: "primitive", class: intClass, value: self + arg.value }
+  .addPrimitive("+:", (self, [arg]) => {
+    return { tag: "primitive", class: intClass, value: self + intValue(arg) }
+  })
+  .addPrimitive("-:", (self, [arg]) => {
+    return { tag: "primitive", class: intClass, value: self - intValue(arg) }
+  })
+  .addPrimitive("*:", (self, [arg]) => {
+    return { tag: "primitive", class: intClass, value: self * intValue(arg) }
+  })
+  .addPrimitive("-", (self) => {
+    return { tag: "primitive", class: intClass, value: -self }
   })
   .addPrimitive("js debug", (self) => {
     console.log("DEBUG:", self)

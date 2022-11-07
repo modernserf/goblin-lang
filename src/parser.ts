@@ -74,7 +74,7 @@ function item(lexer: Lexer): ParseItem | null {
       if (!key) return null
       if (accept(lexer, "colon")) {
         const value = must(lexer, "arg", arg)
-        return { tag: "pair", key: key || "", value }
+        return { tag: "pair", key: key, value }
       } else {
         return { tag: "key", key }
       }
@@ -196,6 +196,7 @@ function repeat<T>(lexer: Lexer, parser: (l: Lexer) => T | null): T[] {
     const res = parser(lexer)
     if (res === null) break
     out.push(res)
+    /* istanbul ignore next */
     if (lexer.peek() === lastToken) {
       throw new Error(`stuck at token ${JSON.stringify(lastToken)}`)
     }

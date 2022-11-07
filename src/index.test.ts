@@ -13,6 +13,17 @@ test("addition", () => {
   assert.deepEqual(res.value, 3)
 })
 
+test("operator precedence", () => {
+  const a: any = run(`2 + 3 * 4`)
+  assert.deepEqual(a.value, 20)
+  const b: any = run(`2 + (3 * 4)`)
+  assert.deepEqual(b.value, 14)
+  const c: any = run(`2 - 1`)
+  assert.deepEqual(c.value, 1)
+  const d: any = run(`2; - 1`)
+  assert.deepEqual(d.value, -1)
+})
+
 test("locals", () => {
   const res: any = run(`
     let x := 1
