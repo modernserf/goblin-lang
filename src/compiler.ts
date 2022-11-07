@@ -99,7 +99,7 @@ class Instance {
 
 function methodParam(
   scope: Scope,
-  method: IRMethod,
+  method: IRMethod & { tag: "object" },
   argIndex: number,
   param: ASTParam
 ) {
@@ -133,10 +133,10 @@ function object(
   methods: Map<string, ASTMethod>
 ): IRExpr {
   const instance = parentScope.newInstance()
-  const objectClass: IRClass = new Map()
+  const objectClass: IRClass = { methods: new Map() }
   for (const [selector, method] of methods) {
     const scope = instance.newScope()
-    const out: IRMethod = { body: [], effects: [] }
+    const out: IRMethod = { tag: "object", body: [], effects: [] }
     for (const [argIndex, param] of method.params.entries()) {
       methodParam(scope, out, argIndex, param)
     }
@@ -147,7 +147,7 @@ function object(
     }
 
     out.body.push(...body(scope, method.body))
-    objectClass.set(selector, out)
+    objectClass.methods.set(selector, out)
   }
   return { tag: "object", class: objectClass, ivars: instance.ivars }
 }

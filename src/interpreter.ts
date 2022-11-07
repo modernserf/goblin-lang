@@ -54,15 +54,14 @@ function call(
   target: Value,
   args: IRArg[]
 ): Value {
-  switch (target.tag) {
-    case "primitive": {
-      const method = target.class.get(selector)
-      if (!method) throw new Error(`No method with selector ${selector}`)
-      return method(target.value, argValues(parent, args))
-    }
-    case "object": {
-      const method = target.class.get(selector)
-      if (!method) throw new Error(`No method with selector ${selector}`)
+  const method = target.class.methods.get(selector)
+  if (!method) throw new Error(`No method with selector ${selector}`)
+  const primitiveValue = target.tag === "primitive" ? target.value : null
+
+  switch (method.tag) {
+    case "primitive":
+      return method.fn(primitiveValue, argValues(parent, args))
+    case "object":
       const ctx = parent.createChild(target, args)
       const result = body(ctx, method.body)
       for (const effect of method.effects) {
@@ -70,9 +69,7 @@ function call(
           case "var":
             const arg = args[effect.argIndex]
             if (arg.tag !== "var") {
-              // HERE: why is the arg not a var?
-              console.log({ effect, arg })
-              throw new Error("should be unreachable")
+              throw new Error("var should be unreachable")
             }
 
             const result = ctx.getLocal(effect.indexInMethod)
@@ -80,7 +77,6 @@ function call(
         }
       }
       return result
-    }
   }
 }
 
