@@ -2,6 +2,7 @@ const test = require("node:test")
 import assert from "node:assert/strict"
 import "./parser.test"
 import "./compiler.test"
+import "./ast.test"
 import { run } from "./index"
 import { PrimitiveTypeError } from "./ir"
 
@@ -42,16 +43,21 @@ test("locals", () => {
 test("objects", () => {
   const res: any = run(`
     let x := [
-      {foo} 1
+      {} 1;
+      {foo} 2;
+      {bar: arg} arg;
+      {_baz_} baz;
     ]
-    x{foo}
+    let bar := 3
+    x{} + x{foo} + x{_bar_} + x{baz: 4}
   `)
-  assert.deepEqual(res.value, 1)
+  assert.deepEqual(res.value, 10)
 })
 
 test("frames", () => {
   const res: any = run(`
-    let x := [foo: 1 bar: 2]
+    let bar := 2
+    let x := [foo: 1 _bar_]
     x{foo} + x{bar}
   `)
   assert.deepEqual(res.value, 3)
@@ -88,6 +94,15 @@ test("pattern matching", () => {
     foo{:match} + bar{:match}
   `)
   assert.deepEqual(res.value, 11)
+  const res2: any = run(`
+    let empty := []
+    let match := [
+      {} 1;
+      {other} 2;
+    ]
+    empty{:match}
+  `)
+  assert.deepEqual(res2.value, 1)
 })
 
 test("ivals", () => {

@@ -64,21 +64,6 @@ test("not a var", () => {
     `)
   }, NotVarError)
 
-  // TODO: AST
-  assert.throws(() => {
-    compile(`
-      var [x: a y: b] := [x: 1 y: 2]
-    `)
-  })
-
-  // TODO: AST
-  assert.throws(() => {
-    compile(`
-      var p := 1
-      set [x: p] := [x: 2]
-    `)
-  })
-
   assert.throws(() => {
     compile(`
       var x := 1

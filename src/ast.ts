@@ -72,7 +72,8 @@ function method(item: ParseItem): ASTMethod {
     return { selector: "", params: [], body }
   }
   if (item.params[0].tag === "key") {
-    if (item.params.length > 1) throw new InvalidCallStructureError()
+    /* istanbul ignore next */
+    if (item.params.length > 1) throw new Error("unreachable")
     return { selector: item.params[0].key, params: [], body }
   }
 
@@ -189,7 +190,8 @@ function call(target: ASTExpr, items: ParseItem[]): ASTExpr {
     return { tag: "call", target, selector: "", args: [] }
   }
   if (items[0].tag === "key") {
-    if (items.length > 1) throw new InvalidCallStructureError()
+    /* istanbul ignore next */
+    if (items.length > 1) throw new Error("unreachable")
     return { tag: "call", target, selector: items[0].key, args: [] }
   }
 
