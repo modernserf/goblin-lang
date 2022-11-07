@@ -3,6 +3,7 @@ import { IRClass, Value, IRMethod, PrimitiveTypeError } from "./ir"
 class IRClassBuilder {
   private methods = new Map<string, IRMethod>()
   addPrimitive(key: string, fn: (value: any, args: Value[]) => Value): this {
+    /* istanbul ignore next */
     if (this.methods.has(key)) throw new Error("duplicate method")
     this.methods.set(key, { tag: "primitive", fn })
     return this
@@ -37,10 +38,13 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("-", (self) => {
     return { tag: "primitive", class: intClass, value: -self }
   })
-  .addPrimitive("js debug", (self) => {
-    console.log("DEBUG:", self)
-    return unit
-  })
+  .addPrimitive(
+    "js debug",
+    /* istanbul ignore next */ (self) => {
+      console.log("DEBUG:", self)
+      return unit
+    }
+  )
   .build()
 
 const cellInstance = new IRClassBuilder()

@@ -1,16 +1,22 @@
 const test = require("node:test")
 import assert from "node:assert/strict"
 import "./parser.test"
+import "./compiler.test"
 import { run } from "./index"
+import { PrimitiveTypeError } from "./ir"
 
 test("hello world", () => {
   const res: any = run(`"Hello, world!"`)
   assert.deepEqual(res.value, "Hello, world!")
 })
 
-test("addition", () => {
+test("primitive methods", () => {
   const res: any = run(`1 + 2`)
   assert.deepEqual(res.value, 3)
+
+  assert.throws(() => {
+    run(`1 + "hello"`)
+  }, PrimitiveTypeError)
 })
 
 test("operator precedence", () => {
@@ -57,6 +63,18 @@ test("destructuring", () => {
     foo + a + b
   `)
   assert.deepEqual(res.value, 6)
+})
+
+test("destructuring args", () => {
+  const res: any = run(`
+    let p := [
+      {add: [x: x1 y: y1] to: [x: x2 y: y2]}
+        [x: x1 + x2 y: y1 + y2];
+    ]
+    let result := p{add: [x: 1 y: 1] to: [x: 2 y: 2]}
+    result{y}
+  `)
+  assert.deepEqual(res.value, 3)
 })
 
 test("pattern matching", () => {

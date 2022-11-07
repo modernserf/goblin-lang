@@ -24,6 +24,7 @@ class Interpreter {
     return this.locals[index]
   }
   getIvar(index: number): Value {
+    /* istanbul ignore next */
     if (this.self.tag === "primitive") {
       throw new Error("getIvar should be unreachable")
     }
@@ -75,6 +76,7 @@ function call(
         switch (effect.tag) {
           case "var":
             const arg = args[effect.argIndex]
+            /* istanbul ignore next */
             if (arg.tag !== "var") {
               throw new Error("var should be unreachable")
             }

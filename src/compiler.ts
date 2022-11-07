@@ -15,8 +15,10 @@ type ScopeRecord = { index: number; type: ScopeType }
 
 class Scope {
   private locals = new Map<string, ScopeRecord>()
-  private localsIndex = 0
-  constructor(private instance: Instance | null = null) {}
+  constructor(
+    private instance: Instance | null = null,
+    private localsIndex = 0
+  ) {}
   lookup(key: string): IRExpr {
     const res = this.locals.get(key)
     if (res) return { tag: "local", index: res.index }
@@ -77,6 +79,12 @@ class Scope {
   newInstance(): Instance {
     return new Instance(this)
   }
+  useLetArg(key: string, index: number) {
+    return this.setLocal(key, { index, type: "let" })
+  }
+  useVarArg(key: string, index: number) {
+    return this.setLocal(key, { index, type: "var" })
+  }
 }
 
 class Instance {
@@ -92,8 +100,8 @@ class Instance {
     this.ivarMap.set(key, { index, type: "let" })
     return { tag: "ivar", index }
   }
-  newScope(): Scope {
-    return new Scope(this)
+  newScope(arity: number): Scope {
+    return new Scope(this, arity)
   }
 }
 
@@ -107,17 +115,16 @@ function methodParam(
     case "binding":
       switch (param.binding.tag) {
         case "identifier":
-          scope.useLet(param.binding.value)
+          scope.useLetArg(param.binding.value, argIndex)
           return
         case "object": {
-          const record = scope.useAnon()
-          const local: IRExpr = { tag: "local", index: record.index }
+          const local: IRExpr = { tag: "local", index: argIndex }
           method.body.push(...letStmt(scope, param.binding, local))
           return
         }
       }
     case "var":
-      const record = scope.useVar(param.binding.value)
+      const record = scope.useVarArg(param.binding.value, argIndex)
       method.effects.push({
         tag: "var",
         argIndex,
@@ -135,7 +142,7 @@ function object(
   const instance = parentScope.newInstance()
   const objectClass: IRClass = { methods: new Map() }
   for (const [selector, method] of methods) {
-    const scope = instance.newScope()
+    const scope = instance.newScope(method.params.length)
     const out: IRMethod = { tag: "object", body: [], effects: [] }
     for (const [argIndex, param] of method.params.entries()) {
       methodParam(scope, out, argIndex, param)
@@ -252,6 +259,7 @@ function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
       return [{ tag: "provide", key: stmt.binding.value, value }]
     }
     case "import": {
+      /* istanbul ignore next */
       if (stmt.source.value !== "core") {
         throw "todo imports"
       }
