@@ -247,3 +247,15 @@ test("use/provide", () => {
     `)
   })
 })
+
+test("cell", () => {
+  const res: any = run(`
+    import [_Cell_] := "core"
+
+    let a := Cell{: 0}
+    let b := a
+    a{set: 1}
+    b{get}
+  `)
+  assert.deepEqual(res.value, 1)
+})

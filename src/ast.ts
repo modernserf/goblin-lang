@@ -240,11 +240,18 @@ export type ASTSetBinding = { tag: "identifier"; value: string }
 export type ASTVarBinding = { tag: "identifier"; value: string }
 export type ASTProvideBinding = { tag: "identifier"; value: string }
 
+export type ASTImportBinding = {
+  tag: "object"
+  params: ASTDestructuredBinding[]
+}
+export type ASTImportSource = { tag: "string"; value: string }
+
 export type ASTStmt =
   | { tag: "let"; binding: ASTLetBinding; value: ASTExpr }
   | { tag: "set"; binding: ASTSetBinding; value: ASTExpr }
   | { tag: "var"; binding: ASTVarBinding; value: ASTExpr }
   | { tag: "provide"; binding: ASTProvideBinding; value: ASTExpr }
+  | { tag: "import"; binding: ASTImportBinding; source: ASTImportSource }
   | { tag: "return"; value: ASTExpr }
   | { tag: "expr"; value: ASTExpr }
 
@@ -294,6 +301,20 @@ function provideBinding(value: ParseExpr): ASTProvideBinding {
   throw new Error("invalid provide binding")
 }
 
+function importBinding(value: ParseExpr): ASTImportBinding {
+  switch (value.tag) {
+    case "object":
+      return { tag: "object", params: value.items.map(destructureItem) }
+    default:
+      throw new Error("invalid import binding")
+  }
+}
+
+function importSource(value: ParseExpr): ASTImportSource {
+  if (value.tag === "string") return value
+  throw new Error("invalid import source")
+}
+
 function stmt(value: ParseStmt): ASTStmt {
   switch (value.tag) {
     case "let":
@@ -319,6 +340,12 @@ function stmt(value: ParseStmt): ASTStmt {
         tag: "provide",
         binding: provideBinding(value.binding),
         value: expr(value.value),
+      }
+    case "import":
+      return {
+        tag: "import",
+        binding: importBinding(value.binding),
+        source: importSource(value.value),
       }
     case "return":
       return { tag: "return", value: expr(value.value) }

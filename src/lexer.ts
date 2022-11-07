@@ -11,6 +11,7 @@ export type Token =
   | { tag: "set" }
   | { tag: "provide" }
   | { tag: "use" }
+  | { tag: "import" }
   | { tag: "openBracket" }
   | { tag: "closeBracket" }
   | { tag: "openBrace" }
@@ -32,7 +33,7 @@ const re = {
   punctuation: /:=|[\[\]\(\)\{\}:;]/y,
 }
 
-const keyRe = /[^\[\]\(\)\{\}:;]*/y
+const keyRe = /[^\[\]\(\)\{\}:;,]*/y
 
 const keywords: Set<Token["tag"]> = new Set([
   "self",
@@ -42,6 +43,7 @@ const keywords: Set<Token["tag"]> = new Set([
   "set",
   "provide",
   "use",
+  "import",
 ])
 
 const matcherTable = {

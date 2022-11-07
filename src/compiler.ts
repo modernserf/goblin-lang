@@ -8,7 +8,7 @@ import {
 } from "./ast"
 import { frame } from "./frame"
 import { IRStmt, IRExpr, IRArg, IRClass, IRMethod } from "./ir"
-import { intClass, stringClass } from "./stdlib"
+import { core, intClass, stringClass } from "./stdlib"
 
 type ScopeType = "let" | "var"
 type ScopeRecord = { index: number; type: ScopeType }
@@ -250,6 +250,16 @@ function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
     case "provide": {
       const value = expr(scope, stmt.value)
       return [{ tag: "provide", key: stmt.binding.value, value }]
+    }
+    case "import": {
+      if (stmt.source.value !== "core") {
+        throw "todo imports"
+      }
+      return letStmt(scope, stmt.binding, {
+        tag: "object",
+        ivars: [],
+        class: core,
+      })
     }
     case "return":
       return [{ tag: "return", value: expr(scope, stmt.value) }]

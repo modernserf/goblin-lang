@@ -1,5 +1,6 @@
 export type PrimitiveMethod = (value: any, args: Value[]) => Value
 
+// TODO: primitive class should be able to contain IR Methods (which access no ivars, only other methods)
 export type PrimitiveClass = Map<string, PrimitiveMethod>
 
 export type Effect = { tag: "var"; argIndex: number; indexInMethod: number }

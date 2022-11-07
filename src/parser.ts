@@ -149,6 +149,7 @@ export type ParseStmt =
   | { tag: "set"; binding: ParseExpr; value: ParseExpr }
   | { tag: "var"; binding: ParseExpr; value: ParseExpr }
   | { tag: "provide"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "import"; binding: ParseExpr; value: ParseExpr }
   | { tag: "return"; value: ParseExpr }
   | { tag: "expr"; value: ParseExpr }
 
@@ -158,7 +159,8 @@ function stmt(lexer: Lexer): ParseStmt | null {
     case "let":
     case "set":
     case "var":
-    case "provide": {
+    case "provide":
+    case "import": {
       lexer.advance()
       const binding = must(lexer, "binding", expr)
       mustToken(lexer, "colonEquals")
