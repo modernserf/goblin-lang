@@ -5,6 +5,12 @@ import "./compiler.test"
 import "./ast.test"
 import { run } from "./index"
 import { PrimitiveTypeError } from "./ir"
+import { readFile } from "node:fs/promises"
+
+test("test file", async () => {
+  const file = await readFile("./src/test.gob", { encoding: "utf-8" })
+  run(file)
+})
 
 test("hello world", () => {
   const res: any = run(`"Hello, world!"`)
@@ -282,13 +288,14 @@ test("use/provide", () => {
 })
 
 test("cell", () => {
-  const res: any = run(`
-    import [_Cell_] := "core"
+  run(`
+    import [_Cell_ _Assert_] := "core"
 
     let a := Cell{: 0}
     let b := a
     a{set: 1}
-    b{get}
+    
+    Assert{expected: 1 received: b{get}}
   `)
-  assert.deepEqual(res.value, 1)
+  // assert.deepEqual(res.value, 1)
 })

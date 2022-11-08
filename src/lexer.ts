@@ -27,8 +27,8 @@ const re = {
   commentWhitespace: /(?:#[^\n]*|\s)+/y,
   integer: /[0-9][0-9_]*/y,
   string: /"(?:\\"|[^"])*"/y,
-  identKw: /[a-zA-Z][a-zA-Z0-9_]*/y,
-  identUnderscore: /_[^_]*_/y,
+  identKw: /[a-zA-Z][a-zA-Z0-9']*/y,
+  identUnderscore: /_(?:\\_|[^_])*_/y,
   operator: /[-~!@$%^&*+|<>,?/=]+/y,
   punctuation: /:=|[\[\]\(\)\{\}:;]/y,
 }

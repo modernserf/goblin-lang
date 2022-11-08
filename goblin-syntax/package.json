@@ -1,0 +1,48 @@
+{
+  "name": "goblin",
+  "displayName": "Goblin",
+  "description": "Syntax highlighting for Goblin programming language",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.73.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "goblin",
+        "aliases": [
+          "Goblin",
+          "goblin"
+        ],
+        "extensions": [
+          ".gob"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "goblin-injection"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "goblin",
+        "scopeName": "source.goblin",
+        "path": "./syntaxes/goblin.tmLanguage.json"
+      },
+      {
+        "language": "goblin-injection",
+        "scopeName": "markdown.goblin.codeblock",
+        "path": "./syntaxes/codeblock.json",
+        "injectTo": [
+          "text.html.markdown"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.goblin": "goblin"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "fileTypes": [],
+  "injectionSelector": "L:text.html.markdown",
+  "patterns": [
+    {
+      "include": "#goblin-code-block"
+    }
+  ],
+  "repository": {
+    "goblin-code-block": {
+      "begin": "```goblin",
+      "name": "markup.fenced_code.block.markdown",
+      "end": "```",
+      "patterns": [
+        {
+          "begin": "(^|\\G)(\\s*)(.*)",
+          "while": "(^|\\G)(?!\\s*([`~]{3,})\\s*$)",
+          "contentName": "meta.embedded.block.goblin",
+          "patterns": [
+            {
+              "include": "source.goblin"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "scopeName": "markdown.goblin.codeblock"
+}

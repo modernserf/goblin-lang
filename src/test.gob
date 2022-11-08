@@ -1,0 +1,256 @@
+import [
+  _Cell_
+  _Assert_
+] := "core"
+
+# strings
+let str := "Hello, world!"
+Assert{
+  received: str 
+  expected: "Hello, world!"
+}
+
+# numbers, operators
+Assert{
+  received: 1 + 2
+  expected: 3
+}
+
+Assert{
+  received: 2 + 3 * 4
+  expected: 20
+}
+
+Assert{
+  received: 2 + (3 * 4)
+  expected: 14
+}
+
+Assert{
+  received: [{}
+    2 - 1
+  ]{}
+  expected: 1
+}
+
+Assert{
+  received: [{}
+    2; - 1
+  ]{}
+  expected: -1
+}
+
+# locals
+let x := 1
+Assert{received: x expected: 1}
+
+# objects
+let x := [
+  {} 1;
+  {foo} 2;
+  {bar: arg} arg;
+  {_baz_} baz;
+]
+let bar := 3
+Assert{
+  received: x{} + x{foo} + x{_bar_} + x{baz: 4}
+  expected: 10
+}
+
+# frames
+let bar := 2
+let x := [foo: 1 _bar_]
+Assert{
+  received: x{foo} + x{bar}
+  expected: 3
+}
+
+# destructuring
+let [x: foo y: [_a_ _b_]] := [x: 1 y: [a: 2 b: 3]]
+Assert{
+  received: foo + a + b
+  expected: 6
+}
+
+let p := [
+  {add: [x: x1 y: y1] to: [x: x2 y: y2]}
+    [x: x1 + x2 y: y1 + y2];
+]
+let result := p{add: [x: 1 y: 1] to: [x: 2 y: 2]}
+
+Assert{
+  received: result{y}
+  expected: 3
+}
+
+# pattern matching
+let foo := [some: 1]
+let bar := [none]
+let pattern := [
+  {some: x} x;
+  {none} 10;
+]
+Assert{
+  received: foo{:pattern} + bar{:pattern}
+  expected: 11
+}
+
+let empty := []
+let pattern := [
+  {} 1;
+  {other} 2;
+]
+Assert{
+  received: empty{:pattern}
+  expected: 1
+}
+
+# instances
+let x := 1
+let obj := [
+  {ival} x
+]
+Assert{
+  received: obj{ival}
+  expected: 1
+}
+
+let obj := [
+  {x} 1;
+  {y} self{x};
+]
+Assert{ 
+  received: obj{y}
+  expected: 1
+}
+
+let indirect := [
+  {x} 1;
+  {y} indirect{x};
+]
+Assert{
+  received: indirect{y}
+  expected: 1
+}
+
+# classes
+let Option := [
+  {some: value} [
+    {map: fn}
+      let next := fn{: value}
+      Option{some: next};
+    {or default: __}
+      value;
+  ];
+  {none} [
+    {map: fn}
+      self;
+    {or default: value}
+      value;
+  ];
+]
+let foo := Option{some: 1}
+Assert{
+  received: foo{map: [+: 1]}{or default: 10}
+  expected: 2
+}
+let bar := Option{none}
+Assert{
+  received: bar{map: [+: 1]}{or default: 10}
+  expected: 10
+}
+
+# deep closures
+let val := 1
+let obj := [
+  {foo} [
+    {bar} [
+      {baz} val
+    ]
+  ]
+]
+Assert{
+  received: obj{foo}{bar}{baz}
+  expected: 1
+}
+    
+# var & set
+var x := 1
+let y := x
+set x := 2
+Assert{
+  received: x
+  expected: 2
+}
+Assert{
+  received: y
+  expected: 1
+}
+
+let obj := [
+  {inc: var x}
+    set x := x + 1
+    self
+]
+var x := 1
+obj
+  {inc: var x}
+  {inc: var x}
+Assert{
+  received: x
+  expected: 3
+}
+
+let obj := [
+  {foo: x bar: var y}
+    set y := x
+    self
+]
+var y := 0
+obj{foo: 2 bar: var y}
+Assert{
+  received: y
+  expected: 2
+}
+
+let result := [{}
+  let obj := [{get} use foo]
+
+  provide foo := 1
+  let x := obj{get}
+  provide foo := 2
+  let y := obj{get}
+  x + y
+]{}
+Assert{
+  received: result
+  expected: 3 
+}
+
+let result := [{}
+  let a := [{get} use foo]
+  provide foo := 3
+  let b := [
+    {pv 1: fn} 
+      provide foo := 1
+      fn{get};
+    {pv 2: fn}
+      provide foo := 2
+      fn{get};
+  ]
+  b{pv 1: a} + b{pv 2: a} + a{get}
+]{}
+Assert{
+  received: result
+  expected: 6
+}
+
+# cell
+let a := Cell{: 0}
+let b := a
+a{set: 1}
+
+Assert{
+  received: b{get}
+  expected: 1
+}
