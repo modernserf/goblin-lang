@@ -35,6 +35,38 @@ export class DuplicateKeyError {
   constructor(readonly key: string) {}
 }
 
+export type ASTDestructuredBinding = { key: string; value: ASTLetBinding }
+export type ASTLetBinding =
+  | { tag: "identifier"; value: string }
+  | { tag: "object"; params: ASTDestructuredBinding[] }
+// TODO: `set` paths
+export type ASTSetBinding = { tag: "identifier"; value: string }
+export type ASTVarBinding = { tag: "identifier"; value: string }
+export type ASTProvideBinding = { tag: "identifier"; value: string }
+
+export type ASTImportBinding = {
+  tag: "object"
+  params: ASTDestructuredBinding[]
+}
+export type ASTImportSource = { tag: "string"; value: string }
+
+export type ASTStmt =
+  | { tag: "let"; binding: ASTLetBinding; value: ASTExpr }
+  | { tag: "set"; binding: ASTSetBinding; value: ASTExpr }
+  | { tag: "var"; binding: ASTVarBinding; value: ASTExpr }
+  | { tag: "provide"; binding: ASTProvideBinding; value: ASTExpr }
+  | { tag: "import"; binding: ASTImportBinding; source: ASTImportSource }
+  | { tag: "return"; value: ASTExpr }
+  | { tag: "expr"; value: ASTExpr }
+
+export class InvalidDestructuringError {}
+export class InvalidLetBindingError {}
+export class InvalidVarBindingError {}
+export class InvalidSetTargetError {}
+export class InvalidProvideBindingError {}
+export class InvalidImportBindingError {}
+export class InvalidImportSourceError {}
+
 function methodParam(param: ParseArg): ASTParam {
   switch (param.tag) {
     case "value":
@@ -253,32 +285,6 @@ function expr(value: ParseExpr): ASTExpr {
   }
 }
 
-export type ASTDestructuredBinding = { key: string; value: ASTLetBinding }
-export type ASTLetBinding =
-  | { tag: "identifier"; value: string }
-  | { tag: "object"; params: ASTDestructuredBinding[] }
-// TODO: `set` paths
-export type ASTSetBinding = { tag: "identifier"; value: string }
-export type ASTVarBinding = { tag: "identifier"; value: string }
-export type ASTProvideBinding = { tag: "identifier"; value: string }
-
-export type ASTImportBinding = {
-  tag: "object"
-  params: ASTDestructuredBinding[]
-}
-export type ASTImportSource = { tag: "string"; value: string }
-
-export type ASTStmt =
-  | { tag: "let"; binding: ASTLetBinding; value: ASTExpr }
-  | { tag: "set"; binding: ASTSetBinding; value: ASTExpr }
-  | { tag: "var"; binding: ASTVarBinding; value: ASTExpr }
-  | { tag: "provide"; binding: ASTProvideBinding; value: ASTExpr }
-  | { tag: "import"; binding: ASTImportBinding; source: ASTImportSource }
-  | { tag: "return"; value: ASTExpr }
-  | { tag: "expr"; value: ASTExpr }
-
-export class InvalidDestructuringError {}
-
 function destructureItem(item: ParseItem): ASTDestructuredBinding {
   switch (item.tag) {
     case "key":
@@ -298,13 +304,6 @@ function destructureItem(item: ParseItem): ASTDestructuredBinding {
       }
   }
 }
-
-export class InvalidLetBindingError {}
-export class InvalidVarBindingError {}
-export class InvalidSetTargetError {}
-export class InvalidProvideBindingError {}
-export class InvalidImportBindingError {}
-export class InvalidImportSourceError {}
 
 function letBinding(value: ParseExpr): ASTLetBinding {
   switch (value.tag) {

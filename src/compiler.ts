@@ -22,9 +22,6 @@ export class NotVarError {
 export class OuterScopeVarError {
   constructor(readonly key: string) {}
 }
-export class DuplicateBindingError {
-  constructor(readonly key: string) {}
-}
 export class NoModuleSelfError {}
 
 class Scope {
@@ -52,14 +49,11 @@ class Scope {
     if (!this.instance) throw new ReferenceError(key)
     return this.instance.lookup(key)
   }
-  lookupVarIndex(key: string): number {
+  lookupVar(key: string): number {
     const record = this.locals.get(key)
     if (!record) throw new ReferenceError(key)
     if (record.type !== "var") throw new NotVarError(key)
     return record.index
-  }
-  hasLocal(key: string): boolean {
-    return this.locals.has(key)
   }
   useAnon(): ScopeRecord {
     return this.newRecord("let")
@@ -70,14 +64,7 @@ class Scope {
   useVar(key: string): ScopeRecord {
     return this.setLocal(key, this.newRecord("var"))
   }
-  useSet(key: string): ScopeRecord {
-    const record = this.locals.get(key)
-    if (!record) throw new ReferenceError(key)
-    if (record.type !== "var") throw new NotVarError(key)
-    return record
-  }
   private setLocal(key: string, value: ScopeRecord): ScopeRecord {
-    if (this.locals.has(key)) throw new DuplicateBindingError(key)
     this.locals.set(key, value)
     return value
   }
@@ -136,12 +123,8 @@ function methodParam(
         }
       }
     case "var":
-      const record = scope.useVarArg(param.binding.value, argIndex)
-      method.effects.push({
-        tag: "var",
-        argIndex,
-        indexInMethod: record.index,
-      })
+      scope.useVarArg(param.binding.value, argIndex)
+      method.effects.push({ tag: "var", argIndex })
       return
   }
 }
@@ -160,7 +143,7 @@ function object(
       methodParam(scope, out, argIndex, param)
     }
 
-    if (selfBinding !== null && !scope.hasLocal(selfBinding)) {
+    if (selfBinding !== null) {
       const { index } = scope.useLet(selfBinding)
       out.body.push({ tag: "assign", index, value: { tag: "self" } })
     }
@@ -174,7 +157,7 @@ function object(
 function arg(scope: Scope, arg: ASTArg): IRArg {
   switch (arg.tag) {
     case "var":
-      return { tag: "var", index: scope.lookupVarIndex(arg.value.value) }
+      return { tag: "var", index: scope.lookupVar(arg.value.value) }
     case "expr":
       return { tag: "value", value: expr(scope, arg.value) }
   }
@@ -263,8 +246,9 @@ function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
     }
     case "set": {
       const value = expr(scope, stmt.value)
-      const record = scope.useSet(stmt.binding.value)
-      return [{ tag: "assign", index: record.index, value }]
+      return [
+        { tag: "assign", index: scope.lookupVar(stmt.binding.value), value },
+      ]
     }
     case "provide": {
       const value = expr(scope, stmt.value)

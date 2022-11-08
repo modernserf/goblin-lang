@@ -1,4 +1,4 @@
-export type Effect = { tag: "var"; argIndex: number; indexInMethod: number }
+export type Effect = { tag: "var"; argIndex: number }
 
 export type IRMethod =
   | { tag: "object"; body: IRStmt[]; effects: Effect[] }

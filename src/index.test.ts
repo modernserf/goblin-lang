@@ -208,6 +208,17 @@ test("var args", () => {
   `)
   assert.deepEqual(res.value, 3)
 
+  run(`
+    let obj := [
+      {foo: x bar: var y}
+        set y := x
+        self
+    ]
+    var y := 0
+    obj{foo: 2 bar: var y}
+    y
+  `)
+
   assert.throws(() => {
     run(`
       let obj := [

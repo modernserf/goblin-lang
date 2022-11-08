@@ -81,7 +81,7 @@ function call(
               throw new Error("var should be unreachable")
             }
 
-            const result = ctx.getLocal(effect.indexInMethod)
+            const result = ctx.getLocal(effect.argIndex)
             parent.setLocal(arg.index, result)
         }
       }

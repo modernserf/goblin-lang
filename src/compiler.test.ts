@@ -5,7 +5,6 @@ import { Lexer } from "./lexer"
 import { program as parse } from "./parser"
 import { program as astWalk } from "./ast"
 import {
-  DuplicateBindingError,
   NoModuleSelfError,
   NotVarError,
   OuterScopeVarError,
@@ -18,15 +17,6 @@ export function compile(source: string) {
   const ast = astWalk(parseTree)
   return program(ast)
 }
-
-test("duplicate let", () => {
-  assert.throws(() => {
-    compile(`
-      let x := 1
-      let x := 2
-    `)
-  }, DuplicateBindingError)
-})
 
 test("reference error", () => {
   assert.throws(() => {
