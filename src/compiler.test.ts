@@ -5,6 +5,7 @@ import { Lexer } from "./lexer"
 import { program as parse } from "./parser"
 import { program as astWalk } from "./ast"
 import {
+  BlockReferenceError,
   NoModuleSelfError,
   NotVarError,
   OuterScopeVarError,
@@ -70,4 +71,53 @@ test("self at module root", () => {
       self 
     `)
   }, NoModuleSelfError)
+})
+
+test("block usage", () => {
+  assert.throws(() => {
+    compile(`
+      let foo := []
+      let bar := [
+        {foo: block b} foo{: b}
+      ] 
+    `)
+  }, BlockReferenceError)
+
+  assert.throws(() => {
+    compile(`
+      let foo := []
+      let bar := [
+        {foo: block b} b
+      ] 
+    `)
+  }, BlockReferenceError)
+
+  assert.throws(() => {
+    compile(`
+      let foo := []
+      let bar := [
+        {foo: block b}
+          let baz := b
+          1
+      ] 
+    `)
+  }, BlockReferenceError)
+
+  assert.doesNotThrow(() => {
+    compile(`
+      let foo := []
+      let bar := [
+        {foo: block b} foo{: block b}
+      ] 
+    `)
+  })
+
+  assert.doesNotThrow(() => {
+    compile(`
+      let foo := []
+      let bar := [
+        {foo: b} foo{: block b}
+      ] 
+    `)
+  })
 })

@@ -31,6 +31,9 @@ export class OuterScopeVarError {
   constructor(readonly key: string) {}
 }
 export class NoModuleSelfError {}
+export class BlockReferenceError {
+  constructor(readonly key: string) {}
+}
 
 class Scope {
   private locals = new Map<string, ScopeRecord>()
@@ -40,15 +43,17 @@ class Scope {
   ) {}
   lookup(key: string): IRExpr {
     const res = this.locals.get(key)
-    if (res) return { tag: "local", index: res.index }
+    if (res) {
+      if (res.type === "block") throw new BlockReferenceError(key)
+      return { tag: "local", index: res.index }
+    }
     return this.lookupInstance(key)
   }
   lookupOuterLet(key: string): IRExpr {
     const record = this.locals.get(key)
     if (record) {
-      if (record.type == "var") {
-        throw new OuterScopeVarError(key)
-      }
+      if (record.type == "var") throw new OuterScopeVarError(key)
+      if (record.type === "block") throw new BlockReferenceError(key)
       return { tag: "local", index: record.index }
     }
     return this.lookupInstance(key)
@@ -63,11 +68,13 @@ class Scope {
     if (record.type !== "var") throw new NotVarError(key)
     return record.index
   }
-  // any value can be passed as a block, but it must be local
+  // any value can be passed as a block
   lookupBlock(key: string): IRExpr {
     const record = this.locals.get(key)
-    if (!record) throw new ReferenceError(key)
-    return { tag: "local", index: record.index }
+    if (record) {
+      return { tag: "local", index: record.index }
+    }
+    return this.lookupInstance(key)
   }
   useAnon(): ScopeRecord {
     return this.newRecord("let")
@@ -186,8 +193,6 @@ function block(scope: Scope, methods: Map<string, ASTMethod>): IRBlockClass {
     for (const [argIndex, param] of method.params.entries()) {
       out.body.push(...methodParam(scope, offset + argIndex, param))
     }
-    console.log("scope", scope)
-
     out.body.push(...body(scope, method.body))
     objectClass.methods.set(selector, out)
   }
@@ -225,16 +230,12 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
       // TODO: lookup should fail on block vals _except_ in call target & block args
       return scope.lookup(value.value)
     case "call": {
-      const target = expr(scope, value.target)
-      try {
-        const args = value.args.map((v) => arg(scope, v))
-        return { tag: "call", target, selector: value.selector, args }
-      } catch (e) {
-        if (e === "not block") {
-          console.dir({ target, value }, { depth: null })
-        }
-        throw e
-      }
+      const target =
+        value.target.tag === "identifier"
+          ? scope.lookupBlock(value.target.value)
+          : expr(scope, value.target)
+      const args = value.args.map((v) => arg(scope, v))
+      return { tag: "call", target, selector: value.selector, args }
     }
     case "frame":
       return frame(
