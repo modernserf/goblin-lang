@@ -6,6 +6,7 @@ export type IRClass = { methods: Map<string, IRMethod> }
 export type IRArg =
   | { tag: "value"; value: IRExpr }
   | { tag: "var"; index: number }
+  | { tag: "block"; class: IRClass }
 
 export type IRExpr =
   | { tag: "local"; index: number }
@@ -22,8 +23,11 @@ export type IRStmt =
   | { tag: "expr"; value: IRExpr }
   | { tag: "provide"; key: string; value: IRExpr }
 
+type Ctx = {}
+
 export type Value =
   | { tag: "object"; class: IRClass; ivars: Value[] }
+  | { tag: "block"; class: IRClass; ctx: Ctx }
   | { tag: "primitive"; class: IRClass; value: any }
 
 export class PrimitiveTypeError {

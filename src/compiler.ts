@@ -123,6 +123,9 @@ function methodParam(
     case "var":
       scope.useVarArg(param.binding.value, argIndex)
       return []
+    case "block":
+      scope.useLetArg(param.binding.value, argIndex)
+      return []
   }
 }
 
@@ -152,12 +155,34 @@ function object(
   return { tag: "object", class: objectClass, ivars: instance.ivars }
 }
 
+function block(scope: Scope, methods: Map<string, ASTMethod>): IRClass {
+  const objectClass: IRClass = { methods: new Map() }
+  for (const [selector, method] of methods) {
+    const out: IRMethod = { tag: "object", body: [] }
+
+    for (const [argIndex, param] of method.params.entries()) {
+      out.body.push(...methodParam(scope, argIndex, param))
+    }
+
+    out.body.push(...body(scope, method.body))
+    objectClass.methods.set(selector, out)
+  }
+  return objectClass
+}
+
 function arg(scope: Scope, arg: ASTArg): IRArg {
   switch (arg.tag) {
     case "var":
       return { tag: "var", index: scope.lookupVar(arg.value.value) }
     case "expr":
       return { tag: "value", value: expr(scope, arg.value) }
+    case "block":
+      switch (arg.value.tag) {
+        case "identifier":
+          throw "todo block propagation"
+        case "object":
+          return { tag: "block", class: block(scope, arg.value.methods) }
+      }
   }
 }
 

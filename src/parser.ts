@@ -5,7 +5,10 @@ import { Lexer, Token } from "./lexer"
 export type ParseArg =
   | { tag: "value"; value: ParseExpr }
   | { tag: "var"; value: ParseExpr }
-// TODO: curly brace => block
+  | { tag: "block"; value: ParseExpr }
+  | { tag: "case"; cases: ParseBlockCase[] }
+
+export type ParseBlockCase = { params: ParseItem[]; body: ParseStmt[] }
 
 export type ParseItem =
   | { tag: "key"; key: string }
@@ -46,9 +49,23 @@ function arg(lexer: Lexer): ParseArg {
     case "var":
       lexer.advance()
       return { tag: "var", value: must(lexer, "expr", expr) }
+    case "block":
+      lexer.advance()
+      return { tag: "block", value: must(lexer, "expr", expr) }
+    case "case":
+      return { tag: "case", cases: repeat(lexer, caseArg) }
     default:
       return { tag: "value", value: must(lexer, "expr", expr) }
   }
+}
+
+function caseArg(lexer: Lexer): ParseBlockCase | null {
+  if (!accept(lexer, "case")) return null
+  mustToken(lexer, "openBrace")
+  const params = repeat(lexer, item)
+  mustToken(lexer, "closeBrace")
+  const body = repeat(lexer, stmt)
+  return { params, body }
 }
 
 function item(lexer: Lexer): ParseItem | null {

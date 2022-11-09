@@ -276,3 +276,40 @@ Assert{
   received: b{get}
   expected: 1
 }
+
+# return 
+let result := [{}
+  return 1
+  2
+]{}
+Assert{
+  received: result
+  expected: 1
+}
+
+# block vars
+var x := 1
+let do := [
+  {: block b} b{}
+]
+do{:
+  case {} 
+    set x := 2
+}
+Assert{
+  received: x
+  expected: 2
+}
+
+# nonlocal return
+let result := [{}
+  do{:
+    case {} 
+      return 1
+  }
+  return 2
+]{}
+Assert{
+  received: result
+  expected: 1
+}

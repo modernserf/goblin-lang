@@ -1,14 +1,22 @@
 import { ParseArg, ParseExpr, ParseItem, ParseStmt } from "./parser"
 
 export type ASTVarParam = { tag: "identifier"; value: string }
+export type ASTBlockParam = { tag: "identifier"; value: string }
 export type ASTParam =
   | { tag: "binding"; binding: ASTLetBinding }
   | { tag: "var"; binding: ASTVarParam }
+  | { tag: "block"; binding: ASTBlockParam }
+
+export type ASTBlockCase = { params: ASTParam[]; body: ASTStmt[] }
 
 export type ASTVarArg = { tag: "identifier"; value: string }
+export type ASTBlockArg =
+  | { tag: "identifier"; value: string }
+  | { tag: "object"; methods: Map<string, ASTMethod> }
 export type ASTArg =
   | { tag: "expr"; value: ASTExpr }
   | { tag: "var"; value: ASTVarArg }
+  | { tag: "block"; value: ASTBlockArg }
 
 export type ASTFrameArg = {
   key: string
@@ -74,15 +82,36 @@ function methodParam(param: ParseArg): ASTParam {
     case "var":
       if (param.value.tag !== "identifier") throw new InvalidVarParamError()
       return { tag: "var", binding: param.value }
+    case "case":
+      throw "invalid param"
+    case "block":
+      if (param.value.tag !== "identifier") throw "invalid param"
+      return { tag: "block", binding: param.value }
+  }
+}
+
+function argKey(key: string, arg: ParseArg | null) {
+  if (!arg) return key
+  switch (arg.tag) {
+    case "var":
+      return `${key}[var]`
+    // case "block":
+    // case "case":
+    // return `${key}[block]`
+    default:
+      return key
   }
 }
 
 class MapBuilder<T> {
   private map = new Map<string, T>()
   add(key: string, value: T, arg: ParseArg | null) {
-    key = arg?.tag === "var" ? `${key}[var]` : key
-    if (this.map.has(key)) throw new DuplicateKeyError(key)
-    this.map.set(key, value)
+    const taggedKey = argKey(key, arg)
+    if (this.map.has(taggedKey)) throw new DuplicateKeyError(key)
+    this.map.set(taggedKey, value)
+    // if (arg?.tag === "block") {
+    // this.add(key, value, null)
+    // }
   }
   build(): { selector: string; values: T[] } {
     const sortedKeys = Array.from(this.map.keys()).sort()
@@ -96,21 +125,20 @@ export class InvalidMethodError {}
 export class InvalidCallStructureError {}
 export class InvalidMethodParamsError {}
 
-function method(item: ParseItem): ASTMethod {
-  if (item.tag !== "method") throw new InvalidMethodError()
-  const body = item.body.map(stmt)
+function method(inParams: ParseItem[], inBody: ParseStmt[]): ASTMethod {
+  const body = inBody.map(stmt)
 
-  if (item.params.length === 0) {
+  if (inParams.length === 0) {
     return { selector: "", params: [], body }
   }
-  if (item.params[0].tag === "key") {
+  if (inParams[0].tag === "key") {
     /* istanbul ignore next */
-    if (item.params.length > 1) throw new Error("unreachable")
-    return { selector: item.params[0].key, params: [], body }
+    if (inParams.length > 1) throw new Error("unreachable")
+    return { selector: inParams[0].key, params: [], body }
   }
 
   const map = new MapBuilder<ASTParam>()
-  for (const param of item.params) {
+  for (const param of inParams) {
     switch (param.tag) {
       case "key":
       case "method":
@@ -132,8 +160,9 @@ function method(item: ParseItem): ASTMethod {
       }
     }
   }
-  const { selector, values: params } = map.build()
-  return { selector, params, body }
+
+  const { selector, values } = map.build()
+  return { selector, params: values, body }
 }
 
 export class InvalidFrameEntryError {}
@@ -187,7 +216,8 @@ function object(items: ParseItem[]): ASTExpr {
     case "method": {
       const methods = new Map<string, ASTMethod>()
       for (const item of items) {
-        const m = method(item)
+        if (item.tag !== "method") throw new InvalidMethodError()
+        const m = method(item.params, item.body)
         if (methods.has(m.selector)) {
           throw new DuplicateMethodError(m.selector)
         }
@@ -214,6 +244,25 @@ function callArg(arg: ParseArg): ASTArg {
         default:
           throw new InvalidVarArgError()
       }
+    case "block":
+      switch (arg.value.tag) {
+        case "identifier":
+          return { tag: "block", value: arg.value }
+        default:
+          throw "invalid block arg"
+      }
+    case "case": {
+      const methods = new Map<string, ASTMethod>()
+      for (const item of arg.cases) {
+        item
+        const m = method(item.params, item.body)
+        if (methods.has(m.selector)) {
+          throw new DuplicateMethodError(m.selector)
+        }
+        methods.set(m.selector, m)
+      }
+      return { tag: "block", value: { tag: "object", methods } }
+    }
   }
 }
 
@@ -297,6 +346,8 @@ function destructureItem(item: ParseItem): ASTDestructuredBinding {
       }
     case "pair":
       switch (item.value.tag) {
+        case "block":
+        case "case":
         case "var":
           throw new InvalidDestructuringError()
         case "value":

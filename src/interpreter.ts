@@ -25,7 +25,7 @@ class Interpreter {
   }
   getIvar(index: number): Value {
     /* istanbul ignore next */
-    if (this.self.tag === "primitive") {
+    if (this.self.tag !== "object") {
       throw new Error("getIvar should be unreachable")
     }
     return this.self.ivars[index]
@@ -40,7 +40,7 @@ class Interpreter {
     next.set(key, value)
     this.provideScope = next
   }
-  createChild(self: Value, args: IRArg[]) {
+  createChild(self: Value, args: IRArg[]): Interpreter {
     return new Interpreter(self, argValues(this, args), this.provideScope)
   }
 }
@@ -52,6 +52,8 @@ function argValues(ctx: Interpreter, args: IRArg[]): Value[] {
         return expr(ctx, arg.value)
       case "var":
         return ctx.getLocal(arg.index)
+      case "block":
+        return { tag: "block", class: arg.class, ctx }
     }
   })
 }
@@ -71,11 +73,12 @@ function call(
       return method.fn(primitiveValue, argValues(parent, args))
     case "object":
       const ctx = parent.createChild(target, args)
-      const result = Return.handleReturn(ctx, () => body(ctx, method.body))
+      const evalCtx: any = target.tag === "block" ? target.ctx : ctx
+      const result = Return.handleReturn(ctx, () => body(evalCtx, method.body))
 
       for (const [index, arg] of args.entries()) {
         if (arg.tag === "var") {
-          const result = ctx.getLocal(index)
+          const result = evalCtx.getLocal(index)
           parent.setLocal(arg.index, result)
         }
       }
@@ -108,15 +111,16 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
 }
 
 class Return {
-  constructor(private ctx: Interpreter, private value: Value) {}
-  static handleReturn(ctx: Interpreter, fn: () => Value): Value {
+  constructor(private ctx: object, private value: Value) {}
+  static handleReturn(ctx: object, fn: () => Value): Value {
     try {
       return fn()
     } catch (e) {
       if (e instanceof Return && e.ctx === ctx) {
         return e.value
+      } else {
+        throw e
       }
-      throw e
     }
   }
 }
