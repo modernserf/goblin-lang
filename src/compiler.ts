@@ -7,10 +7,18 @@ import {
   ASTParam,
 } from "./ast"
 import { frame } from "./frame"
-import { IRStmt, IRExpr, IRArg, IRClass, IRMethod } from "./ir"
+import {
+  IRStmt,
+  IRExpr,
+  IRArg,
+  IRClass,
+  IRMethod,
+  IRBlockClass,
+  IRBlockMethod,
+} from "./ir"
 import { core, intClass, stringClass } from "./stdlib"
 
-type ScopeType = "let" | "var"
+type ScopeType = "let" | "var" | "block"
 type ScopeRecord = { index: number; type: ScopeType }
 
 export class ReferenceError {
@@ -55,6 +63,12 @@ class Scope {
     if (record.type !== "var") throw new NotVarError(key)
     return record.index
   }
+  // any value can be passed as a block, but it must be local
+  lookupBlock(key: string): IRExpr {
+    const record = this.locals.get(key)
+    if (!record) throw new ReferenceError(key)
+    return { tag: "local", index: record.index }
+  }
   useAnon(): ScopeRecord {
     return this.newRecord("let")
   }
@@ -83,6 +97,14 @@ class Scope {
   }
   useVarArg(key: string, index: number) {
     return this.setLocal(key, { index, type: "var" })
+  }
+  useBlockArg(key: string, index: number) {
+    return this.setLocal(key, { index, type: "block" })
+  }
+  newBlock(arity: number) {
+    const prevIndex = this.localsIndex
+    this.localsIndex += arity
+    return prevIndex
   }
 }
 
@@ -124,7 +146,7 @@ function methodParam(
       scope.useVarArg(param.binding.value, argIndex)
       return []
     case "block":
-      scope.useLetArg(param.binding.value, argIndex)
+      scope.useBlockArg(param.binding.value, argIndex)
       return []
   }
 }
@@ -155,14 +177,16 @@ function object(
   return { tag: "object", class: objectClass, ivars: instance.ivars }
 }
 
-function block(scope: Scope, methods: Map<string, ASTMethod>): IRClass {
-  const objectClass: IRClass = { methods: new Map() }
+function block(scope: Scope, methods: Map<string, ASTMethod>): IRBlockClass {
+  const objectClass: IRBlockClass = { methods: new Map() }
   for (const [selector, method] of methods) {
-    const out: IRMethod = { tag: "object", body: [] }
-
+    // block params use parent scope, and do not start at zero
+    const offset = scope.newBlock(method.params.length)
+    const out: IRBlockMethod = { body: [], offset }
     for (const [argIndex, param] of method.params.entries()) {
-      out.body.push(...methodParam(scope, argIndex, param))
+      out.body.push(...methodParam(scope, offset + argIndex, param))
     }
+    console.log("scope", scope)
 
     out.body.push(...body(scope, method.body))
     objectClass.methods.set(selector, out)
@@ -179,7 +203,10 @@ function arg(scope: Scope, arg: ASTArg): IRArg {
     case "block":
       switch (arg.value.tag) {
         case "identifier":
-          throw "todo block propagation"
+          return {
+            tag: "value",
+            value: scope.lookupBlock(arg.value.value),
+          }
         case "object":
           return { tag: "block", class: block(scope, arg.value.methods) }
       }
@@ -195,11 +222,19 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
     case "string":
       return { tag: "primitive", class: stringClass, value: value.value }
     case "identifier":
+      // TODO: lookup should fail on block vals _except_ in call target & block args
       return scope.lookup(value.value)
     case "call": {
       const target = expr(scope, value.target)
-      const args = value.args.map((v) => arg(scope, v))
-      return { tag: "call", target, selector: value.selector, args }
+      try {
+        const args = value.args.map((v) => arg(scope, v))
+        return { tag: "call", target, selector: value.selector, args }
+      } catch (e) {
+        if (e === "not block") {
+          console.dir({ target, value }, { depth: null })
+        }
+        throw e
+      }
     }
     case "frame":
       return frame(

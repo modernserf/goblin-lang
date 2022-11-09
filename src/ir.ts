@@ -3,10 +3,13 @@ export type IRMethod =
   | { tag: "primitive"; fn: (value: any, args: Value[]) => Value }
 export type IRClass = { methods: Map<string, IRMethod> }
 
+export type IRBlockMethod = { body: IRStmt[]; offset: number }
+export type IRBlockClass = { methods: Map<string, IRBlockMethod> }
+
 export type IRArg =
   | { tag: "value"; value: IRExpr }
   | { tag: "var"; index: number }
-  | { tag: "block"; class: IRClass }
+  | { tag: "block"; class: IRBlockClass }
 
 export type IRExpr =
   | { tag: "local"; index: number }
@@ -27,7 +30,7 @@ type Ctx = {}
 
 export type Value =
   | { tag: "object"; class: IRClass; ivars: Value[] }
-  | { tag: "block"; class: IRClass; ctx: Ctx }
+  | { tag: "block"; class: IRBlockClass; ctx: Ctx }
   | { tag: "primitive"; class: IRClass; value: any }
 
 export class PrimitiveTypeError {

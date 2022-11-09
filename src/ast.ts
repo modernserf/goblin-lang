@@ -91,15 +91,15 @@ function methodParam(param: ParseArg): ASTParam {
 }
 
 function argKey(key: string, arg: ParseArg | null) {
-  if (!arg) return key
+  if (!arg) return `${key}:`
   switch (arg.tag) {
     case "var":
-      return `${key}[var]`
-    // case "block":
-    // case "case":
-    // return `${key}[block]`
+      return `${key}[var]:`
+    case "block":
+    case "case":
+      return `${key}[block]:`
     default:
-      return key
+      return `${key}:`
   }
 }
 
@@ -109,13 +109,10 @@ class MapBuilder<T> {
     const taggedKey = argKey(key, arg)
     if (this.map.has(taggedKey)) throw new DuplicateKeyError(key)
     this.map.set(taggedKey, value)
-    // if (arg?.tag === "block") {
-    // this.add(key, value, null)
-    // }
   }
   build(): { selector: string; values: T[] } {
     const sortedKeys = Array.from(this.map.keys()).sort()
-    const selector = sortedKeys.map((k) => `${k}:`).join("")
+    const selector = sortedKeys.join("")
     const values = sortedKeys.map((k) => this.map.get(k)!)
     return { selector, values }
   }
@@ -156,7 +153,7 @@ function method(inParams: ParseItem[], inBody: ParseStmt[]): ASTMethod {
       }
       case "pair": {
         map.add(param.key, methodParam(param.value), param.value)
-        break
+        if (param.value) break
       }
     }
   }
@@ -205,6 +202,29 @@ export class DuplicateMethodError {
   constructor(readonly selector: string) {}
 }
 
+// given {foo: block a bar: block b} generate
+// foo:bar: foo[block]:bar: foo:bar[block]: foo[block]:bar[block]:
+function paramSets(params: ParseItem[]): ParseItem[][] {
+  let out: ParseItem[][] = [[]]
+  for (const p of params) {
+    if (p.tag === "pair" && p.value.tag === "block") {
+      const unblock: ParseItem = {
+        tag: "pair",
+        key: p.key,
+        value: { tag: "value", value: p.value.value },
+      }
+      const left = out.map((ps) => [...ps, p])
+      const right = out.map((ps) => [...ps, unblock])
+      out = left.concat(right)
+    } else {
+      for (const ps of out) {
+        ps.push(p)
+      }
+    }
+  }
+  return out
+}
+
 function object(items: ParseItem[]): ASTExpr {
   if (items.length === 0) {
     return { tag: "frame", selector: "", args: [] }
@@ -217,11 +237,14 @@ function object(items: ParseItem[]): ASTExpr {
       const methods = new Map<string, ASTMethod>()
       for (const item of items) {
         if (item.tag !== "method") throw new InvalidMethodError()
-        const m = method(item.params, item.body)
-        if (methods.has(m.selector)) {
-          throw new DuplicateMethodError(m.selector)
+
+        for (const params of paramSets(item.params)) {
+          const m = method(params, item.body)
+          if (methods.has(m.selector)) {
+            throw new DuplicateMethodError(m.selector)
+          }
+          methods.set(m.selector, m)
         }
-        methods.set(m.selector, m)
       }
       return { tag: "object", methods }
     }

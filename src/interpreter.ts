@@ -40,8 +40,8 @@ class Interpreter {
     next.set(key, value)
     this.provideScope = next
   }
-  createChild(self: Value, args: IRArg[]): Interpreter {
-    return new Interpreter(self, argValues(this, args), this.provideScope)
+  createChild(self: Value, args: Value[]): Interpreter {
+    return new Interpreter(self, args, this.provideScope)
   }
 }
 
@@ -62,23 +62,41 @@ function call(
   parent: Interpreter,
   selector: string,
   target: Value,
-  args: IRArg[]
+  inArgs: IRArg[]
 ): Value {
+  if (target.tag === "block") {
+    const method = target.class.methods.get(selector)
+    if (!method) throw new NoMethodError(selector)
+    const args = argValues(parent, inArgs)
+    const ctx = target.ctx as any
+    args.forEach((arg, i) => ctx.setLocal(method.offset + i, arg))
+    const result = body(ctx, method.body)
+
+    inArgs.forEach((arg, i) => {
+      if (arg.tag === "var") {
+        const result = ctx.getLocal(method.offset + i)
+        parent.setLocal(arg.index, result)
+      }
+    })
+
+    return result
+  }
   const method = target.class.methods.get(selector)
   if (!method) throw new NoMethodError(selector)
   const primitiveValue = target.tag === "primitive" ? target.value : null
+  const args = argValues(parent, inArgs)
 
   switch (method.tag) {
     case "primitive":
-      return method.fn(primitiveValue, argValues(parent, args))
+      return method.fn(primitiveValue, args)
+
     case "object":
       const ctx = parent.createChild(target, args)
-      const evalCtx: any = target.tag === "block" ? target.ctx : ctx
-      const result = Return.handleReturn(ctx, () => body(evalCtx, method.body))
+      const result = Return.handleReturn(ctx, () => body(ctx, method.body))
 
-      for (const [index, arg] of args.entries()) {
+      for (const [index, arg] of inArgs.entries()) {
         if (arg.tag === "var") {
-          const result = evalCtx.getLocal(index)
+          const result = ctx.getLocal(index)
           parent.setLocal(arg.index, result)
         }
       }

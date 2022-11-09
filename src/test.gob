@@ -313,3 +313,33 @@ Assert{
   received: result
   expected: 1
 }
+
+# block propagation
+let List := [
+  {nil} [
+    {map: block __} 
+      self;
+  ];
+  {head: h tail: t} [
+    {map: block f}
+      List{
+        head: f{: h}
+        tail: t{map: block f}
+      };
+  ];
+]
+let init := List{
+  head: 1 
+  tail: List{
+    head: 2 
+    tail: List{nil}}}
+
+let mapped := [{}
+  init{map: 
+    case {: value} value + 1
+  }
+]{}
+Assert{
+  received: mapped
+  expected: List{head: 2 tail: List{head: 3 tail: List{nil}}}
+}
