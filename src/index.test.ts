@@ -41,7 +41,7 @@ test("locals", () => {
   const res: any = run(`
     let x := 1
     let y := 2
-    return x
+    x
   `)
   assert.deepEqual(res.value, 1)
 })

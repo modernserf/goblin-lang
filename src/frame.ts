@@ -23,7 +23,6 @@ export function frame(
         },
       },
     ],
-    effects: [],
   })
   // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
   frameClass.methods.set(":", {
@@ -42,14 +41,12 @@ export function frame(
         },
       },
     ],
-    effects: [],
   })
   for (const [index, { key }] of args.entries()) {
     // getter: [x: 1 y: 2]{x}
     frameClass.methods.set(key, {
       tag: "object",
       body: [{ tag: "return", value: { tag: "ivar", index } }],
-      effects: [],
     })
     // setter: [x: 1 y: 2]{x: 3}
     frameClass.methods.set(`${key}:`, {
@@ -70,7 +67,6 @@ export function frame(
           },
         },
       ],
-      effects: [],
     })
   }
   frameCache.set(selector, frameClass)

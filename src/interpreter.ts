@@ -71,20 +71,15 @@ function call(
       return method.fn(primitiveValue, argValues(parent, args))
     case "object":
       const ctx = parent.createChild(target, args)
-      const result = body(ctx, method.body)
-      for (const effect of method.effects) {
-        switch (effect.tag) {
-          case "var":
-            const arg = args[effect.argIndex]
-            /* istanbul ignore next */
-            if (arg.tag !== "var") {
-              throw new Error("var should be unreachable")
-            }
+      const result = Return.handleReturn(ctx, () => body(ctx, method.body))
 
-            const result = ctx.getLocal(effect.argIndex)
-            parent.setLocal(arg.index, result)
+      for (const [index, arg] of args.entries()) {
+        if (arg.tag === "var") {
+          const result = ctx.getLocal(index)
+          parent.setLocal(arg.index, result)
         }
       }
+
       return result
   }
 }
@@ -112,7 +107,20 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
   }
 }
 
-// TODO: non-local returns will complicate this
+class Return {
+  constructor(private ctx: Interpreter, private value: Value) {}
+  static handleReturn(ctx: Interpreter, fn: () => Value): Value {
+    try {
+      return fn()
+    } catch (e) {
+      if (e instanceof Return && e.ctx === ctx) {
+        return e.value
+      }
+      throw e
+    }
+  }
+}
+
 function body(ctx: Interpreter, stmts: IRStmt[]): Value {
   let result = unit
 
@@ -123,7 +131,7 @@ function body(ctx: Interpreter, stmts: IRStmt[]): Value {
         result = unit
         break
       case "return":
-        return expr(ctx, stmt.value)
+        throw new Return(ctx, expr(ctx, stmt.value))
       case "expr":
         result = expr(ctx, stmt.value)
         break

@@ -134,6 +134,23 @@ Assert{
 }
 
 # classes
+let Point := [
+  {origin}
+    Point{x: 0 y: 0};
+  {x: x y: y} [
+    {x} x;
+    {y} y;
+    {manhattan distance: other}
+      (x - other{x}){abs} +
+      (y - other{y}){abs};
+  ];
+]
+Assert{
+  received: Point{origin}{manhattan distance: Point{x: 1 y: 1}}
+  expected: 2
+}
+
+
 let Option := [
   {some: value} [
     {map: fn}
@@ -193,12 +210,17 @@ let obj := [
     self
 ]
 var x := 1
+var y := x
 obj
   {inc: var x}
   {inc: var x}
 Assert{
   received: x
   expected: 3
+}
+Assert{
+  received: y
+  expected: 1
 }
 
 let obj := [

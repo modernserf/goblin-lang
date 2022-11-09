@@ -106,26 +106,23 @@ class Instance {
 
 function methodParam(
   scope: Scope,
-  method: IRMethod & { tag: "object" },
   argIndex: number,
   param: ASTParam
-) {
+): IRStmt[] {
   switch (param.tag) {
     case "binding":
       switch (param.binding.tag) {
         case "identifier":
           scope.useLetArg(param.binding.value, argIndex)
-          return
+          return []
         case "object": {
           const local: IRExpr = { tag: "local", index: argIndex }
-          method.body.push(...letStmt(scope, param.binding, local))
-          return
+          return letStmt(scope, param.binding, local)
         }
       }
     case "var":
       scope.useVarArg(param.binding.value, argIndex)
-      method.effects.push({ tag: "var", argIndex })
-      return
+      return []
   }
 }
 
@@ -138,9 +135,10 @@ function object(
   const objectClass: IRClass = { methods: new Map() }
   for (const [selector, method] of methods) {
     const scope = instance.newScope(method.params.length)
-    const out: IRMethod = { tag: "object", body: [], effects: [] }
+    const out: IRMethod = { tag: "object", body: [] }
+
     for (const [argIndex, param] of method.params.entries()) {
-      methodParam(scope, out, argIndex, param)
+      out.body.push(...methodParam(scope, argIndex, param))
     }
 
     if (selfBinding !== null) {

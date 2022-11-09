@@ -159,12 +159,11 @@ let z := do
   x + y
 end
 
-let z := []{:
-  {}
-    let x := 1
-    let y := 2
-    x + y
-}
+let z := [{}
+	let x := 1
+	let y := 2
+	x + y
+]{}
 ```
 
 # set & var paths

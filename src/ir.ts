@@ -1,7 +1,5 @@
-export type Effect = { tag: "var"; argIndex: number }
-
 export type IRMethod =
-  | { tag: "object"; body: IRStmt[]; effects: Effect[] }
+  | { tag: "object"; body: IRStmt[] }
   | { tag: "primitive"; fn: (value: any, args: Value[]) => Value }
 export type IRClass = { methods: Map<string, IRMethod> }
 

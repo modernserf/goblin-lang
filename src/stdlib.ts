@@ -4,7 +4,6 @@ import {
   Value,
   IRMethod,
   PrimitiveTypeError,
-  Effect,
   IRStmt,
   IRExpr,
 } from "./ir"
@@ -17,10 +16,10 @@ class IRClassBuilder {
     this.methods.set(key, { tag: "primitive", fn })
     return this
   }
-  addIR(key: string, body: IRStmt[], effects: Effect[] = []): this {
+  addIR(key: string, body: IRStmt[]): this {
     /* istanbul ignore next */
     if (this.methods.has(key)) throw new Error("duplicate method")
-    this.methods.set(key, { tag: "object", body, effects })
+    this.methods.set(key, { tag: "object", body })
     return this
   }
   build(): IRClass {
@@ -215,6 +214,9 @@ export const intClass: IRClass = new IRClassBuilder()
     } else {
       return falseValue
     }
+  })
+  .addPrimitive("abs", (self) => {
+    return { tag: "primitive", class: intClass, value: Math.abs(self) }
   })
   .addPrimitive(
     "js debug",
