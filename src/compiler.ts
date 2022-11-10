@@ -229,7 +229,7 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
     case "identifier":
       // TODO: lookup should fail on block vals _except_ in call target & block args
       return scope.lookup(value.value)
-    case "call": {
+    case "send": {
       const target =
         value.target.tag === "identifier"
           ? scope.lookupBlock(value.target.value)

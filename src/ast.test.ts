@@ -52,8 +52,8 @@ test("duplicate methods", () => {
   assert.throws(() => {
     check(`
       [
-        {x: arg} arg;
-        {x: arg} arg;
+        on {x: arg} arg
+        on {x: arg} arg
       ]
     `)
   }, DuplicateMethodError)

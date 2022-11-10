@@ -18,7 +18,7 @@ export type ParseExpr =
   | { tag: "string"; value: string }
   | { tag: "identifier"; value: string }
   | { tag: "parens"; value: ParseExpr }
-  | { tag: "object"; methods: ParseMethod[] }
+  | { tag: "object"; handlers: ParseHandler[] }
   | { tag: "frame"; message: ParseMessage }
   | { tag: "send"; target: ParseExpr; message: ParseMessage }
   | { tag: "use"; value: string }
@@ -35,14 +35,12 @@ export type ParseArg =
   | { tag: "value"; value: ParseExpr }
   | { tag: "var"; value: ParseExpr }
   | { tag: "block"; value: ParseExpr }
-  | { tag: "case"; methods: ParseMethod[] }
+  | { tag: "handlers"; handlers: ParseHandler[] }
 
-// TODO: multiple method heads, decorators
-export type ParseMethod = {
-  tag: "method"
-  message: ParseMessage
-  body: ParseStmt[]
-}
+// TODO: multiple messages, decorators
+export type ParseHandler =
+  | { tag: "on"; message: ParseMessage; body: ParseStmt[] }
+  | { tag: "else"; body: ParseStmt[] }
 
 export class ParseError {
   constructor(readonly expected: string, readonly received: string) {}
@@ -57,8 +55,9 @@ function arg(lexer: Lexer): ParseArg {
     case "block":
       lexer.advance()
       return { tag: "block", value: must(lexer, "expr", expr) }
-    case "case":
-      return { tag: "case", methods: repeat(lexer, caseArg) }
+    case "on":
+    case "openBrace":
+      return { tag: "handlers", handlers: handlers_(lexer) }
     default:
       return { tag: "value", value: must(lexer, "expr", expr) }
   }
@@ -109,21 +108,22 @@ function message_(lexer: Lexer): ParseMessage {
   }
 }
 
-function caseArg(lexer: Lexer): ParseMethod | null {
-  if (!accept(lexer, "case")) return null
-  mustToken(lexer, "openBrace")
-  const message = message_(lexer)
-  mustToken(lexer, "closeBrace")
-  const body = repeat(lexer, stmt)
-  return { tag: "method", message, body }
-}
-
-function method(lexer: Lexer): ParseMethod | null {
-  if (!accept(lexer, "openBrace")) return null
-  const message = message_(lexer)
-  mustToken(lexer, "closeBrace")
-  const body = repeat(lexer, stmt)
-  return { tag: "method", message, body }
+function handlers_(lexer: Lexer): ParseHandler[] {
+  if (accept(lexer, "openBrace")) {
+    const message = message_(lexer)
+    mustToken(lexer, "closeBrace")
+    const body = repeat(lexer, stmt)
+    return [{ tag: "on", message, body }]
+  }
+  const out: ParseHandler[] = []
+  while (true) {
+    if (!accept(lexer, "on")) return out
+    mustToken(lexer, "openBrace")
+    const message = message_(lexer)
+    mustToken(lexer, "closeBrace")
+    const body = repeat(lexer, stmt)
+    out.push({ tag: "on", message, body })
+  }
 }
 
 function baseExpr(lexer: Lexer): ParseExpr | null {
@@ -150,10 +150,10 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
     }
     case "openBracket": {
       lexer.advance()
-      const methods = repeat(lexer, method)
-      if (methods.length) {
+      const handlers = handlers_(lexer)
+      if (handlers.length) {
         mustToken(lexer, "closeBracket")
-        return { tag: "object", methods }
+        return { tag: "object", handlers }
       }
       const message = message_(lexer)
       mustToken(lexer, "closeBracket")

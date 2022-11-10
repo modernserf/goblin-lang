@@ -2,7 +2,7 @@ import {
   ParseArg,
   ParseExpr,
   ParseMessage,
-  ParseMethod,
+  ParseHandler,
   ParsePair,
   ParseStmt,
 } from "./parser"
@@ -40,7 +40,7 @@ export type ASTExpr =
   | { tag: "integer"; value: number }
   | { tag: "string"; value: string }
   | { tag: "identifier"; value: string }
-  | { tag: "call"; target: ASTExpr; selector: string; args: ASTArg[] }
+  | { tag: "send"; target: ASTExpr; selector: string; args: ASTArg[] }
   | { tag: "frame"; selector: string; args: ASTFrameArg[] }
   | { tag: "object"; methods: Map<string, ASTMethod> }
   | { tag: "use"; value: string }
@@ -114,11 +114,14 @@ function expandParams(message: ParseMessage): ParseMessage[] {
   return out.map((pairs) => ({ tag: "pairs", pairs }))
 }
 
-function methodSet(ins: ParseMethod[]): Map<string, ASTMethod> {
+function handlerSet(ins: ParseHandler[]): Map<string, ASTMethod> {
   const out = new Map<string, ASTMethod>()
-  for (const { message, body: inBody } of ins) {
-    for (const params of expandParams(message)) {
-      const body = inBody.map((s) => stmt(s))
+  for (const handler of ins) {
+    if (handler.tag === "else") {
+      throw "todo"
+    }
+    for (const params of expandParams(handler.message)) {
+      const body = handler.body.map((s) => stmt(s))
       const m = build<ASTParam, ASTMethod>(params, {
         key(selector) {
           return { selector, params: [], body }
@@ -134,7 +137,7 @@ function methodSet(ins: ParseMethod[]): Map<string, ASTMethod> {
               if (param.value.tag !== "identifier")
                 throw new InvalidVarParamError()
               return { tag: "var", binding: param.value }
-            case "case":
+            case "handlers":
               throw new InvalidParamError()
             case "block":
               if (param.value.tag !== "identifier")
@@ -167,20 +170,20 @@ function expr(value: ParseExpr): ASTExpr {
       return expr(value.value)
     case "unaryOp":
       return {
-        tag: "call",
+        tag: "send",
         target: expr(value.target),
         selector: value.operator,
         args: [],
       }
     case "binaryOp":
       return {
-        tag: "call",
+        tag: "send",
         target: expr(value.target),
-        selector: `${value.operator}:`,
+        selector: argKey(value.operator, null),
         args: [{ tag: "expr", value: expr(value.arg) }],
       }
     case "object":
-      return { tag: "object", methods: methodSet(value.methods) }
+      return { tag: "object", methods: handlerSet(value.handlers) }
     case "frame":
       return build<ASTFrameArg, ASTExpr>(value.message, {
         key(selector) {
@@ -201,7 +204,7 @@ function expr(value: ParseExpr): ASTExpr {
       const target = expr(value.target)
       return build<ASTArg, ASTExpr>(value.message, {
         key(selector) {
-          return { tag: "call", target, selector, args: [] }
+          return { tag: "send", target, selector, args: [] }
         },
         punValue(value) {
           return { tag: "expr", value: { tag: "identifier", value } }
@@ -224,13 +227,13 @@ function expr(value: ParseExpr): ASTExpr {
                 default:
                   throw "invalid block arg"
               }
-            case "case":
-              const methods = methodSet(arg.methods)
+            case "handlers":
+              const methods = handlerSet(arg.handlers)
               return { tag: "block", value: { tag: "object", methods } }
           }
         },
         build(selector, args) {
-          return { tag: "call", target, selector, args }
+          return { tag: "send", target, selector, args }
         },
       })
   }
@@ -246,7 +249,7 @@ function destructureItem(item: ParsePair): ASTDestructuredBinding {
     case "pair":
       switch (item.value.tag) {
         case "block":
-        case "case":
+        case "handlers":
         case "var":
           throw new InvalidDestructuringError()
         case "value":
@@ -391,7 +394,7 @@ function argKey(key: string, arg: ParseArg | null) {
     case "var":
       return `${key}[var]:`
     case "block":
-    case "case":
+    case "handlers":
       return `${key}[block]:`
     default:
       return `${key}:`

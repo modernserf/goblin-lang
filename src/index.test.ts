@@ -49,10 +49,10 @@ test("locals", () => {
 test("objects", () => {
   const res: any = run(`
     let x := [
-      {} 1;
-      {foo} 2;
-      {bar: arg} arg;
-      {_baz_} baz;
+      on {} 1
+      on {foo} 2
+      on {bar: arg} arg
+      on {_baz_} baz
     ]
     let bar := 3
     x{} + x{foo} + x{_bar_} + x{baz: 4}
@@ -80,8 +80,8 @@ test("destructuring", () => {
 test("destructuring args", () => {
   const res: any = run(`
     let p := [
-      {add: [x: x1 y: y1] to: [x: x2 y: y2]}
-        [x: x1 + x2 y: y1 + y2];
+      on {add: [x: x1 y: y1] to: [x: x2 y: y2]}
+        [x: x1 + x2 y: y1 + y2]
     ]
     let result := p{add: [x: 1 y: 1] to: [x: 2 y: 2]}
     result{y}
@@ -94,8 +94,8 @@ test("pattern matching", () => {
     let foo := [some: 1]
     let bar := [none]
     let match := [
-      {some: x} x;
-      {none} 10;
+      on {some: x} x
+      on {none} 10
     ]
     foo{:match} + bar{:match}
   `)
@@ -103,8 +103,8 @@ test("pattern matching", () => {
   const res2: any = run(`
     let empty := []
     let match := [
-      {} 1;
-      {other} 2;
+      on {} 1
+      on {other} 2
     ]
     empty{:match}
   `)
@@ -115,7 +115,7 @@ test("ivals", () => {
   const res: any = run(`
     let x := 1
     let obj := [
-      {x} x
+      on {x} x
     ]
     obj{x}
   `)
@@ -125,8 +125,8 @@ test("ivals", () => {
 test("self", () => {
   const res: any = run(`
     let obj := [
-      {x} 1;
-      {y} self{x};
+      on {x} 1
+      on {y} self{x}
     ]
     obj{y}
   `)
@@ -134,8 +134,8 @@ test("self", () => {
 
   const indirect: any = run(`
     let obj := [
-      {x} 1;
-      {y} obj{x};
+      on {x} 1
+      on {y} obj{x}
     ]
     obj{y}
   `)
@@ -145,19 +145,19 @@ test("self", () => {
 test("classes, closures", () => {
   const res: any = run(`
     let Opt := [
-      {some: value} [
-        {map: fn}
+      on {some: value} [
+        on {map: fn}
           let next := fn{: value}
-          Opt{some: next};
-        {or default: __}
-          value;
-      ];
-      {none} [
-        {map: fn}
-          self;
-        {or default: value}
-          value;
-      ];
+          Opt{some: next}
+        on {or default: __}
+          value
+      ]
+      on {none} [
+        on {map: fn}
+          self
+        on {or default: value}
+          value
+      ]
     ]
     let foo := Opt{some: 1}
     let bar := Opt{none}
@@ -267,14 +267,14 @@ test("use/provide", () => {
     let a := [{get} use foo]
     provide foo := 3
     let b := [
-      {provide 1: fn} 
+      on {provide 1: fn}
         provide foo := 1
-        fn{get};
-      {provide 2: fn}
+        fn{get}
+      on {provide 2: fn}
         provide foo := 2
-        fn{get};
+        fn{get}
     ]
-    
+
     b{provide 1: a} + b{provide 2: a} + a{get}
   `)
   assert.deepEqual(res2.value, 6)
@@ -294,8 +294,7 @@ test("cell", () => {
     let a := Cell{: 0}
     let b := a
     a{set: 1}
-    
+
     Assert{expected: 1 received: b{get}}
   `)
-  // assert.deepEqual(res.value, 1)
 })
