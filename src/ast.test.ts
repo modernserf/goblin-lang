@@ -6,19 +6,14 @@ import { program as parse } from "./parser"
 import {
   DuplicateKeyError,
   DuplicateMethodError,
-  InvalidCallStructureError,
   InvalidDestructuringError,
-  InvalidFrameStructureError,
   InvalidImportBindingError,
   InvalidImportSourceError,
   InvalidLetBindingError,
-  InvalidMethodError,
-  InvalidMethodParamsError,
   InvalidProvideBindingError,
   InvalidSetTargetError,
   InvalidVarArgError,
   InvalidVarBindingError,
-  InvalidVarParamError,
   program as astWalk,
 } from "./ast"
 
@@ -31,45 +26,6 @@ test("duplicate keys", () => {
   assert.throws(() => {
     check(`[x: 1 x: 2]`)
   }, DuplicateKeyError)
-})
-
-test("invalid method params", () => {
-  assert.throws(() => {
-    check(`{x {y} 2}`)
-  })
-  assert.throws(() => {
-    check(`[
-      {x: x; {y: y}} y  
-    ]`)
-  }, InvalidMethodParamsError)
-  assert.throws(() => {
-    check(`[
-      {x: x; y} 2
-    ]`)
-  }, InvalidMethodParamsError)
-  assert.throws(() => {
-    check(`[
-      {x: var [a: arg]} arg
-    ]`)
-  }, InvalidVarParamError)
-})
-
-test("invalid object structure", () => {
-  assert.throws(() => {
-    check(`[x: 1 y]`)
-  }, InvalidFrameStructureError)
-  assert.throws(() => {
-    check(`[x: 1; {y} 2]`)
-  }, InvalidFrameStructureError)
-  assert.throws(() => {
-    check(`[{y} 2; x: 1]`)
-  }, InvalidMethodError)
-  assert.throws(() => {
-    check(`[x {y} 2]`)
-  })
-  assert.throws(() => {
-    check(`[x: var a]`)
-  })
 })
 
 test("invalid bindings", () => {
@@ -109,23 +65,12 @@ test("invalid calls", () => {
       val{arg: var 1} 
     `)
   }, InvalidVarArgError)
-
-  assert.throws(() => {
-    check(`
-      val{x: 1 y} 
-    `)
-  }, InvalidCallStructureError)
 })
 
 test("invalid destructuring", () => {
   assert.throws(() => {
     check(`
       let [x] := foo
-    `)
-  }, InvalidDestructuringError)
-  assert.throws(() => {
-    check(`
-      let [{x: 1} y] := foo
     `)
   }, InvalidDestructuringError)
   assert.throws(() => {

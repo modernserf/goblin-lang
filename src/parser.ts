@@ -1,21 +1,26 @@
 // Parse tree -- a loose grammar that covers the basic shape of the language
 
-import { Lexer, Token } from "./lexer"
+import { keywords, Lexer, Token } from "./lexer"
 
 export type ParseArg =
   | { tag: "value"; value: ParseExpr }
   | { tag: "var"; value: ParseExpr }
   | { tag: "block"; value: ParseExpr }
-  | { tag: "case"; cases: ParseBlockCase[] }
+  | { tag: "case"; methods: ParseMethod[] }
 
-export type ParseBlockCase = { params: ParseItem[]; body: ParseStmt[] }
+// TODO: multiple method heads, decorators
+export type ParseMethod = {
+  tag: "method"
+  message: ParseMessage
+  body: ParseStmt[]
+}
 
-export type ParseItem =
+export type ParseMessage =
   | { tag: "key"; key: string }
+  | { tag: "pairs"; pairs: ParsePair[] }
+export type ParsePair =
   | { tag: "pair"; key: string; value: ParseArg }
   | { tag: "punPair"; key: string }
-  | { tag: "method"; params: ParseItem[]; body: ParseStmt[] }
-// TODO: multiple method heads, decorators
 
 // used for both ast exprs and bindings
 export type ParseExpr =
@@ -24,8 +29,9 @@ export type ParseExpr =
   | { tag: "string"; value: string }
   | { tag: "identifier"; value: string }
   | { tag: "parens"; value: ParseExpr }
-  | { tag: "object"; items: ParseItem[] }
-  | { tag: "call"; target: ParseExpr; items: ParseItem[] }
+  | { tag: "object"; methods: ParseMethod[] }
+  | { tag: "frame"; message: ParseMessage }
+  | { tag: "send"; target: ParseExpr; message: ParseMessage }
   | { tag: "use"; value: string }
   | { tag: "unaryOp"; target: ParseExpr; operator: string }
   | { tag: "binaryOp"; target: ParseExpr; arg: ParseExpr; operator: string }
@@ -53,50 +59,72 @@ function arg(lexer: Lexer): ParseArg {
       lexer.advance()
       return { tag: "block", value: must(lexer, "expr", expr) }
     case "case":
-      return { tag: "case", cases: repeat(lexer, caseArg) }
+      return { tag: "case", methods: repeat(lexer, caseArg) }
     default:
       return { tag: "value", value: must(lexer, "expr", expr) }
   }
 }
 
-function caseArg(lexer: Lexer): ParseBlockCase | null {
-  if (!accept(lexer, "case")) return null
-  mustToken(lexer, "openBrace")
-  const params = repeat(lexer, item)
-  mustToken(lexer, "closeBrace")
-  const body = repeat(lexer, stmt)
-  return { params, body }
-}
-
-function item(lexer: Lexer): ParseItem | null {
+function keyPart(lexer: Lexer): string | null {
   const token = lexer.peek()
   switch (token.tag) {
-    case "openBrace": {
+    case "identifier":
+    case "operator":
       lexer.advance()
-      const params = repeat(lexer, item)
-      mustToken(lexer, "closeBrace")
-      const body = repeat(lexer, stmt)
-      return { tag: "method", params, body }
-    }
-    case "quotedIdent":
+      return token.value
+    case "integer":
       lexer.advance()
-      return { tag: "punPair", key: token.value }
-    case "colon": {
-      lexer.advance()
-      const value = must(lexer, "arg", arg)
-      return { tag: "pair", key: "", value }
-    }
-    default: {
-      const key = lexer.acceptKey()
-      if (!key) return null
-      if (accept(lexer, "colon")) {
-        const value = must(lexer, "arg", arg)
-        return { tag: "pair", key: key, value }
-      } else {
-        return { tag: "key", key }
+      return String(token.value)
+    default:
+      if (keywords.has(token.tag)) {
+        lexer.advance()
+        return token.tag
       }
-    }
+      return null
   }
+}
+
+function key_(lexer: Lexer): string {
+  return repeat(lexer, keyPart).join(" ")
+}
+
+function message_(lexer: Lexer): ParseMessage {
+  const pairs: ParsePair[] = []
+  while (true) {
+    const token = lexer.peek()
+    if (token.tag === "quotedIdent") {
+      lexer.advance()
+      pairs.push({ tag: "punPair", key: token.value })
+      continue
+    }
+
+    const key = key_(lexer)
+    if (accept(lexer, "colon")) {
+      const value = must(lexer, "arg", arg)
+      pairs.push({ tag: "pair", key, value })
+      continue
+    }
+
+    if (pairs.length) return { tag: "pairs", pairs }
+    return { tag: "key", key }
+  }
+}
+
+function caseArg(lexer: Lexer): ParseMethod | null {
+  if (!accept(lexer, "case")) return null
+  mustToken(lexer, "openBrace")
+  const message = message_(lexer)
+  mustToken(lexer, "closeBrace")
+  const body = repeat(lexer, stmt)
+  return { tag: "method", message, body }
+}
+
+function method(lexer: Lexer): ParseMethod | null {
+  if (!accept(lexer, "openBrace")) return null
+  const message = message_(lexer)
+  mustToken(lexer, "closeBrace")
+  const body = repeat(lexer, stmt)
+  return { tag: "method", message, body }
 }
 
 function baseExpr(lexer: Lexer): ParseExpr | null {
@@ -123,9 +151,14 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
     }
     case "openBracket": {
       lexer.advance()
-      const items = repeat(lexer, item)
+      const methods = repeat(lexer, method)
+      if (methods.length) {
+        mustToken(lexer, "closeBracket")
+        return { tag: "object", methods }
+      }
+      const message = message_(lexer)
       mustToken(lexer, "closeBracket")
-      return { tag: "object", items }
+      return { tag: "frame", message }
     }
     case "use": {
       lexer.advance()
@@ -143,9 +176,9 @@ function callExpr(lexer: Lexer): ParseExpr | null {
   if (!target) return null
   while (true) {
     if (!accept(lexer, "openBrace")) return target
-    const items = repeat(lexer, item)
+    const message = message_(lexer)
     mustToken(lexer, "closeBrace")
-    target = { tag: "call", target, items }
+    target = { tag: "send", target, message }
   }
 }
 

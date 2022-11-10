@@ -35,9 +35,7 @@ const re = {
   punctuation: /:=|[\[\]\(\)\{\}:;]/y,
 }
 
-const keyRe = /[^\[\]\(\)\{\}:;,]*/y
-
-const keywords: Set<Token["tag"]> = new Set([
+export const keywords: Set<Token["tag"]> = new Set([
   "self",
   "let",
   "return",
@@ -71,7 +69,6 @@ export class LexerError {
 
 export class Lexer {
   private index = 0
-  private lastIndex = 0
   private peekCache: Token | null = null
   constructor(private code: string) {}
   peek(): Token {
@@ -81,17 +78,6 @@ export class Lexer {
     const next = this.next()
     this.peekCache = next
     return next
-  }
-  // TODO: this feels pretty janky; can this be refactored into a transition between lexer states?
-  acceptKey(): string {
-    this.advance()
-    this.ignoreWhitespace()
-
-    keyRe.lastIndex = this.lastIndex
-    const out = keyRe.exec(this.code)![0] // should always match
-    this.lastIndex = this.index = keyRe.lastIndex
-
-    return out.trim().replace(/\s+/g, " ")
   }
   advance() {
     this.peekCache = null
@@ -145,7 +131,6 @@ export class Lexer {
     }
   }
   private callRe(re: RegExp): Option<string> {
-    this.lastIndex = this.index
     re.lastIndex = this.index
     const out = re.exec(this.code)
     if (out) {

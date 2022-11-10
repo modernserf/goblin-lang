@@ -1,4 +1,11 @@
-import { ParseArg, ParseExpr, ParseItem, ParseStmt } from "./parser"
+import {
+  ParseArg,
+  ParseExpr,
+  ParseMessage,
+  ParseMethod,
+  ParsePair,
+  ParseStmt,
+} from "./parser"
 
 export type ASTVarParam = { tag: "identifier"; value: string }
 export type ASTBlockParam = { tag: "identifier"; value: string }
@@ -38,11 +45,6 @@ export type ASTExpr =
   | { tag: "object"; methods: Map<string, ASTMethod> }
   | { tag: "use"; value: string }
 
-export class InvalidVarParamError {}
-export class DuplicateKeyError {
-  constructor(readonly key: string) {}
-}
-
 export type ASTDestructuredBinding = { key: string; value: ASTLetBinding }
 export type ASTLetBinding =
   | { tag: "identifier"; value: string }
@@ -67,13 +69,24 @@ export type ASTStmt =
   | { tag: "return"; value: ASTExpr }
   | { tag: "expr"; value: ASTExpr }
 
-export class InvalidDestructuringError {}
+export class InvalidParamError {}
+export class InvalidVarParamError {}
+export class InvalidBlockParamError {}
+export class InvalidFrameArgError {}
+export class InvalidVarArgError {}
 export class InvalidLetBindingError {}
-export class InvalidVarBindingError {}
 export class InvalidSetTargetError {}
+export class InvalidVarBindingError {}
 export class InvalidProvideBindingError {}
 export class InvalidImportBindingError {}
 export class InvalidImportSourceError {}
+export class InvalidDestructuringError {}
+export class DuplicateKeyError {
+  constructor(readonly key: string) {}
+}
+export class DuplicateMethodError {
+  constructor(readonly selector: string) {}
+}
 
 function methodParam(param: ParseArg): ASTParam {
   switch (param.tag) {
@@ -83,10 +96,40 @@ function methodParam(param: ParseArg): ASTParam {
       if (param.value.tag !== "identifier") throw new InvalidVarParamError()
       return { tag: "var", binding: param.value }
     case "case":
-      throw "invalid param"
+      throw new InvalidParamError()
     case "block":
-      if (param.value.tag !== "identifier") throw "invalid param"
+      if (param.value.tag !== "identifier") throw new InvalidBlockParamError()
       return { tag: "block", binding: param.value }
+  }
+}
+
+function frameArg(key: string, arg: ParseArg): ASTFrameArg {
+  if (arg.tag !== "value") throw new InvalidFrameArgError()
+  return { key, value: expr(arg.value) }
+}
+
+function messageArg(arg: ParseArg): ASTArg {
+  switch (arg.tag) {
+    case "value":
+      return { tag: "expr", value: expr(arg.value) }
+    case "var":
+      switch (arg.value.tag) {
+        case "identifier":
+          return { tag: "var", value: arg.value }
+        default:
+          throw new InvalidVarArgError()
+      }
+    case "block":
+      switch (arg.value.tag) {
+        case "identifier":
+          return { tag: "block", value: arg.value }
+        default:
+          throw "invalid block arg"
+      }
+    case "case": {
+      const methods = methodSet(arg.methods)
+      return { tag: "block", value: { tag: "object", methods } }
+    }
   }
 }
 
@@ -118,97 +161,79 @@ class MapBuilder<T> {
   }
 }
 
-export class InvalidMethodError {}
-export class InvalidCallStructureError {}
-export class InvalidMethodParamsError {}
-
-function method(inParams: ParseItem[], inBody: ParseStmt[]): ASTMethod {
+// These three are all basically identical, need to refactor
+function method(message: ParseMessage, inBody: ParseStmt[]): ASTMethod {
   const body = inBody.map(stmt)
-
-  if (inParams.length === 0) {
-    return { selector: "", params: [], body }
-  }
-  if (inParams[0].tag === "key") {
-    /* istanbul ignore next */
-    if (inParams.length > 1) throw new Error("unreachable")
-    return { selector: inParams[0].key, params: [], body }
+  if (message.tag === "key") {
+    return { selector: message.key, params: [], body }
   }
 
   const map = new MapBuilder<ASTParam>()
-  for (const param of inParams) {
+  for (const param of message.pairs) {
     switch (param.tag) {
-      case "key":
-      case "method":
-        throw new InvalidMethodParamsError()
-      case "punPair": {
-        map.add(
-          param.key,
-          {
-            tag: "binding",
-            binding: { tag: "identifier", value: param.key },
-          },
-          null
-        )
+      case "punPair":
+        const binding: ASTLetBinding = { tag: "identifier", value: param.key }
+        map.add(param.key, { tag: "binding", binding }, null)
         break
-      }
-      case "pair": {
+      case "pair":
         map.add(param.key, methodParam(param.value), param.value)
-        if (param.value) break
-      }
+        break
     }
   }
-
   const { selector, values } = map.build()
   return { selector, params: values, body }
 }
 
-export class InvalidFrameEntryError {}
-export class InvalidFrameStructureError {}
-
-function frameArg(key: string, arg: ParseArg): ASTFrameArg {
-  if (arg.tag !== "value") throw new InvalidFrameEntryError()
-  return { key, value: expr(arg.value) }
-}
-
-function frame(items: ParseItem[]): ASTExpr {
+function frame(message: ParseMessage): ASTExpr {
+  if (message.tag === "key") {
+    return { tag: "frame", selector: message.key, args: [] }
+  }
   const map = new MapBuilder<ASTFrameArg>()
-  for (const item of items) {
+  for (const item of message.pairs) {
     switch (item.tag) {
-      case "key":
-      case "method":
-        throw new InvalidFrameStructureError()
-      case "punPair": {
-        map.add(
-          item.key,
-          {
-            key: item.key,
-            value: { tag: "identifier", value: item.key },
-          },
-          null
-        )
+      case "punPair":
+        const value: ASTExpr = { tag: "identifier", value: item.key }
+        map.add(item.key, { key: item.key, value }, null)
         break
-      }
-      case "pair": {
+      case "pair":
         map.add(item.key, frameArg(item.key, item.value), item.value)
         break
-      }
     }
   }
   const { selector, values: args } = map.build()
   return { tag: "frame", selector, args }
 }
 
-export class DuplicateMethodError {
-  constructor(readonly selector: string) {}
+function send(target: ASTExpr, message: ParseMessage): ASTExpr {
+  if (message.tag === "key") {
+    return { tag: "call", target, selector: message.key, args: [] }
+  }
+  const map = new MapBuilder<ASTArg>()
+  for (const item of message.pairs) {
+    switch (item.tag) {
+      case "punPair":
+        const value: ASTExpr = { tag: "identifier", value: item.key }
+        map.add(item.key, { tag: "expr", value }, null)
+        break
+      case "pair":
+        map.add(item.key, messageArg(item.value), item.value)
+        break
+    }
+  }
+  const { selector, values: args } = map.build()
+  return { tag: "call", target, selector, args }
 }
 
 // given {foo: block a bar: block b} generate
 // foo:bar: foo[block]:bar: foo:bar[block]: foo[block]:bar[block]:
-function paramSets(params: ParseItem[]): ParseItem[][] {
-  let out: ParseItem[][] = [[]]
-  for (const p of params) {
+function expandParams(message: ParseMessage): ParseMessage[] {
+  if (message.tag === "key") {
+    return [message]
+  }
+  let out: ParsePair[][] = [[]]
+  for (const p of message.pairs) {
     if (p.tag === "pair" && p.value.tag === "block") {
-      const unblock: ParseItem = {
+      const unblock: ParsePair = {
         tag: "pair",
         key: p.key,
         value: { tag: "value", value: p.value.value },
@@ -222,108 +247,21 @@ function paramSets(params: ParseItem[]): ParseItem[][] {
       }
     }
   }
+  return out.map((pairs) => ({ tag: "pairs", pairs }))
+}
+
+function methodSet(ins: ParseMethod[]): Map<string, ASTMethod> {
+  const out = new Map<string, ASTMethod>()
+  for (const { message, body } of ins) {
+    for (const params of expandParams(message)) {
+      const m = method(params, body)
+      if (out.has(m.selector)) {
+        throw new DuplicateMethodError(m.selector)
+      }
+      out.set(m.selector, m)
+    }
+  }
   return out
-}
-
-function object(items: ParseItem[]): ASTExpr {
-  if (items.length === 0) {
-    return { tag: "frame", selector: "", args: [] }
-  }
-  switch (items[0].tag) {
-    case "key":
-      if (items.length > 1) throw new InvalidFrameStructureError()
-      return { tag: "frame", selector: items[0].key, args: [] }
-    case "method": {
-      const methods = new Map<string, ASTMethod>()
-      for (const item of items) {
-        if (item.tag !== "method") throw new InvalidMethodError()
-
-        for (const params of paramSets(item.params)) {
-          const m = method(params, item.body)
-          if (methods.has(m.selector)) {
-            throw new DuplicateMethodError(m.selector)
-          }
-          methods.set(m.selector, m)
-        }
-      }
-      return { tag: "object", methods }
-    }
-    case "pair":
-    case "punPair":
-      return frame(items)
-  }
-}
-
-export class InvalidVarArgError {}
-
-function callArg(arg: ParseArg): ASTArg {
-  switch (arg.tag) {
-    case "value":
-      return { tag: "expr", value: expr(arg.value) }
-    case "var":
-      switch (arg.value.tag) {
-        case "identifier":
-          return { tag: "var", value: arg.value }
-        default:
-          throw new InvalidVarArgError()
-      }
-    case "block":
-      switch (arg.value.tag) {
-        case "identifier":
-          return { tag: "block", value: arg.value }
-        default:
-          throw "invalid block arg"
-      }
-    case "case": {
-      const methods = new Map<string, ASTMethod>()
-      for (const item of arg.cases) {
-        item
-        const m = method(item.params, item.body)
-        if (methods.has(m.selector)) {
-          throw new DuplicateMethodError(m.selector)
-        }
-        methods.set(m.selector, m)
-      }
-      return { tag: "block", value: { tag: "object", methods } }
-    }
-  }
-}
-
-function call(target: ASTExpr, items: ParseItem[]): ASTExpr {
-  if (items.length === 0) {
-    return { tag: "call", target, selector: "", args: [] }
-  }
-  if (items[0].tag === "key") {
-    /* istanbul ignore next */
-    if (items.length > 1) throw new Error("unreachable")
-    return { tag: "call", target, selector: items[0].key, args: [] }
-  }
-
-  const map = new MapBuilder<ASTArg>()
-  for (const item of items) {
-    switch (item.tag) {
-      case "key":
-      case "method":
-        throw new InvalidCallStructureError()
-      case "punPair": {
-        map.add(
-          item.key,
-          {
-            tag: "expr",
-            value: { tag: "identifier", value: item.key },
-          },
-          null
-        )
-        break
-      }
-      case "pair": {
-        map.add(item.key, callArg(item.value), item.value)
-        break
-      }
-    }
-  }
-  const { selector, values: args } = map.build()
-  return { tag: "call", target, selector, args }
 }
 
 function expr(value: ParseExpr): ASTExpr {
@@ -350,18 +288,19 @@ function expr(value: ParseExpr): ASTExpr {
         selector: `${value.operator}:`,
         args: [{ tag: "expr", value: expr(value.arg) }],
       }
-    case "object":
-      return object(value.items)
-    case "call":
-      return call(expr(value.target), value.items)
+    case "object": {
+      const methods = methodSet(value.methods)
+      return { tag: "object", methods }
+    }
+    case "frame":
+      return frame(value.message)
+    case "send":
+      return send(expr(value.target), value.message)
   }
 }
 
-function destructureItem(item: ParseItem): ASTDestructuredBinding {
+function destructureItem(item: ParsePair): ASTDestructuredBinding {
   switch (item.tag) {
-    case "key":
-    case "method":
-      throw new InvalidDestructuringError()
     case "punPair":
       return {
         key: item.key,
@@ -379,12 +318,21 @@ function destructureItem(item: ParseItem): ASTDestructuredBinding {
   }
 }
 
+function destructureMessage(message: ParseMessage): ASTDestructuredBinding[] {
+  switch (message.tag) {
+    case "key":
+      throw new InvalidDestructuringError()
+    case "pairs":
+      return message.pairs.map(destructureItem)
+  }
+}
+
 function letBinding(value: ParseExpr): ASTLetBinding {
   switch (value.tag) {
     case "identifier":
       return value
-    case "object":
-      return { tag: "object", params: value.items.map(destructureItem) }
+    case "frame":
+      return { tag: "object", params: destructureMessage(value.message) }
     default:
       throw new InvalidLetBindingError()
   }
@@ -407,8 +355,8 @@ function provideBinding(value: ParseExpr): ASTProvideBinding {
 
 function importBinding(value: ParseExpr): ASTImportBinding {
   switch (value.tag) {
-    case "object":
-      return { tag: "object", params: value.items.map(destructureItem) }
+    case "frame":
+      return { tag: "object", params: destructureMessage(value.message) }
     default:
       throw new InvalidImportBindingError()
   }
