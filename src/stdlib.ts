@@ -23,7 +23,7 @@ class IRClassBuilder {
     return this
   }
   build(): IRClass {
-    return { methods: this.methods }
+    return { methods: this.methods, elseHandler: null }
   }
 }
 

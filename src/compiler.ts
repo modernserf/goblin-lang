@@ -161,10 +161,29 @@ function methodParam(
 function object(
   parentScope: Scope,
   selfBinding: string | null,
-  methods: Map<string, ASTMethod>
+  methods: Map<string, ASTMethod>,
+  elseHandler: ASTStmt[] | null
 ): IRExpr {
   const instance = parentScope.newInstance()
-  const objectClass: IRClass = { methods: new Map() }
+  const objectClass: IRClass = {
+    methods: new Map(),
+    elseHandler: null,
+  }
+  if (elseHandler) {
+    objectClass.elseHandler = []
+    const scope = instance.newScope(0)
+    if (selfBinding !== null) {
+      const { index } = scope.useLet(selfBinding)
+      objectClass.elseHandler.push({
+        tag: "assign",
+        index,
+        value: { tag: "self" },
+      })
+    }
+
+    objectClass.elseHandler.push(...body(scope, elseHandler))
+  }
+
   for (const [selector, method] of methods) {
     const scope = instance.newScope(method.params.length)
     const out: IRMethod = { tag: "object", body: [] }
@@ -184,8 +203,15 @@ function object(
   return { tag: "object", class: objectClass, ivars: instance.ivars }
 }
 
-function block(scope: Scope, methods: Map<string, ASTMethod>): IRBlockClass {
-  const objectClass: IRBlockClass = { methods: new Map() }
+function block(
+  scope: Scope,
+  methods: Map<string, ASTMethod>,
+  elseHandler: ASTStmt[] | null
+): IRBlockClass {
+  const objectClass: IRBlockClass = { methods: new Map(), elseHandler: null }
+  if (elseHandler) {
+    objectClass.elseHandler = body(scope, elseHandler)
+  }
   for (const [selector, method] of methods) {
     // block params use parent scope, and do not start at zero
     const offset = scope.newBlock(method.params.length)
@@ -213,7 +239,10 @@ function arg(scope: Scope, arg: ASTArg): IRArg {
             value: scope.lookupBlock(arg.value.value),
           }
         case "object":
-          return { tag: "block", class: block(scope, arg.value.methods) }
+          return {
+            tag: "block",
+            class: block(scope, arg.value.methods, arg.value.elseHandler),
+          }
       }
   }
 }
@@ -246,7 +275,7 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
         }))
       )
     case "object":
-      return object(scope, null, value.methods)
+      return object(scope, null, value.methods, value.elseHandler)
     case "use":
       return { tag: "use", key: value.value }
   }
@@ -258,7 +287,7 @@ function bindExpr(
   value: ASTExpr
 ): IRExpr {
   if (binding.tag === "identifier" && value.tag === "object") {
-    return object(scope, binding.value, value.methods)
+    return object(scope, binding.value, value.methods, value.elseHandler)
   } else {
     return expr(scope, value)
   }

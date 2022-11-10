@@ -56,6 +56,7 @@ function arg(lexer: Lexer): ParseArg {
       lexer.advance()
       return { tag: "block", value: must(lexer, "expr", expr) }
     case "on":
+    case "else":
     case "openBrace":
       return { tag: "handlers", handlers: handlers_(lexer) }
     default:
@@ -117,12 +118,18 @@ function handlers_(lexer: Lexer): ParseHandler[] {
   }
   const out: ParseHandler[] = []
   while (true) {
-    if (!accept(lexer, "on")) return out
-    mustToken(lexer, "openBrace")
-    const message = message_(lexer)
-    mustToken(lexer, "closeBrace")
-    const body = repeat(lexer, stmt)
-    out.push({ tag: "on", message, body })
+    if (accept(lexer, "else")) {
+      const body = repeat(lexer, stmt)
+      out.push({ tag: "else", body })
+    } else if (accept(lexer, "on")) {
+      mustToken(lexer, "openBrace")
+      const message = message_(lexer)
+      mustToken(lexer, "closeBrace")
+      const body = repeat(lexer, stmt)
+      out.push({ tag: "on", message, body })
+    } else {
+      return out
+    }
   }
 }
 

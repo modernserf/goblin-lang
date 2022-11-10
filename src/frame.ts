@@ -9,7 +9,7 @@ export function frame(
   const cachedClass = frameCache.get(selector)
   if (cachedClass) return { tag: "object", ivars, class: cachedClass }
 
-  const frameClass: IRClass = { methods: new Map() }
+  const frameClass: IRClass = { methods: new Map(), elseHandler: null }
   // constructor: [x: 1 y: 2]{x: 3 y: 4}
   frameClass.methods.set(selector, {
     tag: "object",

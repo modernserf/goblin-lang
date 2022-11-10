@@ -1,10 +1,16 @@
 export type IRMethod =
   | { tag: "object"; body: IRStmt[] }
   | { tag: "primitive"; fn: (value: any, args: Value[]) => Value }
-export type IRClass = { methods: Map<string, IRMethod> }
+export type IRClass = {
+  methods: Map<string, IRMethod>
+  elseHandler: IRStmt[] | null
+}
 
 export type IRBlockMethod = { body: IRStmt[]; offset: number }
-export type IRBlockClass = { methods: Map<string, IRBlockMethod> }
+export type IRBlockClass = {
+  methods: Map<string, IRBlockMethod>
+  elseHandler: IRStmt[] | null
+}
 
 export type IRArg =
   | { tag: "value"; value: IRExpr }

@@ -5,6 +5,7 @@ import {
   Value,
   NoMethodError,
   NoProviderError,
+  IRMethod,
 } from "./ir"
 import { unit } from "./stdlib"
 
@@ -65,10 +66,16 @@ function call(
   inArgs: IRArg[]
 ): Value {
   if (target.tag === "block") {
-    const method = target.class.methods.get(selector)
-    if (!method) throw new NoMethodError(selector)
-    const args = argValues(parent, inArgs)
     const ctx = target.ctx as any
+    const method = target.class.methods.get(selector)
+    if (!method) {
+      if (target.class.elseHandler) {
+        return body(ctx, target.class.elseHandler)
+      }
+      throw new NoMethodError(selector)
+    }
+
+    const args = argValues(parent, inArgs)
     args.forEach((arg, i) => ctx.setLocal(method.offset + i, arg))
     const result = body(ctx, method.body)
 
@@ -81,8 +88,16 @@ function call(
 
     return result
   }
+
   const method = target.class.methods.get(selector)
-  if (!method) throw new NoMethodError(selector)
+  if (!method) {
+    if (target.class.elseHandler) {
+      const ctx = parent.createChild(target, [])
+      return body(ctx, target.class.elseHandler)
+    }
+    throw new NoMethodError(selector)
+  }
+
   const primitiveValue = target.tag === "primitive" ? target.value : null
   const args = argValues(parent, inArgs)
 

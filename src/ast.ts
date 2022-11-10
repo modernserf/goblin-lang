@@ -16,10 +16,14 @@ export type ASTParam =
 
 export type ASTBlockCase = { params: ASTParam[]; body: ASTStmt[] }
 
+type HandlerSet = {
+  tag: "object"
+  methods: Map<string, ASTMethod>
+  elseHandler: ASTStmt[] | null
+}
+
 export type ASTVarArg = { tag: "identifier"; value: string }
-export type ASTBlockArg =
-  | { tag: "identifier"; value: string }
-  | { tag: "object"; methods: Map<string, ASTMethod> }
+export type ASTBlockArg = { tag: "identifier"; value: string } | HandlerSet
 export type ASTArg =
   | { tag: "expr"; value: ASTExpr }
   | { tag: "var"; value: ASTVarArg }
@@ -42,7 +46,7 @@ export type ASTExpr =
   | { tag: "identifier"; value: string }
   | { tag: "send"; target: ASTExpr; selector: string; args: ASTArg[] }
   | { tag: "frame"; selector: string; args: ASTFrameArg[] }
-  | { tag: "object"; methods: Map<string, ASTMethod> }
+  | HandlerSet
   | { tag: "use"; value: string }
 
 export type ASTDestructuredBinding = { key: string; value: ASTLetBinding }
@@ -114,11 +118,19 @@ function expandParams(message: ParseMessage): ParseMessage[] {
   return out.map((pairs) => ({ tag: "pairs", pairs }))
 }
 
-function handlerSet(ins: ParseHandler[]): Map<string, ASTMethod> {
-  const out = new Map<string, ASTMethod>()
+export class DuplicateElseHandlerError {}
+
+function handlerSet(ins: ParseHandler[]): HandlerSet {
+  const out: HandlerSet = {
+    tag: "object",
+    methods: new Map<string, ASTMethod>(),
+    elseHandler: null,
+  }
   for (const handler of ins) {
     if (handler.tag === "else") {
-      throw "todo"
+      if (out.elseHandler) throw new DuplicateElseHandlerError()
+      out.elseHandler = handler.body.map((s) => stmt(s))
+      continue
     }
     for (const params of expandParams(handler.message)) {
       const body = handler.body.map((s) => stmt(s))
@@ -149,10 +161,10 @@ function handlerSet(ins: ParseHandler[]): Map<string, ASTMethod> {
           return { selector, params, body }
         },
       })
-      if (out.has(m.selector)) {
+      if (out.methods.has(m.selector)) {
         throw new DuplicateMethodError(m.selector)
       }
-      out.set(m.selector, m)
+      out.methods.set(m.selector, m)
     }
   }
   return out
@@ -183,7 +195,7 @@ function expr(value: ParseExpr): ASTExpr {
         args: [{ tag: "expr", value: expr(value.arg) }],
       }
     case "object":
-      return { tag: "object", methods: handlerSet(value.handlers) }
+      return handlerSet(value.handlers)
     case "frame":
       return build<ASTFrameArg, ASTExpr>(value.message, {
         key(selector) {
@@ -228,8 +240,7 @@ function expr(value: ParseExpr): ASTExpr {
                   throw "invalid block arg"
               }
             case "handlers":
-              const methods = handlerSet(arg.handlers)
-              return { tag: "block", value: { tag: "object", methods } }
+              return { tag: "block", value: handlerSet(arg.handlers) }
           }
         },
         build(selector, args) {
