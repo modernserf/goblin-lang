@@ -13,6 +13,7 @@ export function frame(
   // constructor: [x: 1 y: 2]{x: 3 y: 4}
   frameClass.methods.set(selector, {
     tag: "object",
+    params: args.map(() => ({ tag: "value" })),
     body: [
       {
         tag: "return",
@@ -27,6 +28,7 @@ export function frame(
   // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
   frameClass.methods.set(":", {
     tag: "object",
+    params: [{ tag: "block" }],
     body: [
       {
         tag: "return",
@@ -46,11 +48,13 @@ export function frame(
     // getter: [x: 1 y: 2]{x}
     frameClass.methods.set(key, {
       tag: "object",
+      params: [],
       body: [{ tag: "return", value: { tag: "ivar", index } }],
     })
     // setter: [x: 1 y: 2]{x: 3}
     frameClass.methods.set(`${key}:`, {
       tag: "object",
+      params: [{ tag: "value" }],
       body: [
         {
           tag: "return",

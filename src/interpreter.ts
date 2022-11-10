@@ -5,24 +5,26 @@ import {
   Value,
   NoMethodError,
   NoProviderError,
-  IRMethod,
+  IRParam,
 } from "./ir"
 import { unit } from "./stdlib"
 
 class Interpreter {
   static root(): Interpreter {
-    return new Interpreter(unit, [], new Map())
+    return new Interpreter(unit, new Map())
   }
-  constructor(
-    readonly self: Value,
-    private locals: Value[],
-    private provideScope: Map<string, Value>
-  ) {}
+  private locals: Value[] = []
+  constructor(readonly self: Value, private provideScope: Map<string, Value>) {}
   setLocal(index: number, value: Value) {
     this.locals[index] = value
   }
   getLocal(index: number): Value {
-    return this.locals[index]
+    const result = this.locals[index]
+    /* istanbul ignore next */
+    if (!result) {
+      throw new Error(`missing local ${index}`)
+    }
+    return result
   }
   getIvar(index: number): Value {
     /* istanbul ignore next */
@@ -41,29 +43,64 @@ class Interpreter {
     next.set(key, value)
     this.provideScope = next
   }
-  createChild(self: Value, args: Value[]): Interpreter {
-    return new Interpreter(self, args, this.provideScope)
+  createChild(self: Value): Interpreter {
+    return new Interpreter(self, this.provideScope)
   }
 }
 
-function argValues(ctx: Interpreter, args: IRArg[]): Value[] {
-  return args.map((arg) => {
+function loadArgs(
+  caller: Interpreter,
+  target: Interpreter,
+  offset: number,
+  params: IRParam[],
+  args: IRArg[]
+) {
+  args.forEach((arg, i) => {
+    const param = params[i]
+    if (!param) throw new Error("missing param")
     switch (arg.tag) {
-      case "value":
-        return expr(ctx, arg.value)
-      case "var":
-        return ctx.getLocal(arg.index)
-      case "block":
-        return { tag: "block", class: arg.class, ctx }
+      case "value": {
+        if (param.tag === "var") throw "param var, arg value"
+        target.setLocal(offset + i, expr(caller, arg.value))
+        return
+      }
+      case "var": {
+        if (param.tag !== "var") throw `param ${param.tag}, arg var`
+        target.setLocal(offset + i, caller.getLocal(arg.index))
+        return
+      }
+      case "block": {
+        if (param.tag !== "block") throw `param ${param.tag}, arg block`
+        target.setLocal(offset + i, {
+          tag: "block",
+          class: arg.class,
+          ctx: caller,
+        })
+        return
+      }
+    }
+  })
+}
+
+function unloadArgs(
+  caller: Interpreter,
+  target: Interpreter,
+  offset: number,
+  args: IRArg[]
+) {
+  args.forEach((arg, i) => {
+    if (arg.tag === "var") {
+      const result = target.getLocal(offset + i)
+      caller.setLocal(arg.index, result)
     }
   })
 }
 
 function call(
-  parent: Interpreter,
+  caller: Interpreter,
   selector: string,
   target: Value,
-  inArgs: IRArg[]
+  args: IRArg[]
 ): Value {
   if (target.tag === "block") {
     const ctx = target.ctx as any
@@ -75,47 +112,35 @@ function call(
       throw new NoMethodError(selector)
     }
 
-    const args = argValues(parent, inArgs)
-    args.forEach((arg, i) => ctx.setLocal(method.offset + i, arg))
+    loadArgs(caller, ctx, method.offset, method.params, args)
     const result = body(ctx, method.body)
-
-    inArgs.forEach((arg, i) => {
-      if (arg.tag === "var") {
-        const result = ctx.getLocal(method.offset + i)
-        parent.setLocal(arg.index, result)
-      }
-    })
-
+    unloadArgs(caller, ctx, method.offset, args)
     return result
   }
 
   const method = target.class.methods.get(selector)
   if (!method) {
     if (target.class.elseHandler) {
-      const ctx = parent.createChild(target, [])
+      const ctx = caller.createChild(target)
       return body(ctx, target.class.elseHandler)
     }
     throw new NoMethodError(selector)
   }
 
-  const primitiveValue = target.tag === "primitive" ? target.value : null
-  const args = argValues(parent, inArgs)
-
   switch (method.tag) {
-    case "primitive":
-      return method.fn(primitiveValue, args)
-
+    case "primitive": {
+      const targetValue = target.tag === "primitive" ? target.value : null
+      const argValues = args.map((arg) => {
+        if (arg.tag !== "value") throw "invalid arg"
+        return expr(caller, arg.value)
+      })
+      return method.fn(targetValue, argValues)
+    }
     case "object":
-      const ctx = parent.createChild(target, args)
-      const result = Return.handleReturn(ctx, () => body(ctx, method.body))
-
-      for (const [index, arg] of inArgs.entries()) {
-        if (arg.tag === "var") {
-          const result = ctx.getLocal(index)
-          parent.setLocal(arg.index, result)
-        }
-      }
-
+      const child = caller.createChild(target)
+      loadArgs(caller, child, 0, method.params, args)
+      const result = Return.handleReturn(child, () => body(child, method.body))
+      unloadArgs(caller, child, 0, args)
       return result
   }
 }

@@ -6,6 +6,7 @@ import {
   PrimitiveTypeError,
   IRStmt,
   IRExpr,
+  IRParam,
 } from "./ir"
 
 class IRClassBuilder {
@@ -16,10 +17,10 @@ class IRClassBuilder {
     this.methods.set(key, { tag: "primitive", fn })
     return this
   }
-  addIR(key: string, body: IRStmt[]): this {
+  addIR(key: string, params: IRParam[], body: IRStmt[]): this {
     /* istanbul ignore next */
     if (this.methods.has(key)) throw new Error("duplicate method")
-    this.methods.set(key, { tag: "object", body })
+    this.methods.set(key, { tag: "object", body, params })
     return this
   }
   build(): IRClass {
@@ -65,91 +66,135 @@ let Bool := [
 */
 
 const notClass: IRClass = new IRClassBuilder()
-  .addIR("!", [{ tag: "expr", value: _0 }])
-  .addIR("true", [
-    {
-      tag: "expr",
-      value: { tag: "call", target: _0, selector: "false", args: [] },
-    },
-  ])
-  .addIR("false", [
-    {
-      tag: "expr",
-      value: { tag: "call", target: _0, selector: "true", args: [] },
-    },
-  ])
+  .addIR("!", [], [{ tag: "expr", value: _0 }])
+  .addIR(
+    "true",
+    [],
+    [
+      {
+        tag: "expr",
+        value: { tag: "call", target: _0, selector: "false", args: [] },
+      },
+    ]
+  )
+  .addIR(
+    "false",
+    [],
+    [
+      {
+        tag: "expr",
+        value: { tag: "call", target: _0, selector: "true", args: [] },
+      },
+    ]
+  )
   .build()
 
 const trueClass: IRClass = new IRClassBuilder()
-  .addIR("!", [
-    {
-      tag: "expr",
-      value: { tag: "call", selector: "false", target: _0, args: [] },
-    },
-  ])
-  .addIR(":", [
-    {
-      tag: "expr",
-      value: { tag: "call", target: $0, selector: "true", args: [] },
-    },
-  ])
-  .addIR("=:", [
-    {
-      tag: "expr",
-      value: {
-        tag: "call",
-        target: $0,
-        selector: ":",
-        args: [{ tag: "value", value: _0 }],
+  .addIR(
+    "!",
+    [],
+    [
+      {
+        tag: "expr",
+        value: { tag: "call", selector: "false", target: _0, args: [] },
       },
-    },
-  ])
+    ]
+  )
+  .addIR(
+    ":",
+    [],
+    [
+      {
+        tag: "expr",
+        value: { tag: "call", target: $0, selector: "true", args: [] },
+      },
+    ]
+  )
+  .addIR(
+    "=:",
+    [{ tag: "value" }],
+    [
+      {
+        tag: "expr",
+        value: {
+          tag: "call",
+          target: $0,
+          selector: ":",
+          args: [{ tag: "value", value: _0 }],
+        },
+      },
+    ]
+  )
   .build()
 
 const falseClass: IRClass = new IRClassBuilder()
-  .addIR("!", [
-    {
-      tag: "expr",
-      value: { tag: "call", selector: "true", target: _0, args: [] },
-    },
-  ])
-  .addIR(":", [
-    {
-      tag: "expr",
-      value: { tag: "call", target: $0, selector: "false", args: [] },
-    },
-  ])
-  .addIR("=:", [
-    {
-      tag: "expr",
-      value: {
-        tag: "call",
-        target: $0,
-        selector: ":",
-        args: [
-          {
-            tag: "value",
-            value: { tag: "call", selector: "!", args: [], target: _0 },
-          },
-        ],
+  .addIR(
+    "!",
+    [],
+    [
+      {
+        tag: "expr",
+        value: { tag: "call", selector: "true", target: _0, args: [] },
       },
-    },
-  ])
+    ]
+  )
+  .addIR(
+    ":",
+    [],
+    [
+      {
+        tag: "expr",
+        value: { tag: "call", target: $0, selector: "false", args: [] },
+      },
+    ]
+  )
+  .addIR(
+    "=:",
+    [{ tag: "value" }],
+    [
+      {
+        tag: "expr",
+        value: {
+          tag: "call",
+          target: $0,
+          selector: ":",
+          args: [
+            {
+              tag: "value",
+              value: { tag: "call", selector: "!", args: [], target: _0 },
+            },
+          ],
+        },
+      },
+    ]
+  )
   .build()
 
 const boolClass: IRClass = new IRClassBuilder()
-  .addIR("!", [
-    selfRef(0),
-    { tag: "expr", value: { tag: "object", class: notClass, ivars: [$0] } },
-  ])
-  .addIR("true", [
-    selfRef(0),
-    { tag: "expr", value: { tag: "object", class: trueClass, ivars: [$0] } },
-  ])
-  .addIR("false", [
-    selfRef(0),
-    { tag: "expr", value: { tag: "object", class: falseClass, ivars: [$0] } },
-  ])
+  .addIR(
+    "!",
+    [],
+    [
+      selfRef(0),
+      { tag: "expr", value: { tag: "object", class: notClass, ivars: [$0] } },
+    ]
+  )
+  .addIR(
+    "true",
+    [],
+    [
+      selfRef(0),
+      { tag: "expr", value: { tag: "object", class: trueClass, ivars: [$0] } },
+    ]
+  )
+  .addIR(
+    "false",
+    [],
+    [
+      selfRef(0),
+      { tag: "expr", value: { tag: "object", class: falseClass, ivars: [$0] } },
+    ]
+  )
   .build()
 
 const boolModule: Value = { tag: "object", class: boolClass, ivars: [] }

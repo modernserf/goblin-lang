@@ -276,6 +276,28 @@ Assert{
   expected: 1
 }
 
+# else
+let pattern := [
+  on {foo: x} x
+  on {bar} 2
+  else 3
+]
+
+Assert{
+  received: pattern{foo: 1}
+  expected: 1
+}
+
+Assert{
+  received: pattern{bar}
+  expected: 2
+}
+
+Assert{
+  received: pattern{something different}
+  expected: 3
+}
+
 # return 
 let result := [{}
   return 1
@@ -328,7 +350,9 @@ let init := List{
   head: 1 
   tail: List{
     head: 2 
-    tail: List{nil}}}
+    tail: List{nil}
+  }
+}
 
 let mapped := [{}
   init{map: {: value} value + 1}
@@ -336,26 +360,4 @@ let mapped := [{}
 Assert{
   received: mapped
   expected: List{head: 2 tail: List{head: 3 tail: List{nil}}}
-}
-
-# else
-let pattern := [
-  on {foo: x} x
-  on {bar} 2
-  else 3
-]
-
-Assert{
-  received: pattern{foo: 1}
-  expected: 1
-}
-
-Assert{
-  received: pattern{bar}
-  expected: 2
-}
-
-Assert{
-  received: pattern{something different}
-  expected: 3
 }

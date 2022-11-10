@@ -92,32 +92,6 @@ export class DuplicateMethodError {
   constructor(readonly selector: string) {}
 }
 
-// given {foo: block a bar: block b} generate
-// foo:bar: foo[block]:bar: foo:bar[block]: foo[block]:bar[block]:
-function expandParams(message: ParseMessage): ParseMessage[] {
-  if (message.tag === "key") {
-    return [message]
-  }
-  let out: ParsePair[][] = [[]]
-  for (const p of message.pairs) {
-    if (p.tag === "pair" && p.value.tag === "block") {
-      const unblock: ParsePair = {
-        tag: "pair",
-        key: p.key,
-        value: { tag: "value", value: p.value.value },
-      }
-      const left = out.map((ps) => [...ps, p])
-      const right = out.map((ps) => [...ps, unblock])
-      out = left.concat(right)
-    } else {
-      for (const ps of out) {
-        ps.push(p)
-      }
-    }
-  }
-  return out.map((pairs) => ({ tag: "pairs", pairs }))
-}
-
 export class DuplicateElseHandlerError {}
 
 function handlerSet(ins: ParseHandler[]): HandlerSet {
@@ -132,41 +106,41 @@ function handlerSet(ins: ParseHandler[]): HandlerSet {
       out.elseHandler = handler.body.map((s) => stmt(s))
       continue
     }
-    for (const params of expandParams(handler.message)) {
-      const body = handler.body.map((s) => stmt(s))
-      const m = build<ASTParam, ASTMethod>(params, {
-        key(selector) {
-          return { selector, params: [], body }
-        },
-        punValue(value) {
-          return { tag: "binding", binding: { tag: "identifier", value } }
-        },
-        pair(_, param) {
-          switch (param.tag) {
-            case "value":
-              return { tag: "binding", binding: letBinding(param.value) }
-            case "var":
-              if (param.value.tag !== "identifier")
-                throw new InvalidVarParamError()
-              return { tag: "var", binding: param.value }
-            case "handlers":
-              throw new InvalidParamError()
-            case "block":
-              if (param.value.tag !== "identifier")
-                throw new InvalidBlockParamError()
-              return { tag: "block", binding: param.value }
-          }
-        },
-        build(selector, params) {
-          return { selector, params, body }
-        },
-      })
-      if (out.methods.has(m.selector)) {
-        throw new DuplicateMethodError(m.selector)
-      }
-      out.methods.set(m.selector, m)
+
+    const body = handler.body.map((s) => stmt(s))
+    const m = build<ASTParam, ASTMethod>(handler.message, {
+      key(selector) {
+        return { selector, params: [], body }
+      },
+      punValue(value) {
+        return { tag: "binding", binding: { tag: "identifier", value } }
+      },
+      pair(_, param) {
+        switch (param.tag) {
+          case "value":
+            return { tag: "binding", binding: letBinding(param.value) }
+          case "var":
+            if (param.value.tag !== "identifier")
+              throw new InvalidVarParamError()
+            return { tag: "var", binding: param.value }
+          case "handlers":
+            throw new InvalidParamError()
+          case "block":
+            if (param.value.tag !== "identifier")
+              throw new InvalidBlockParamError()
+            return { tag: "block", binding: param.value }
+        }
+      },
+      build(selector, params) {
+        return { selector, params, body }
+      },
+    })
+    if (out.methods.has(m.selector)) {
+      throw new DuplicateMethodError(m.selector)
     }
+    out.methods.set(m.selector, m)
   }
+
   return out
 }
 
@@ -191,7 +165,7 @@ function expr(value: ParseExpr): ASTExpr {
       return {
         tag: "send",
         target: expr(value.target),
-        selector: argKey(value.operator, null),
+        selector: `${value.operator}:`,
         args: [{ tag: "expr", value: expr(value.arg) }],
       }
     case "object":
@@ -381,33 +355,19 @@ function build<Item, Container>(
 
   for (const param of message.pairs) {
     const value = "value" in param ? param.value : null
-    const taggedKey = argKey(param.key, value)
-    if (map.has(taggedKey)) throw new DuplicateKeyError(taggedKey)
+    if (map.has(param.key)) throw new DuplicateKeyError(param.key)
     switch (param.tag) {
       case "punPair":
-        map.set(taggedKey, builder.punValue(param.key))
+        map.set(param.key, builder.punValue(param.key))
         continue
       case "pair":
-        map.set(taggedKey, builder.pair(param.key, param.value))
+        map.set(param.key, builder.pair(param.key, param.value))
         continue
     }
   }
 
   const sortedKeys = Array.from(map.keys()).sort()
-  const selector = sortedKeys.join("")
+  const selector = sortedKeys.map((k) => `${k}:`).join("")
   const values = sortedKeys.map((k) => map.get(k)!)
   return builder.build(selector, values)
-}
-
-function argKey(key: string, arg: ParseArg | null) {
-  if (!arg) return `${key}:`
-  switch (arg.tag) {
-    case "var":
-      return `${key}[var]:`
-    case "block":
-    case "handlers":
-      return `${key}[block]:`
-    default:
-      return `${key}:`
-  }
 }

@@ -1,12 +1,21 @@
+export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "block" }
+
 export type IRMethod =
-  | { tag: "object"; body: IRStmt[] }
-  | { tag: "primitive"; fn: (value: any, args: Value[]) => Value }
+  | { tag: "object"; body: IRStmt[]; params: IRParam[] }
+  | {
+      tag: "primitive"
+      fn: (value: any, args: Value[]) => Value
+    }
 export type IRClass = {
   methods: Map<string, IRMethod>
   elseHandler: IRStmt[] | null
 }
 
-export type IRBlockMethod = { body: IRStmt[]; offset: number }
+export type IRBlockMethod = {
+  body: IRStmt[]
+  offset: number
+  params: IRParam[]
+}
 export type IRBlockClass = {
   methods: Map<string, IRBlockMethod>
   elseHandler: IRStmt[] | null

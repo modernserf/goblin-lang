@@ -15,6 +15,7 @@ import {
   IRMethod,
   IRBlockClass,
   IRBlockMethod,
+  IRParam,
 } from "./ir"
 import { core, intClass, stringClass } from "./stdlib"
 
@@ -158,6 +159,17 @@ function methodParam(
   }
 }
 
+function param(p: ASTParam): IRParam {
+  switch (p.tag) {
+    case "binding":
+      return { tag: "value" }
+    case "block":
+      return { tag: "block" }
+    case "var":
+      return { tag: "var" }
+  }
+}
+
 function object(
   parentScope: Scope,
   selfBinding: string | null,
@@ -186,10 +198,11 @@ function object(
 
   for (const [selector, method] of methods) {
     const scope = instance.newScope(method.params.length)
-    const out: IRMethod = { tag: "object", body: [] }
+    const out: IRMethod = { tag: "object", body: [], params: [] }
 
-    for (const [argIndex, param] of method.params.entries()) {
-      out.body.push(...methodParam(scope, argIndex, param))
+    for (const [argIndex, p] of method.params.entries()) {
+      out.params.push(param(p))
+      out.body.push(...methodParam(scope, argIndex, p))
     }
 
     if (selfBinding !== null) {
@@ -215,9 +228,10 @@ function block(
   for (const [selector, method] of methods) {
     // block params use parent scope, and do not start at zero
     const offset = scope.newBlock(method.params.length)
-    const out: IRBlockMethod = { body: [], offset }
-    for (const [argIndex, param] of method.params.entries()) {
-      out.body.push(...methodParam(scope, offset + argIndex, param))
+    const out: IRBlockMethod = { body: [], offset, params: [] }
+    for (const [argIndex, p] of method.params.entries()) {
+      out.params.push(param(p))
+      out.body.push(...methodParam(scope, offset + argIndex, p))
     }
     out.body.push(...body(scope, method.body))
     objectClass.methods.set(selector, out)
