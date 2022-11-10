@@ -4,16 +4,22 @@ import assert from "node:assert/strict"
 import { Lexer } from "./lexer"
 import { program as parse } from "./parser"
 import {
+  DuplicateElseHandlerError,
   DuplicateKeyError,
   DuplicateMethodError,
+  InvalidBlockArgError,
+  InvalidBlockParamError,
   InvalidDestructuringError,
+  InvalidFrameArgError,
   InvalidImportBindingError,
   InvalidImportSourceError,
   InvalidLetBindingError,
+  InvalidParamError,
   InvalidProvideBindingError,
   InvalidSetTargetError,
   InvalidVarArgError,
   InvalidVarBindingError,
+  InvalidVarParamError,
   program as astWalk,
 } from "./ast"
 
@@ -57,6 +63,14 @@ test("duplicate methods", () => {
       ]
     `)
   }, DuplicateMethodError)
+  assert.throws(() => {
+    check(`
+      [
+        else 1
+        else 2
+      ]
+    `)
+  }, DuplicateElseHandlerError)
 })
 
 test("invalid calls", () => {
@@ -65,6 +79,11 @@ test("invalid calls", () => {
       val{arg: var 1} 
     `)
   }, InvalidVarArgError)
+  assert.throws(() => {
+    check(`
+      val{arg: block 1} 
+    `)
+  }, InvalidBlockArgError)
 })
 
 test("invalid destructuring", () => {
@@ -76,6 +95,16 @@ test("invalid destructuring", () => {
   assert.throws(() => {
     check(`
       let [x: var x] := foo
+    `)
+  }, InvalidDestructuringError)
+  assert.throws(() => {
+    check(`
+      let [x: block x] := foo
+    `)
+  }, InvalidDestructuringError)
+  assert.throws(() => {
+    check(`
+      let [x: else 1] := foo
     `)
   }, InvalidDestructuringError)
 })
@@ -99,4 +128,30 @@ test("imports", () => {
       import [_foo_] := 123
     `)
   }, InvalidImportSourceError)
+})
+
+test("method params", () => {
+  assert.throws(() => {
+    check(`
+      [{arg: var 1} 1]
+    `)
+  }, InvalidVarParamError)
+  assert.throws(() => {
+    check(`
+      [{arg: on {x} 1} 1]
+    `)
+  }, InvalidParamError)
+  assert.throws(() => {
+    check(`
+      [{arg: block [x: x]} x] 
+    `)
+  }, InvalidBlockParamError)
+})
+
+test("frames", () => {
+  assert.throws(() => {
+    check(`
+      [x: var 1] 
+    `)
+  }, InvalidFrameArgError)
 })

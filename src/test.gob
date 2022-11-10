@@ -86,18 +86,20 @@ let pattern := [
   on {some: x} x
   on {none} 10
 ]
+
 Assert{
   received: foo{:pattern} + bar{:pattern}
   expected: 11
 }
 
 let empty := []
-let pattern := [
+let result := empty{:
   on {} 1
   on {other} 2
-]
+}
+
 Assert{
-  received: empty{:pattern}
+  received: result
   expected: 1
 }
 

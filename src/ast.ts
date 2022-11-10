@@ -78,6 +78,7 @@ export class InvalidVarParamError {}
 export class InvalidBlockParamError {}
 export class InvalidFrameArgError {}
 export class InvalidVarArgError {}
+export class InvalidBlockArgError {}
 export class InvalidLetBindingError {}
 export class InvalidSetTargetError {}
 export class InvalidVarBindingError {}
@@ -238,7 +239,7 @@ function expr(value: ParseExpr): ASTExpr {
                 case "identifier":
                   return { tag: "block", value: arg.value }
                 default:
-                  throw "invalid block arg"
+                  throw new InvalidBlockArgError()
               }
             case "handlers":
               return { tag: "block", value: handlerSet(arg.handlers) }
