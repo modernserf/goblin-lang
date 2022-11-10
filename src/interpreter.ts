@@ -48,6 +48,10 @@ class Interpreter {
   }
 }
 
+export class ArgMismatchError {
+  constructor(readonly paramType: string, readonly argType: string) {}
+}
+
 function loadArgs(
   caller: Interpreter,
   target: Interpreter,
@@ -57,20 +61,22 @@ function loadArgs(
 ) {
   args.forEach((arg, i) => {
     const param = params[i]
+    /* istanbul ignore next */
     if (!param) throw new Error("missing param")
     switch (arg.tag) {
       case "value": {
-        if (param.tag === "var") throw "param var, arg value"
+        if (param.tag === "var") throw new ArgMismatchError(param.tag, arg.tag)
         target.setLocal(offset + i, expr(caller, arg.value))
         return
       }
       case "var": {
-        if (param.tag !== "var") throw `param ${param.tag}, arg var`
+        if (param.tag !== "var") throw new ArgMismatchError(param.tag, arg.tag)
         target.setLocal(offset + i, caller.getLocal(arg.index))
         return
       }
       case "block": {
-        if (param.tag !== "block") throw `param ${param.tag}, arg block`
+        if (param.tag !== "block")
+          throw new ArgMismatchError(param.tag, arg.tag)
         target.setLocal(offset + i, {
           tag: "block",
           class: arg.class,
@@ -131,6 +137,7 @@ function call(
     case "primitive": {
       const targetValue = target.tag === "primitive" ? target.value : null
       const argValues = args.map((arg) => {
+        /* istanbul ignore next */
         if (arg.tag !== "value") throw "invalid arg"
         return expr(caller, arg.value)
       })

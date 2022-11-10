@@ -103,6 +103,17 @@ test("block usage", () => {
     `)
   }, BlockReferenceError)
 
+  assert.throws(() => {
+    compile(`
+      let obj := [
+        on {: block f} [
+          on {inner}
+            f{: 1} 
+        ]
+      ] 
+    `)
+  }, BlockReferenceError)
+
   assert.doesNotThrow(() => {
     compile(`
       let foo := []

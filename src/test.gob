@@ -1,6 +1,7 @@
 import [
   _Cell_
   _Assert_
+  _Bool_
 ] := "core"
 
 # strings
@@ -8,6 +9,17 @@ let str := "Hello, world!"
 Assert{
   received: str 
   expected: "Hello, world!"
+}
+
+# bools
+Assert{
+  received: "Hello" = "Hello"
+  expected: Bool{true}
+}
+
+Assert{
+  received: "Hello" = "Goodbye"
+  expected: Bool{false}
 }
 
 # numbers, operators
@@ -35,6 +47,17 @@ Assert{
   received: do 2; - 1 end
   expected: -1
 }
+
+Assert{
+  received: 1 = 1
+  expected: Bool{true}
+}
+
+Assert{
+  received: 1 = 2
+  expected: Bool{false}
+}
+
 
 # locals
 let x := 1
@@ -96,11 +119,20 @@ let empty := []
 let result := empty{:
   on {} 1
   on {other} 2
+  else 3
 }
 
 Assert{
   received: result
   expected: 1
+}
+
+let result := empty{:
+  else 3
+}
+Assert{
+  received: result
+  expected: 3
 }
 
 # instances
@@ -295,6 +327,9 @@ Assert{
   received: pattern{something different}
   expected: 3
 }
+
+let value := [else 1]{anything}
+Assert{received: value; expected: 1}
 
 # return 
 let obj := [
