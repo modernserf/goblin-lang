@@ -27,16 +27,12 @@ Assert{
 }
 
 Assert{
-  received: [{}
-    2 - 1
-  ]{}
+  received: do 2 - 1 end
   expected: 1
 }
 
 Assert{
-  received: [{}
-    2; - 1
-  ]{}
+  received: do 2; - 1 end
   expected: -1
 }
 
@@ -234,7 +230,7 @@ Assert{
   expected: 2
 }
 
-let result := [{}
+let result := do
   let obj := [{get} use foo]
 
   provide foo := 1
@@ -242,13 +238,13 @@ let result := [{}
   provide foo := 2
   let y := obj{get}
   x + y
-]{}
+end
 Assert{
   received: result
   expected: 3 
 }
 
-let result := [{}
+let result := do
   let a := [{get} use foo]
   provide foo := 3
   let b := [
@@ -260,7 +256,7 @@ let result := [{}
       fn{get}
   ]
   b{pv 1: a} + b{pv 2: a} + a{get}
-]{}
+end
 Assert{
   received: result
   expected: 6
@@ -299,36 +295,37 @@ Assert{
 }
 
 # return 
-let result := [{}
-  return 1
-  2
-]{}
+let obj := [
+  on {method}
+    return 1
+    2
+]
+
 Assert{
-  received: result
+  received: obj{method}
   expected: 1
 }
 
 # block vars
 var x := 1
-let do := [
-  {: block b} b{}
-]
-do{:{} set x := 2}
+do
+  set x := 2
+end
 Assert{
   received: x
   expected: 2
 }
 
 # nonlocal return
-let result := [{}
-  do{:
-    on {} 
+let obj := [
+  on {method}
+    do 
       return 1
-  }
-  return 2
-]{}
+    end
+    return 2 
+]
 Assert{
-  received: result
+  received: obj{method}
   expected: 1
 }
 
@@ -354,9 +351,8 @@ let init := List{
   }
 }
 
-let mapped := [{}
-  init{map: {: value} value + 1}
-]{}
+let mapped := init{map: {: value} value + 1}
+
 Assert{
   received: mapped
   expected: List{head: 2 tail: List{head: 3 tail: List{nil}}}

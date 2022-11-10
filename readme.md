@@ -146,26 +146,6 @@ useful for conversions, avoids the desire for mixins / inheritance because left-
 list::Iter{take: 3} => Iter{: list}{take: 3}
 ```
 
-# do expression
-
-Avoids some hideous syntax
-
-```
-do <body> end
-
-let z := do
-  let x := 1
-  let y := 2
-  x + y
-end
-
-let z := [{}
-	let x := 1
-	let y := 2
-	x + y
-]{}
-```
-
 # set & var paths
 
 ```

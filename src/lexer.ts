@@ -15,6 +15,8 @@ export type Token =
   | { tag: "on" }
   | { tag: "else" }
   | { tag: "block" }
+  | { tag: "do" }
+  | { tag: "end" }
   | { tag: "openBracket" }
   | { tag: "closeBracket" }
   | { tag: "openBrace" }
@@ -24,7 +26,7 @@ export type Token =
   | { tag: "semicolon" }
   | { tag: "colon" }
   | { tag: "colonEquals" }
-  | { tag: "end" }
+  | { tag: "eof" }
 
 const re = {
   commentWhitespace: /(?:#[^\n]*|\s)+/y,
@@ -48,6 +50,8 @@ export const keywords: Set<Token["tag"]> = new Set([
   "on",
   "else",
   "block",
+  "do",
+  "end",
 ])
 
 const matcherTable = {
@@ -76,7 +80,7 @@ export class Lexer {
   peek(): Token {
     if (this.peekCache) return this.peekCache
     this.ignoreWhitespace()
-    if (this.index >= this.code.length) return { tag: "end" }
+    if (this.index >= this.code.length) return { tag: "eof" }
     const next = this.next()
     this.peekCache = next
     return next

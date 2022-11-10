@@ -22,6 +22,7 @@ export type ParseExpr =
   | { tag: "frame"; message: ParseMessage }
   | { tag: "send"; target: ParseExpr; message: ParseMessage }
   | { tag: "use"; value: string }
+  | { tag: "do"; body: ParseStmt[] }
   | { tag: "unaryOp"; target: ParseExpr; operator: string }
   | { tag: "binaryOp"; target: ParseExpr; arg: ParseExpr; operator: string }
 
@@ -172,6 +173,12 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
         accept(lexer, "quotedIdent") || mustToken(lexer, "identifier")
       return { tag: "use", value: value.value }
     }
+    case "do": {
+      lexer.advance()
+      const body = repeat(lexer, stmt)
+      mustToken(lexer, "end")
+      return { tag: "do", body }
+    }
     default:
       return null
   }
@@ -240,7 +247,7 @@ function stmt(lexer: Lexer): ParseStmt | null {
 
 export function program(lexer: Lexer): ParseStmt[] {
   const out = repeat(lexer, stmt)
-  mustToken(lexer, "end")
+  mustToken(lexer, "eof")
   return out
 }
 

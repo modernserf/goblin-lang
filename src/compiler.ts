@@ -270,7 +270,6 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
     case "string":
       return { tag: "primitive", class: stringClass, value: value.value }
     case "identifier":
-      // TODO: lookup should fail on block vals _except_ in call target & block args
       return scope.lookup(value.value)
     case "send": {
       const target =

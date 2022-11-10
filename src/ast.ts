@@ -168,6 +168,33 @@ function expr(value: ParseExpr): ASTExpr {
         selector: `${value.operator}:`,
         args: [{ tag: "expr", value: expr(value.arg) }],
       }
+    case "do":
+      // do ... end -> []{:{} ...}
+
+      return {
+        tag: "send",
+        target: { tag: "frame", selector: "", args: [] },
+        selector: ":",
+        args: [
+          {
+            tag: "block",
+            value: {
+              tag: "object",
+              elseHandler: null,
+              methods: new Map<string, ASTMethod>([
+                [
+                  "",
+                  {
+                    selector: "",
+                    params: [],
+                    body: value.body.map(stmt),
+                  },
+                ],
+              ]),
+            },
+          },
+        ],
+      }
     case "object":
       return handlerSet(value.handlers)
     case "frame":
