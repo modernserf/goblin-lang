@@ -2,25 +2,14 @@
 
 import { keywords, Lexer, Token } from "./lexer"
 
-export type ParseArg =
-  | { tag: "value"; value: ParseExpr }
-  | { tag: "var"; value: ParseExpr }
-  | { tag: "block"; value: ParseExpr }
-  | { tag: "case"; methods: ParseMethod[] }
-
-// TODO: multiple method heads, decorators
-export type ParseMethod = {
-  tag: "method"
-  message: ParseMessage
-  body: ParseStmt[]
-}
-
-export type ParseMessage =
-  | { tag: "key"; key: string }
-  | { tag: "pairs"; pairs: ParsePair[] }
-export type ParsePair =
-  | { tag: "pair"; key: string; value: ParseArg }
-  | { tag: "punPair"; key: string }
+export type ParseStmt =
+  | { tag: "let"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "set"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "var"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "provide"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "import"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "return"; value: ParseExpr }
+  | { tag: "expr"; value: ParseExpr }
 
 // used for both ast exprs and bindings
 export type ParseExpr =
@@ -36,14 +25,24 @@ export type ParseExpr =
   | { tag: "unaryOp"; target: ParseExpr; operator: string }
   | { tag: "binaryOp"; target: ParseExpr; arg: ParseExpr; operator: string }
 
-export type ParseStmt =
-  | { tag: "let"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "set"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "var"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "provide"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "import"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "return"; value: ParseExpr }
-  | { tag: "expr"; value: ParseExpr }
+export type ParseMessage =
+  | { tag: "key"; key: string }
+  | { tag: "pairs"; pairs: ParsePair[] }
+export type ParsePair =
+  | { tag: "pair"; key: string; value: ParseArg }
+  | { tag: "punPair"; key: string }
+export type ParseArg =
+  | { tag: "value"; value: ParseExpr }
+  | { tag: "var"; value: ParseExpr }
+  | { tag: "block"; value: ParseExpr }
+  | { tag: "case"; methods: ParseMethod[] }
+
+// TODO: multiple method heads, decorators
+export type ParseMethod = {
+  tag: "method"
+  message: ParseMessage
+  body: ParseStmt[]
+}
 
 export class ParseError {
   constructor(readonly expected: string, readonly received: string) {}
