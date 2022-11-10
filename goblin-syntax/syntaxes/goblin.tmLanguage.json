@@ -12,7 +12,11 @@
       "patterns": [
         {
           "name": "keyword.control.goblin",
-          "match": "\\b(return|let|var|set|provide|use|import)\\b"
+          "match": "\\b(return|let|var|set|provide|use|import|on|else|block)\\b"
+        },
+        {
+          "name": "variable.language.goblin",
+          "match": "\\b(self)\\b"
         }
       ]
     },
