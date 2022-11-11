@@ -276,6 +276,41 @@ const cellInstance = new IRClassBuilder()
     self.value = arg
     return unit
   })
+  .addIR(
+    "update:",
+    [{ tag: "block" }],
+    [
+      {
+        tag: "expr",
+        value: {
+          tag: "send",
+          target: { tag: "self" },
+          selector: "set:",
+          args: [
+            {
+              tag: "value",
+              value: {
+                tag: "send",
+                target: $0,
+                selector: ":",
+                args: [
+                  {
+                    tag: "value",
+                    value: {
+                      tag: "send",
+                      target: { tag: "self" },
+                      selector: "get",
+                      args: [],
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ]
+  )
   .build()
 
 const cellModule: Value = {

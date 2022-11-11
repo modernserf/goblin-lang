@@ -9,6 +9,7 @@ export type ParseStmt =
   | { tag: "provide"; binding: ParseExpr; value: ParseExpr }
   | { tag: "import"; binding: ParseExpr; value: ParseExpr }
   | { tag: "return"; value: ParseExpr }
+  | { tag: "defer"; body: ParseStmt[] }
   | { tag: "expr"; value: ParseExpr }
 
 // used for both ast exprs and bindings
@@ -237,6 +238,12 @@ function stmt(lexer: Lexer): ParseStmt | null {
     case "return":
       lexer.advance()
       return { tag: "return", value: must(lexer, "expr", expr) }
+    case "defer": {
+      lexer.advance()
+      const body = repeat(lexer, stmt)
+      mustToken(lexer, "end")
+      return { tag: "defer", body }
+    }
     default: {
       const value = expr(lexer)
       if (!value) return null

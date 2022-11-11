@@ -366,6 +366,8 @@ function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
         class: core,
       })
     }
+    case "defer":
+      return [{ tag: "defer", body: body(scope, stmt.body) }]
     case "return":
       return [{ tag: "return", value: expr(scope, stmt.value) }]
     case "expr":

@@ -3,6 +3,7 @@ export type IRStmt =
   | { tag: "return"; value: IRExpr }
   | { tag: "expr"; value: IRExpr }
   | { tag: "provide"; key: string; value: IRExpr }
+  | { tag: "defer"; body: IRStmt[] }
 
 export type IRExpr =
   | { tag: "local"; index: number }
@@ -249,24 +250,33 @@ class Return {
 
 function body(ctx: Interpreter, stmts: IRStmt[]): Value {
   let result = unit
-
-  for (const stmt of stmts) {
-    switch (stmt.tag) {
-      case "assign":
-        ctx.setLocal(stmt.index, expr(ctx, stmt.value))
-        result = unit
-        break
-      case "return":
-        throw new Return(ctx, expr(ctx, stmt.value))
-      case "expr":
-        result = expr(ctx, stmt.value)
-        break
-      case "provide":
-        ctx.provide(stmt.key, expr(ctx, stmt.value))
-        break
+  const defers: IRStmt[][] = []
+  try {
+    for (const stmt of stmts) {
+      switch (stmt.tag) {
+        case "assign":
+          ctx.setLocal(stmt.index, expr(ctx, stmt.value))
+          result = unit
+          break
+        case "return":
+          throw new Return(ctx, expr(ctx, stmt.value))
+        case "expr":
+          result = expr(ctx, stmt.value)
+          break
+        case "provide":
+          ctx.provide(stmt.key, expr(ctx, stmt.value))
+          break
+        case "defer":
+          defers.push(stmt.body)
+          break
+      }
+    }
+    return result
+  } finally {
+    for (const defer of defers) {
+      body(ctx, defer)
     }
   }
-  return result
 }
 
 export function program(stmts: IRStmt[]): Value {
