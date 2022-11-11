@@ -7,7 +7,8 @@ import {
   IRStmt,
   IRExpr,
   IRParam,
-} from "./ir"
+  unit,
+} from "./interpreter"
 
 class IRClassBuilder {
   private methods = new Map<string, IRHandler>()
@@ -27,9 +28,6 @@ class IRClassBuilder {
     return { handlers: this.methods, else: null }
   }
 }
-
-const unitClass = new IRClassBuilder().build()
-export const unit: Value = { tag: "object", class: unitClass, ivars: [] }
 
 // locals (including method args)
 const $0: IRExpr = { tag: "local", index: 0 }

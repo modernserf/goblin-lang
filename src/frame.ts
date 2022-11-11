@@ -1,4 +1,4 @@
-import { IRClass, IRExpr } from "./ir"
+import { IRClass, IRExpr } from "./interpreter"
 
 const frameCache = new Map<string, IRClass>()
 export function frame(

@@ -5,8 +5,13 @@ import { Lexer } from "./lexer"
 import { program as parse } from "./parser"
 import { program as astWalk } from "./ast"
 import { program as compile } from "./compiler"
-import { ArgMismatchError, program as interpret } from "./interpreter"
-import { NoHandlerError, NoProviderError, PrimitiveTypeError } from "./ir"
+import {
+  ArgMismatchError,
+  program as interpret,
+  NoHandlerError,
+  NoProviderError,
+  PrimitiveTypeError,
+} from "./interpreter"
 
 export function run(source: string) {
   const parseTree = parse(new Lexer(source))

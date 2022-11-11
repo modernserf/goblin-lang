@@ -1,13 +1,62 @@
-import {
-  IRExpr,
-  IRStmt,
-  IRArg,
-  Value,
-  NoHandlerError,
-  NoProviderError,
-  IRParam,
-} from "./ir"
-import { unit } from "./stdlib"
+export type IRStmt =
+  | { tag: "assign"; index: number; value: IRExpr }
+  | { tag: "return"; value: IRExpr }
+  | { tag: "expr"; value: IRExpr }
+  | { tag: "provide"; key: string; value: IRExpr }
+
+export type IRExpr =
+  | { tag: "local"; index: number }
+  | { tag: "ivar"; index: number }
+  | { tag: "self" }
+  | { tag: "primitive"; class: IRClass; value: PrimitiveValue }
+  | { tag: "object"; class: IRClass; ivars: IRExpr[] }
+  | { tag: "send"; selector: string; target: IRExpr; args: IRArg[] }
+  | { tag: "use"; key: string }
+
+export type IRArg =
+  | { tag: "value"; value: IRExpr }
+  | { tag: "var"; index: number }
+  | { tag: "block"; class: IRBlockClass }
+
+export type IRClass = {
+  handlers: Map<string, IRHandler>
+  else: IRStmt[] | null
+}
+export type IRHandler =
+  | { tag: "object"; body: IRStmt[]; params: IRParam[] }
+  | { tag: "primitive"; fn: IRPrimitiveHandler }
+type IRPrimitiveHandler = (value: PrimitiveValue, args: Value[]) => Value
+
+export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "block" }
+
+export type IRBlockClass = {
+  handlers: Map<string, IRBlockHandler>
+  else: IRStmt[] | null
+}
+export type IRBlockHandler = {
+  body: IRStmt[]
+  offset: number
+  params: IRParam[]
+}
+
+export type Value =
+  | { tag: "object"; class: IRClass; ivars: Value[] }
+  | { tag: "block"; class: IRBlockClass; ctx: Interpreter }
+  | { tag: "primitive"; class: IRClass; value: PrimitiveValue }
+type PrimitiveValue = any
+
+export class PrimitiveTypeError {
+  constructor(readonly expected: string) {}
+}
+export class NoHandlerError {
+  constructor(readonly selector: string) {}
+}
+export class NoProviderError {
+  constructor(readonly key: string) {}
+}
+
+const unitClass: IRClass = { handlers: new Map(), else: null }
+export const unit: Value = { tag: "object", class: unitClass, ivars: [] }
 
 class Interpreter {
   static root(): Interpreter {
@@ -109,7 +158,7 @@ function send(
   args: IRArg[]
 ): Value {
   if (target.tag === "block") {
-    const ctx = target.ctx as any
+    const ctx = target.ctx
     const handler = target.class.handlers.get(selector)
     if (!handler) {
       if (target.class.else) {

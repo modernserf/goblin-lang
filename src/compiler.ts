@@ -16,7 +16,7 @@ import {
   IRBlockClass,
   IRBlockHandler,
   IRParam,
-} from "./ir"
+} from "./interpreter"
 import { core, intClass, stringClass } from "./stdlib"
 
 type ScopeType = "let" | "var" | "block"
