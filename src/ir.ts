@@ -1,24 +1,24 @@
 export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "block" }
 
-export type IRMethod =
+export type IRHandler =
   | { tag: "object"; body: IRStmt[]; params: IRParam[] }
   | {
       tag: "primitive"
       fn: (value: any, args: Value[]) => Value
     }
 export type IRClass = {
-  methods: Map<string, IRMethod>
-  elseHandler: IRStmt[] | null
+  handlers: Map<string, IRHandler>
+  else: IRStmt[] | null
 }
 
-export type IRBlockMethod = {
+export type IRBlockHandler = {
   body: IRStmt[]
   offset: number
   params: IRParam[]
 }
 export type IRBlockClass = {
-  methods: Map<string, IRBlockMethod>
-  elseHandler: IRStmt[] | null
+  handlers: Map<string, IRBlockHandler>
+  else: IRStmt[] | null
 }
 
 export type IRArg =
@@ -32,7 +32,7 @@ export type IRExpr =
   | { tag: "self" }
   | { tag: "primitive"; class: IRClass; value: any }
   | { tag: "object"; class: IRClass; ivars: IRExpr[] }
-  | { tag: "call"; selector: string; target: IRExpr; args: IRArg[] }
+  | { tag: "send"; selector: string; target: IRExpr; args: IRArg[] }
   | { tag: "use"; key: string }
 
 export type IRStmt =
@@ -52,7 +52,7 @@ export class PrimitiveTypeError {
   constructor(readonly expected: string) {}
 }
 
-export class NoMethodError {
+export class NoHandlerError {
   constructor(readonly selector: string) {}
 }
 

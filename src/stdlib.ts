@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import {
   IRClass,
   Value,
-  IRMethod,
+  IRHandler,
   PrimitiveTypeError,
   IRStmt,
   IRExpr,
@@ -10,7 +10,7 @@ import {
 } from "./ir"
 
 class IRClassBuilder {
-  private methods = new Map<string, IRMethod>()
+  private methods = new Map<string, IRHandler>()
   addPrimitive(key: string, fn: (value: any, args: Value[]) => Value): this {
     /* istanbul ignore next */
     if (this.methods.has(key)) throw new Error("duplicate method")
@@ -24,7 +24,7 @@ class IRClassBuilder {
     return this
   }
   build(): IRClass {
-    return { methods: this.methods, elseHandler: null }
+    return { handlers: this.methods, else: null }
   }
 }
 
@@ -47,21 +47,21 @@ const selfRef = (index: number): IRStmt => ({
 
 /*
 let Bool := [
-	{!} [
-    {!} Bool
-		{true} Bool{false}
-		{false} Bool{true}
-	];
-	{true} [
-    {!} Bool{false}
-		{: match} match{true};
-		{=: other} other{: Bool}; # {true} => true, {false} => false
-	];
-	{false} [
-    {!} Bool{true}
-		{: match} match{false};
-		{=: other} other{: !Bool}; # {true} => false, {false} => true
-	];
+	on {!} [
+    on {!} Bool
+		on {true} Bool{false}
+		on {false} Bool{true}
+	]
+	on {true} [
+    on {!} Bool{false}
+		on {: block match} match{true}
+		on {=: other} other{: Bool} # {true} => true, {false} => false
+	]
+	on {false} [
+    on {!} Bool{true}
+		on {: block match} match{false}
+		on {=: other} other{: !Bool} # {true} => false, {false} => true
+	]
 ]
 */
 
@@ -73,7 +73,7 @@ const notClass: IRClass = new IRClassBuilder()
     [
       {
         tag: "expr",
-        value: { tag: "call", target: _0, selector: "false", args: [] },
+        value: { tag: "send", target: _0, selector: "false", args: [] },
       },
     ]
   )
@@ -83,7 +83,7 @@ const notClass: IRClass = new IRClassBuilder()
     [
       {
         tag: "expr",
-        value: { tag: "call", target: _0, selector: "true", args: [] },
+        value: { tag: "send", target: _0, selector: "true", args: [] },
       },
     ]
   )
@@ -96,7 +96,7 @@ const trueClass: IRClass = new IRClassBuilder()
     [
       {
         tag: "expr",
-        value: { tag: "call", selector: "false", target: _0, args: [] },
+        value: { tag: "send", selector: "false", target: _0, args: [] },
       },
     ]
   )
@@ -106,7 +106,7 @@ const trueClass: IRClass = new IRClassBuilder()
     [
       {
         tag: "expr",
-        value: { tag: "call", target: $0, selector: "true", args: [] },
+        value: { tag: "send", target: $0, selector: "true", args: [] },
       },
     ]
   )
@@ -117,7 +117,7 @@ const trueClass: IRClass = new IRClassBuilder()
       {
         tag: "expr",
         value: {
-          tag: "call",
+          tag: "send",
           target: $0,
           selector: ":",
           args: [{ tag: "value", value: _0 }],
@@ -134,7 +134,7 @@ const falseClass: IRClass = new IRClassBuilder()
     [
       {
         tag: "expr",
-        value: { tag: "call", selector: "true", target: _0, args: [] },
+        value: { tag: "send", selector: "true", target: _0, args: [] },
       },
     ]
   )
@@ -144,7 +144,7 @@ const falseClass: IRClass = new IRClassBuilder()
     [
       {
         tag: "expr",
-        value: { tag: "call", target: $0, selector: "false", args: [] },
+        value: { tag: "send", target: $0, selector: "false", args: [] },
       },
     ]
   )
@@ -155,13 +155,13 @@ const falseClass: IRClass = new IRClassBuilder()
       {
         tag: "expr",
         value: {
-          tag: "call",
+          tag: "send",
           target: $0,
           selector: ":",
           args: [
             {
               tag: "value",
-              value: { tag: "call", selector: "!", args: [], target: _0 },
+              value: { tag: "send", selector: "!", args: [], target: _0 },
             },
           ],
         },

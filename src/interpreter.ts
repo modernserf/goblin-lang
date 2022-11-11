@@ -3,7 +3,7 @@ import {
   IRStmt,
   IRArg,
   Value,
-  NoMethodError,
+  NoHandlerError,
   NoProviderError,
   IRParam,
 } from "./ir"
@@ -53,7 +53,7 @@ export class ArgMismatchError {
 }
 
 function loadArgs(
-  caller: Interpreter,
+  sender: Interpreter,
   target: Interpreter,
   offset: number,
   params: IRParam[],
@@ -66,12 +66,12 @@ function loadArgs(
     switch (arg.tag) {
       case "value": {
         if (param.tag === "var") throw new ArgMismatchError(param.tag, arg.tag)
-        target.setLocal(offset + i, expr(caller, arg.value))
+        target.setLocal(offset + i, expr(sender, arg.value))
         return
       }
       case "var": {
         if (param.tag !== "var") throw new ArgMismatchError(param.tag, arg.tag)
-        target.setLocal(offset + i, caller.getLocal(arg.index))
+        target.setLocal(offset + i, sender.getLocal(arg.index))
         return
       }
       case "block": {
@@ -80,7 +80,7 @@ function loadArgs(
         target.setLocal(offset + i, {
           tag: "block",
           class: arg.class,
-          ctx: caller,
+          ctx: sender,
         })
         return
       }
@@ -89,7 +89,7 @@ function loadArgs(
 }
 
 function unloadArgs(
-  caller: Interpreter,
+  sender: Interpreter,
   target: Interpreter,
   offset: number,
   args: IRArg[]
@@ -97,57 +97,57 @@ function unloadArgs(
   args.forEach((arg, i) => {
     if (arg.tag === "var") {
       const result = target.getLocal(offset + i)
-      caller.setLocal(arg.index, result)
+      sender.setLocal(arg.index, result)
     }
   })
 }
 
-function call(
-  caller: Interpreter,
+function send(
+  sender: Interpreter,
   selector: string,
   target: Value,
   args: IRArg[]
 ): Value {
   if (target.tag === "block") {
     const ctx = target.ctx as any
-    const method = target.class.methods.get(selector)
-    if (!method) {
-      if (target.class.elseHandler) {
-        return body(ctx, target.class.elseHandler)
+    const handler = target.class.handlers.get(selector)
+    if (!handler) {
+      if (target.class.else) {
+        return body(ctx, target.class.else)
       }
-      throw new NoMethodError(selector)
+      throw new NoHandlerError(selector)
     }
 
-    loadArgs(caller, ctx, method.offset, method.params, args)
-    const result = body(ctx, method.body)
-    unloadArgs(caller, ctx, method.offset, args)
+    loadArgs(sender, ctx, handler.offset, handler.params, args)
+    const result = body(ctx, handler.body)
+    unloadArgs(sender, ctx, handler.offset, args)
     return result
   }
 
-  const method = target.class.methods.get(selector)
-  if (!method) {
-    if (target.class.elseHandler) {
-      const ctx = caller.createChild(target)
-      return body(ctx, target.class.elseHandler)
+  const handler = target.class.handlers.get(selector)
+  if (!handler) {
+    if (target.class.else) {
+      const ctx = sender.createChild(target)
+      return body(ctx, target.class.else)
     }
-    throw new NoMethodError(selector)
+    throw new NoHandlerError(selector)
   }
 
-  switch (method.tag) {
+  switch (handler.tag) {
     case "primitive": {
       const targetValue = target.tag === "primitive" ? target.value : null
       const argValues = args.map((arg) => {
         /* istanbul ignore next */
         if (arg.tag !== "value") throw "invalid arg"
-        return expr(caller, arg.value)
+        return expr(sender, arg.value)
       })
-      return method.fn(targetValue, argValues)
+      return handler.fn(targetValue, argValues)
     }
     case "object":
-      const child = caller.createChild(target)
-      loadArgs(caller, child, 0, method.params, args)
-      const result = Return.handleReturn(child, () => body(child, method.body))
-      unloadArgs(caller, child, 0, args)
+      const child = sender.createChild(target)
+      loadArgs(sender, child, 0, handler.params, args)
+      const result = Return.handleReturn(child, () => body(child, handler.body))
+      unloadArgs(sender, child, 0, args)
       return result
   }
 }
@@ -168,8 +168,8 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
         class: value.class,
         ivars: value.ivars.map((ivar) => expr(ctx, ivar)),
       }
-    case "call":
-      return call(ctx, value.selector, expr(ctx, value.target), value.args)
+    case "send":
+      return send(ctx, value.selector, expr(ctx, value.target), value.args)
     case "use":
       return ctx.use(value.key)
   }

@@ -9,9 +9,9 @@ export function frame(
   const cachedClass = frameCache.get(selector)
   if (cachedClass) return { tag: "object", ivars, class: cachedClass }
 
-  const frameClass: IRClass = { methods: new Map(), elseHandler: null }
+  const frameClass: IRClass = { handlers: new Map(), else: null }
   // constructor: [x: 1 y: 2]{x: 3 y: 4}
-  frameClass.methods.set(selector, {
+  frameClass.handlers.set(selector, {
     tag: "object",
     params: args.map(() => ({ tag: "value" })),
     body: [
@@ -26,14 +26,14 @@ export function frame(
     ],
   })
   // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
-  frameClass.methods.set(":", {
+  frameClass.handlers.set(":", {
     tag: "object",
     params: [{ tag: "block" }],
     body: [
       {
         tag: "return",
         value: {
-          tag: "call",
+          tag: "send",
           selector: selector,
           target: { tag: "local", index: 0 },
           args: args.map((_, index) => ({
@@ -46,13 +46,13 @@ export function frame(
   })
   for (const [index, { key }] of args.entries()) {
     // getter: [x: 1 y: 2]{x}
-    frameClass.methods.set(key, {
+    frameClass.handlers.set(key, {
       tag: "object",
       params: [],
       body: [{ tag: "return", value: { tag: "ivar", index } }],
     })
     // setter: [x: 1 y: 2]{x: 3}
-    frameClass.methods.set(`${key}:`, {
+    frameClass.handlers.set(`${key}:`, {
       tag: "object",
       params: [{ tag: "value" }],
       body: [

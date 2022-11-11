@@ -6,7 +6,7 @@ import { program as parse } from "./parser"
 import { program as astWalk } from "./ast"
 import { program as compile } from "./compiler"
 import { ArgMismatchError, program as interpret } from "./interpreter"
-import { NoMethodError, NoProviderError, PrimitiveTypeError } from "./ir"
+import { NoHandlerError, NoProviderError, PrimitiveTypeError } from "./ir"
 
 export function run(source: string) {
   const parseTree = parse(new Lexer(source))
@@ -30,7 +30,7 @@ test("no method", () => {
       let foo := [] 
       foo{some method that doesn't exist}
     `)
-  }, NoMethodError)
+  }, NoHandlerError)
   assert.throws(() => {
     run(`
       let foo := [x: 1]
@@ -38,7 +38,7 @@ test("no method", () => {
         on {some method} 1
       }
     `)
-  }, NoMethodError)
+  }, NoHandlerError)
 })
 
 test("no provider", () => {

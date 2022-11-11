@@ -6,7 +6,7 @@ import { program as parse } from "./parser"
 import {
   DuplicateElseHandlerError,
   DuplicateKeyError,
-  DuplicateMethodError,
+  DuplicateHandlerError,
   InvalidBlockArgError,
   InvalidBlockParamError,
   InvalidDestructuringError,
@@ -62,7 +62,7 @@ test("duplicate methods", () => {
         on {x: arg} arg
       ]
     `)
-  }, DuplicateMethodError)
+  }, DuplicateHandlerError)
   assert.throws(() => {
     check(`
       [

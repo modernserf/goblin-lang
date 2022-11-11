@@ -7,63 +7,6 @@ import {
   ParseStmt,
 } from "./parser"
 
-export type ASTVarParam = { tag: "identifier"; value: string }
-export type ASTBlockParam = { tag: "identifier"; value: string }
-export type ASTParam =
-  | { tag: "binding"; binding: ASTLetBinding }
-  | { tag: "var"; binding: ASTVarParam }
-  | { tag: "block"; binding: ASTBlockParam }
-
-export type ASTBlockCase = { params: ASTParam[]; body: ASTStmt[] }
-
-type HandlerSet = {
-  tag: "object"
-  methods: Map<string, ASTMethod>
-  elseHandler: ASTStmt[] | null
-}
-
-export type ASTVarArg = { tag: "identifier"; value: string }
-export type ASTBlockArg = { tag: "identifier"; value: string } | HandlerSet
-export type ASTArg =
-  | { tag: "expr"; value: ASTExpr }
-  | { tag: "var"; value: ASTVarArg }
-  | { tag: "block"; value: ASTBlockArg }
-
-export type ASTFrameArg = {
-  key: string
-  value: ASTExpr
-}
-export type ASTMethod = {
-  selector: string
-  params: ASTParam[]
-  body: ASTStmt[]
-}
-
-export type ASTExpr =
-  | { tag: "self" }
-  | { tag: "integer"; value: number }
-  | { tag: "string"; value: string }
-  | { tag: "identifier"; value: string }
-  | { tag: "send"; target: ASTExpr; selector: string; args: ASTArg[] }
-  | { tag: "frame"; selector: string; args: ASTFrameArg[] }
-  | HandlerSet
-  | { tag: "use"; value: string }
-
-export type ASTDestructuredBinding = { key: string; value: ASTLetBinding }
-export type ASTLetBinding =
-  | { tag: "identifier"; value: string }
-  | { tag: "object"; params: ASTDestructuredBinding[] }
-// TODO: `set` paths
-export type ASTSetBinding = { tag: "identifier"; value: string }
-export type ASTVarBinding = { tag: "identifier"; value: string }
-export type ASTProvideBinding = { tag: "identifier"; value: string }
-
-export type ASTImportBinding = {
-  tag: "object"
-  params: ASTDestructuredBinding[]
-}
-export type ASTImportSource = { tag: "string"; value: string }
-
 export type ASTStmt =
   | { tag: "let"; binding: ASTLetBinding; value: ASTExpr }
   | { tag: "set"; binding: ASTSetBinding; value: ASTExpr }
@@ -72,6 +15,53 @@ export type ASTStmt =
   | { tag: "import"; binding: ASTImportBinding; source: ASTImportSource }
   | { tag: "return"; value: ASTExpr }
   | { tag: "expr"; value: ASTExpr }
+
+export type ASTBindPair = { key: string; value: ASTLetBinding }
+export type ASTLetBinding =
+  | { tag: "identifier"; value: string }
+  | { tag: "object"; params: ASTBindPair[] }
+export type ASTSetBinding = { tag: "identifier"; value: string } // TODO: `set` paths
+export type ASTVarBinding = { tag: "identifier"; value: string }
+export type ASTProvideBinding = { tag: "identifier"; value: string }
+export type ASTImportBinding = { tag: "object"; params: ASTBindPair[] }
+export type ASTImportSource = { tag: "string"; value: string }
+
+export type ASTExpr =
+  | { tag: "self" }
+  | { tag: "integer"; value: number }
+  | { tag: "string"; value: string }
+  | { tag: "identifier"; value: string }
+  | { tag: "send"; target: ASTExpr; selector: string; args: ASTArg[] }
+  | { tag: "frame"; selector: string; args: ASTFrameArg[] }
+  | { tag: "use"; value: string }
+  | HandlerSet
+
+export type ASTFrameArg = { key: string; value: ASTExpr }
+export type ASTArg =
+  | { tag: "expr"; value: ASTExpr }
+  | { tag: "var"; value: ASTVarArg }
+  | { tag: "block"; value: ASTBlockArg }
+export type ASTVarArg = { tag: "identifier"; value: string }
+export type ASTBlockArg = { tag: "identifier"; value: string } | HandlerSet
+
+type HandlerSet = {
+  tag: "object"
+  handlers: Map<string, ASTHandler>
+  else: ASTHandler | null
+}
+
+export type ASTHandler = {
+  selector: string
+  params: ASTParam[]
+  body: ASTStmt[]
+}
+
+export type ASTParam =
+  | { tag: "binding"; binding: ASTLetBinding }
+  | { tag: "var"; binding: ASTVarParam }
+  | { tag: "block"; binding: ASTBlockParam }
+export type ASTVarParam = { tag: "identifier"; value: string }
+export type ASTBlockParam = { tag: "identifier"; value: string }
 
 export class InvalidParamError {}
 export class InvalidVarParamError {}
@@ -89,27 +79,30 @@ export class InvalidDestructuringError {}
 export class DuplicateKeyError {
   constructor(readonly key: string) {}
 }
-export class DuplicateMethodError {
+export class DuplicateHandlerError {
   constructor(readonly selector: string) {}
 }
-
 export class DuplicateElseHandlerError {}
 
 function handlerSet(ins: ParseHandler[]): HandlerSet {
   const out: HandlerSet = {
     tag: "object",
-    methods: new Map<string, ASTMethod>(),
-    elseHandler: null,
+    handlers: new Map<string, ASTHandler>(),
+    else: null,
   }
   for (const handler of ins) {
     if (handler.tag === "else") {
-      if (out.elseHandler) throw new DuplicateElseHandlerError()
-      out.elseHandler = handler.body.map((s) => stmt(s))
+      if (out.else) throw new DuplicateElseHandlerError()
+      out.else = {
+        selector: "",
+        params: [],
+        body: handler.body.map((s) => stmt(s)),
+      }
       continue
     }
 
     const body = handler.body.map((s) => stmt(s))
-    const m = build<ASTParam, ASTMethod>(handler.message, {
+    const m = build<ASTParam, ASTHandler>(handler.message, {
       key(selector) {
         return { selector, params: [], body }
       },
@@ -136,10 +129,10 @@ function handlerSet(ins: ParseHandler[]): HandlerSet {
         return { selector, params, body }
       },
     })
-    if (out.methods.has(m.selector)) {
-      throw new DuplicateMethodError(m.selector)
+    if (out.handlers.has(m.selector)) {
+      throw new DuplicateHandlerError(m.selector)
     }
-    out.methods.set(m.selector, m)
+    out.handlers.set(m.selector, m)
   }
 
   return out
@@ -181,8 +174,8 @@ function expr(value: ParseExpr): ASTExpr {
             tag: "block",
             value: {
               tag: "object",
-              elseHandler: null,
-              methods: new Map<string, ASTMethod>([
+              else: null,
+              handlers: new Map<string, ASTHandler>([
                 [
                   "",
                   {
@@ -252,7 +245,7 @@ function expr(value: ParseExpr): ASTExpr {
   }
 }
 
-function destructureItem(item: ParsePair): ASTDestructuredBinding {
+function destructureItem(item: ParsePair): ASTBindPair {
   switch (item.tag) {
     case "punPair":
       return {
@@ -271,7 +264,7 @@ function destructureItem(item: ParsePair): ASTDestructuredBinding {
   }
 }
 
-function destructureMessage(message: ParseMessage): ASTDestructuredBinding[] {
+function destructureMessage(message: ParseMessage): ASTBindPair[] {
   switch (message.tag) {
     case "key":
       throw new InvalidDestructuringError()

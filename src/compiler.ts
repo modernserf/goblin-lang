@@ -3,7 +3,7 @@ import {
   ASTExpr,
   ASTArg,
   ASTLetBinding,
-  ASTMethod,
+  ASTHandler,
   ASTParam,
 } from "./ast"
 import { frame } from "./frame"
@@ -12,9 +12,9 @@ import {
   IRExpr,
   IRArg,
   IRClass,
-  IRMethod,
+  IRHandler,
   IRBlockClass,
-  IRBlockMethod,
+  IRBlockHandler,
   IRParam,
 } from "./ir"
 import { core, intClass, stringClass } from "./stdlib"
@@ -134,7 +134,7 @@ class Instance {
   }
 }
 
-function methodParam(
+function handlerParam(
   scope: Scope,
   argIndex: number,
   param: ASTParam
@@ -173,36 +173,36 @@ function param(p: ASTParam): IRParam {
 function object(
   parentScope: Scope,
   selfBinding: string | null,
-  methods: Map<string, ASTMethod>,
-  elseHandler: ASTStmt[] | null
+  handlers: Map<string, ASTHandler>,
+  elseHandler: ASTHandler | null
 ): IRExpr {
   const instance = parentScope.newInstance()
   const objectClass: IRClass = {
-    methods: new Map(),
-    elseHandler: null,
+    handlers: new Map(),
+    else: null,
   }
   if (elseHandler) {
-    objectClass.elseHandler = []
+    objectClass.else = []
     const scope = instance.newScope(0)
     if (selfBinding !== null) {
       const { index } = scope.useLet(selfBinding)
-      objectClass.elseHandler.push({
+      objectClass.else.push({
         tag: "assign",
         index,
         value: { tag: "self" },
       })
     }
 
-    objectClass.elseHandler.push(...body(scope, elseHandler))
+    objectClass.else.push(...body(scope, elseHandler.body))
   }
 
-  for (const [selector, method] of methods) {
-    const scope = instance.newScope(method.params.length)
-    const out: IRMethod = { tag: "object", body: [], params: [] }
+  for (const [selector, handler] of handlers) {
+    const scope = instance.newScope(handler.params.length)
+    const out: IRHandler = { tag: "object", body: [], params: [] }
 
-    for (const [argIndex, p] of method.params.entries()) {
+    for (const [argIndex, p] of handler.params.entries()) {
       out.params.push(param(p))
-      out.body.push(...methodParam(scope, argIndex, p))
+      out.body.push(...handlerParam(scope, argIndex, p))
     }
 
     if (selfBinding !== null) {
@@ -210,31 +210,31 @@ function object(
       out.body.push({ tag: "assign", index, value: { tag: "self" } })
     }
 
-    out.body.push(...body(scope, method.body))
-    objectClass.methods.set(selector, out)
+    out.body.push(...body(scope, handler.body))
+    objectClass.handlers.set(selector, out)
   }
   return { tag: "object", class: objectClass, ivars: instance.ivars }
 }
 
 function block(
   scope: Scope,
-  methods: Map<string, ASTMethod>,
-  elseHandler: ASTStmt[] | null
+  handlers: Map<string, ASTHandler>,
+  elseHandler: ASTHandler | null
 ): IRBlockClass {
-  const objectClass: IRBlockClass = { methods: new Map(), elseHandler: null }
+  const objectClass: IRBlockClass = { handlers: new Map(), else: null }
   if (elseHandler) {
-    objectClass.elseHandler = body(scope, elseHandler)
+    objectClass.else = body(scope, elseHandler.body)
   }
-  for (const [selector, method] of methods) {
+  for (const [selector, handler] of handlers) {
     // block params use parent scope, and do not start at zero
-    const offset = scope.newBlock(method.params.length)
-    const out: IRBlockMethod = { body: [], offset, params: [] }
-    for (const [argIndex, p] of method.params.entries()) {
+    const offset = scope.newBlock(handler.params.length)
+    const out: IRBlockHandler = { body: [], offset, params: [] }
+    for (const [argIndex, p] of handler.params.entries()) {
       out.params.push(param(p))
-      out.body.push(...methodParam(scope, offset + argIndex, p))
+      out.body.push(...handlerParam(scope, offset + argIndex, p))
     }
-    out.body.push(...body(scope, method.body))
-    objectClass.methods.set(selector, out)
+    out.body.push(...body(scope, handler.body))
+    objectClass.handlers.set(selector, out)
   }
   return objectClass
 }
@@ -255,7 +255,7 @@ function arg(scope: Scope, arg: ASTArg): IRArg {
         case "object":
           return {
             tag: "block",
-            class: block(scope, arg.value.methods, arg.value.elseHandler),
+            class: block(scope, arg.value.handlers, arg.value.else),
           }
       }
   }
@@ -277,7 +277,7 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
           ? scope.lookupBlock(value.target.value)
           : expr(scope, value.target)
       const args = value.args.map((v) => arg(scope, v))
-      return { tag: "call", target, selector: value.selector, args }
+      return { tag: "send", target, selector: value.selector, args }
     }
     case "frame":
       return frame(
@@ -288,7 +288,7 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
         }))
       )
     case "object":
-      return object(scope, null, value.methods, value.elseHandler)
+      return object(scope, null, value.handlers, value.else)
     case "use":
       return { tag: "use", key: value.value }
   }
@@ -300,7 +300,7 @@ function bindExpr(
   value: ASTExpr
 ): IRExpr {
   if (binding.tag === "identifier" && value.tag === "object") {
-    return object(scope, binding.value, value.methods, value.elseHandler)
+    return object(scope, binding.value, value.handlers, value.else)
   } else {
     return expr(scope, value)
   }
@@ -322,7 +322,7 @@ function letStmt(
         { tag: "assign", index: record.index, value },
         ...binding.params.flatMap((param) =>
           letStmt(scope, param.value, {
-            tag: "call",
+            tag: "send",
             selector: param.key,
             target: value,
             args: [],
