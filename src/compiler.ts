@@ -134,27 +134,23 @@ class Instance {
   }
 }
 
-function handlerParam(
-  scope: Scope,
-  argIndex: number,
-  param: ASTParam
-): IRStmt[] {
+function handlerParam(scope: Scope, offset: number, param: ASTParam): IRStmt[] {
   switch (param.tag) {
     case "binding":
       switch (param.binding.tag) {
         case "identifier":
-          scope.useLetArg(param.binding.value, argIndex)
+          scope.useLetArg(param.binding.value, offset)
           return []
         case "object": {
-          const local: IRExpr = { tag: "local", index: argIndex }
+          const local: IRExpr = { tag: "local", index: offset }
           return letStmt(scope, param.binding, local)
         }
       }
     case "var":
-      scope.useVarArg(param.binding.value, argIndex)
+      scope.useVarArg(param.binding.value, offset)
       return []
     case "block":
-      scope.useBlockArg(param.binding.value, argIndex)
+      scope.useBlockArg(param.binding.value, offset)
       return []
   }
 }
@@ -170,6 +166,27 @@ function param(p: ASTParam): IRParam {
   }
 }
 
+function handler_(
+  scope: Scope,
+  handler: ASTHandler,
+  selfBinding: string | null
+): IRHandler {
+  const out: IRHandler = { tag: "object", body: [], params: [] }
+
+  for (const [argIndex, p] of handler.params.entries()) {
+    out.params.push(param(p))
+    out.body.push(...handlerParam(scope, argIndex, p))
+  }
+
+  if (selfBinding !== null) {
+    const { index } = scope.useLet(selfBinding)
+    out.body.push({ tag: "assign", index, value: { tag: "self" } })
+  }
+
+  out.body.push(...body(scope, handler.body))
+  return out
+}
+
 function object(
   parentScope: Scope,
   selfBinding: string | null,
@@ -182,35 +199,13 @@ function object(
     else: null,
   }
   if (elseHandler) {
-    objectClass.else = []
-    const scope = instance.newScope(0)
-    if (selfBinding !== null) {
-      const { index } = scope.useLet(selfBinding)
-      objectClass.else.push({
-        tag: "assign",
-        index,
-        value: { tag: "self" },
-      })
-    }
-
-    objectClass.else.push(...body(scope, elseHandler.body))
+    const scope = instance.newScope(elseHandler.params.length)
+    objectClass.else = handler_(scope, elseHandler, selfBinding)
   }
 
   for (const [selector, handler] of handlers) {
     const scope = instance.newScope(handler.params.length)
-    const out: IRHandler = { tag: "object", body: [], params: [] }
-
-    for (const [argIndex, p] of handler.params.entries()) {
-      out.params.push(param(p))
-      out.body.push(...handlerParam(scope, argIndex, p))
-    }
-
-    if (selfBinding !== null) {
-      const { index } = scope.useLet(selfBinding)
-      out.body.push({ tag: "assign", index, value: { tag: "self" } })
-    }
-
-    out.body.push(...body(scope, handler.body))
+    const out = handler_(scope, handler, selfBinding)
     objectClass.handlers.set(selector, out)
   }
   return { tag: "object", class: objectClass, ivars: instance.ivars }
@@ -223,7 +218,12 @@ function block(
 ): IRBlockClass {
   const objectClass: IRBlockClass = { handlers: new Map(), else: null }
   if (elseHandler) {
-    objectClass.else = body(scope, elseHandler.body)
+    const offset = scope.newBlock(0)
+    objectClass.else = {
+      body: body(scope, elseHandler.body),
+      offset,
+      params: [],
+    }
   }
   for (const [selector, handler] of handlers) {
     // block params use parent scope, and do not start at zero

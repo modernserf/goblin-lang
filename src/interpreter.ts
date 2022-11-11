@@ -20,7 +20,7 @@ export type IRArg =
 
 export type IRClass = {
   handlers: Map<string, IRHandler>
-  else: IRStmt[] | null
+  else: IRHandler | null
 }
 export type IRHandler =
   | { tag: "object"; body: IRStmt[]; params: IRParam[] }
@@ -31,7 +31,7 @@ export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "block" }
 
 export type IRBlockClass = {
   handlers: Map<string, IRBlockHandler>
-  else: IRStmt[] | null
+  else: IRBlockHandler | null
 }
 export type IRBlockHandler = {
   body: IRStmt[]
@@ -151,37 +151,12 @@ function unloadArgs(
   })
 }
 
-function send(
+function sendHandler(
   sender: Interpreter,
-  selector: string,
   target: Value,
+  handler: IRHandler,
   args: IRArg[]
 ): Value {
-  if (target.tag === "block") {
-    const ctx = target.ctx
-    const handler = target.class.handlers.get(selector)
-    if (!handler) {
-      if (target.class.else) {
-        return body(ctx, target.class.else)
-      }
-      throw new NoHandlerError(selector)
-    }
-
-    loadArgs(sender, ctx, handler.offset, handler.params, args)
-    const result = body(ctx, handler.body)
-    unloadArgs(sender, ctx, handler.offset, args)
-    return result
-  }
-
-  const handler = target.class.handlers.get(selector)
-  if (!handler) {
-    if (target.class.else) {
-      const ctx = sender.createChild(target)
-      return body(ctx, target.class.else)
-    }
-    throw new NoHandlerError(selector)
-  }
-
   switch (handler.tag) {
     case "primitive": {
       const targetValue = target.tag === "primitive" ? target.value : null
@@ -199,6 +174,39 @@ function send(
       unloadArgs(sender, child, 0, args)
       return result
   }
+}
+
+function send(
+  sender: Interpreter,
+  selector: string,
+  target: Value,
+  args: IRArg[]
+): Value {
+  if (target.tag === "block") {
+    const ctx = target.ctx
+    const handler = target.class.handlers.get(selector)
+    if (!handler) {
+      if (target.class.else) {
+        return body(ctx, target.class.else.body)
+      }
+      throw new NoHandlerError(selector)
+    }
+
+    loadArgs(sender, ctx, handler.offset, handler.params, args)
+    const result = body(ctx, handler.body)
+    unloadArgs(sender, ctx, handler.offset, args)
+    return result
+  }
+
+  const handler = target.class.handlers.get(selector)
+  if (!handler) {
+    if (target.class.else) {
+      return sendHandler(sender, target, target.class.else, args)
+    }
+    throw new NoHandlerError(selector)
+  }
+
+  return sendHandler(sender, target, handler, args)
 }
 
 function expr(ctx: Interpreter, value: IRExpr): Value {
