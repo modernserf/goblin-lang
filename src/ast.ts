@@ -183,8 +183,6 @@ function expr(value: ParseExpr): ASTExpr {
         args: [{ tag: "expr", value: expr(value.arg) }],
       }
     case "do":
-      // do ... end -> []{:{} ...}
-
       return {
         tag: "send",
         target: { tag: "frame", selector: "", args: [] },
@@ -209,6 +207,47 @@ function expr(value: ParseExpr): ASTExpr {
           },
         ],
       }
+    case "if": {
+      const res = value.conds.reduceRight((falseBlock, cond) => {
+        const trueBlock = cond.body.map(stmt)
+        const send: ASTExpr = {
+          tag: "send",
+          selector: ":",
+          target: expr(cond.value),
+          args: [
+            {
+              tag: "do",
+              value: {
+                tag: "object",
+                else: null,
+                handlers: new Map<string, ASTHandler>([
+                  [
+                    "true",
+                    {
+                      selector: "true",
+                      params: [],
+                      body: trueBlock,
+                    },
+                  ],
+                  [
+                    "false",
+                    {
+                      selector: "false",
+                      params: [],
+                      body: falseBlock,
+                    },
+                  ],
+                ]),
+              },
+            },
+          ],
+        }
+        return [{ tag: "expr", value: send } as const]
+      }, value.else.map(stmt))
+      /* istanbul ignore next */
+      if (!res.length || res[0].tag !== "expr") throw new Error("unreachable")
+      return res[0].value
+    }
     case "object":
       return handlerSet(value.handlers)
     case "frame":

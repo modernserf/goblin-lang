@@ -437,12 +437,7 @@ let loop := [
 
 var i := 0
 loop{: {: do l}
-  (i = 10){:
-    on {true} 
-      l{break}
-    on {false}
-      ()
-  }
+  if i = 10 then l{break} end
   set i := i + 1
 }
 
@@ -476,3 +471,15 @@ Assert{
   received: a
   expected: [b: [c: [d: 1]]]
 }
+
+# if expressions
+
+let a := 1
+let b := if a = 0 then 
+  123 
+else if a = 1 then
+  456
+else 
+  789 
+end
+Assert{received: b expected: 456}

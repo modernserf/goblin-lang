@@ -26,8 +26,11 @@ export type ParseExpr =
   | { tag: "frame"; message: ParseMessage<ParseArg> }
   | { tag: "send"; target: ParseExpr; message: ParseMessage<ParseArg> }
   | { tag: "do"; body: ParseStmt[] }
+  | { tag: "if"; conds: ParseCond[]; else: ParseStmt[] }
   | { tag: "unaryOp"; target: ParseExpr; operator: string }
   | { tag: "binaryOp"; target: ParseExpr; arg: ParseExpr; operator: string }
+
+type ParseCond = { value: ParseExpr; body: ParseStmt[] }
 
 export type ParseMessage<T> =
   | { tag: "key"; key: string }
@@ -195,6 +198,29 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
       const body = repeat(lexer, parseStmt)
       mustToken(lexer, "end")
       return { tag: "do", body }
+    }
+    case "if": {
+      lexer.advance()
+      const value = must(lexer, "expr", parseExpr)
+      mustToken(lexer, "then")
+      const body = repeat(lexer, parseStmt)
+      const conds = [{ value, body }]
+      while (true) {
+        if (accept(lexer, "end")) {
+          return { tag: "if", conds, else: [] }
+        }
+        mustToken(lexer, "else")
+        if (accept(lexer, "if")) {
+          const value = must(lexer, "expr", parseExpr)
+          mustToken(lexer, "then")
+          const body = repeat(lexer, parseStmt)
+          conds.push({ value, body })
+        } else {
+          const body = repeat(lexer, parseStmt)
+          mustToken(lexer, "end")
+          return { tag: "if", conds, else: body }
+        }
+      }
     }
     default:
       return null
