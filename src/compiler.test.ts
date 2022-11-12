@@ -9,10 +9,10 @@ import {
   NoModuleSelfError,
   NotVarError,
   OuterScopeVarError,
-  program,
   ReferenceError,
   VarDoubleBorrowError,
-} from "./compiler"
+} from "./scope"
+import { program } from "./compiler"
 
 export function compile(source: string) {
   const parseTree = parse(new Lexer(source))
@@ -97,6 +97,12 @@ test("var double borrow", () => {
       fn{arg: var x block: {}
         let y := x
       }
+    `)
+  }, VarDoubleBorrowError)
+  assert.throws(() => {
+    compile(`
+      var fn := [{arg: var arg}]
+      fn{arg: var fn}
     `)
   }, VarDoubleBorrowError)
 })

@@ -18,168 +18,134 @@ import {
   IRParam,
   unitClass,
 } from "./interpreter"
+import {
+  BasicScope,
+  Instance,
+  ObjectInstance,
+  Locals,
+  NilInstance,
+  Scope,
+  ScopeRecord,
+  SendScope,
+} from "./scope"
 import { core, intClass, stringClass } from "./stdlib"
 
-type ScopeType = "let" | "var" | "do"
-type ScopeRecord = { index: number; type: ScopeType }
-
-export class ReferenceError {
-  constructor(readonly key: string) {}
-}
-export class NotVarError {
-  constructor(readonly key: string) {}
-}
-export class OuterScopeVarError {
-  constructor(readonly key: string) {}
-}
-export class NoModuleSelfError {}
-export class BlockReferenceError {
-  constructor(readonly key: string) {}
-}
-export class VarDoubleBorrowError {}
-
-class Scope {
-  constructor(
-    protected instance: Instance | null = null,
-    protected localsIndex = 0,
-    protected locals = new Map<string, ScopeRecord>()
-  ) {}
-  lookup(key: string): IRExpr {
-    const res = this.locals.get(key)
-    if (res) {
-      if (res.type === "do") throw new BlockReferenceError(key)
-      return { tag: "local", index: res.index }
-    }
-    return this.lookupInstance(key)
+class Send {
+  private scope = new SendScope(this.instance, this.locals)
+  constructor(private instance: Instance, private locals: Locals) {}
+  target(arg: ASTExpr): IRExpr {
+    return this.expr(arg)
   }
-  lookupOuterLet(key: string): IRExpr {
-    const record = this.locals.get(key)
-    if (record) {
-      if (record.type == "var") throw new OuterScopeVarError(key)
-      if (record.type === "do") throw new BlockReferenceError(key)
-      return { tag: "local", index: record.index }
-    }
-    return this.lookupInstance(key)
-  }
-  protected lookupInstance(key: string): IRExpr {
-    if (!this.instance) throw new ReferenceError(key)
-    return this.instance.lookup(key)
-  }
-  lookupVar(key: string): number {
-    const record = this.locals.get(key)
-    if (!record) throw new ReferenceError(key)
-    if (record.type !== "var") throw new NotVarError(key)
-    return record.index
-  }
-  // any value can be passed as a block
-  lookupBlock(key: string): IRExpr {
-    const record = this.locals.get(key)
-    if (record) {
-      return { tag: "local", index: record.index }
-    }
-    return this.lookupInstance(key)
-  }
-  argScope(): Scope {
-    return new ArgScope(this.instance, this.localsIndex, this.locals)
-  }
-  useAnon(): ScopeRecord {
-    return this.newRecord("let")
-  }
-  useLet(key: string): ScopeRecord {
-    return this.setLocal(key, this.newRecord("let"))
-  }
-  useVar(key: string): ScopeRecord {
-    return this.setLocal(key, this.newRecord("var"))
-  }
-  private setLocal(key: string, value: ScopeRecord): ScopeRecord {
-    this.locals.set(key, value)
-    return value
-  }
-  private newRecord(type: ScopeType): ScopeRecord {
-    return { index: this.localsIndex++, type }
-  }
-  getSelf(): IRExpr {
-    if (!this.instance) throw new NoModuleSelfError()
-    return { tag: "self" }
-  }
-  newInstance(): Instance {
-    return new Instance(this)
-  }
-  useLetArg(key: string, index: number) {
-    return this.setLocal(key, { index, type: "let" })
-  }
-  useVarArg(key: string, index: number) {
-    return this.setLocal(key, { index, type: "var" })
-  }
-  useBlockArg(key: string, index: number) {
-    return this.setLocal(key, { index, type: "do" })
-  }
-  newBlock(arity: number) {
-    const prevIndex = this.localsIndex
-    this.localsIndex += arity
-    return prevIndex
-  }
-}
-
-class ArgScope extends Scope {
-  private borrows = new Set<string>()
-  lookup(key: string): IRExpr {
-    const res = this.locals.get(key)
-    if (!res) return this.lookupInstance(key)
-    switch (res.type) {
-      case "do":
-        throw new BlockReferenceError(key)
+  arg(arg: ASTArg): IRArg {
+    switch (arg.tag) {
       case "var":
-        if (this.borrows.has(key)) throw new VarDoubleBorrowError()
-        this.borrows.add(key)
-        return { tag: "local", index: res.index }
-      case "let":
-        return { tag: "local", index: res.index }
+        return { tag: "var", index: this.scope.lookupVarIndex(arg.value.value) }
+      case "expr":
+        const value = this.expr(arg.value)
+        return { tag: "value", value }
+      case "do":
+        switch (arg.value.tag) {
+          case "object":
+            return {
+              tag: "do",
+              class: this.block(arg.value.handlers, arg.value.else),
+            }
+        }
     }
   }
-  lookupVar(key: string): number {
-    if (this.borrows.has(key)) throw new VarDoubleBorrowError()
-    this.borrows.add(key)
-    return super.lookupVar(key)
-  }
-}
-
-class Instance {
-  private ivarMap = new Map<string, ScopeRecord>()
-  readonly ivars: IRExpr[] = []
-  constructor(private parentScope: Scope) {}
-  lookup(key: string): IRExpr {
-    const found = this.ivarMap.get(key)
-    if (found) return { tag: "ivar", index: found.index }
-
-    const index = this.ivars.length
-    this.ivars.push(this.parentScope.lookupOuterLet(key))
-    this.ivarMap.set(key, { index, type: "let" })
-    return { tag: "ivar", index }
-  }
-  newScope(arity: number): Scope {
-    return new Scope(this, arity)
-  }
-}
-
-function handlerParam(scope: Scope, offset: number, param: ASTParam): IRStmt[] {
-  switch (param.tag) {
-    case "binding":
-      switch (param.binding.tag) {
-        case "identifier":
-          scope.useLetArg(param.binding.value, offset)
-          return []
-        case "object": {
-          const local: IRExpr = { tag: "local", index: offset }
-          return letStmt(scope, param.binding, local)
-        }
+  private block(
+    handlers: Map<string, ASTHandler>,
+    elseHandler: ASTHandler | null
+  ): IRBlockClass {
+    const objectClass: IRBlockClass = { handlers: new Map(), else: null }
+    if (elseHandler) {
+      const offset = this.locals.allocate(0)
+      objectClass.else = {
+        body: this.body(elseHandler.body),
+        offset,
+        params: [],
       }
-    case "var":
-      scope.useVarArg(param.binding.value, offset)
-      return []
-    case "do":
-      scope.useBlockArg(param.binding.value, offset)
-      return []
+    }
+    for (const [selector, handler] of handlers) {
+      const paramScope = new Handler(this.instance, this.locals)
+      // block params use parent scope, and do not start at zero
+      const offset = this.locals.allocate(handler.params.length)
+      const out: IRBlockHandler = { body: [], offset, params: [] }
+      for (const [argIndex, p] of handler.params.entries()) {
+        out.params.push(param(p))
+        out.body.push(...paramScope.param(offset + argIndex, p))
+      }
+      out.body.push(...this.body(handler.body))
+      objectClass.handlers.set(selector, out)
+    }
+    return objectClass
+  }
+  private expr(value: ASTExpr): IRExpr {
+    return new Expr(this.scope).expr(value)
+  }
+  private body(stmts: ASTStmt[]): IRStmt[] {
+    const stmtScope = new Stmt(this.scope)
+    return stmts.flatMap((s) => stmtScope.stmt(s))
+  }
+}
+
+class Handler {
+  private scope = new BasicScope(this.instance, this.locals)
+  constructor(private instance: Instance, private locals: Locals) {}
+  handler(handler: ASTHandler, selfBinding: string | null): IRHandler {
+    const out: IRHandler = { tag: "object", body: [], params: [] }
+
+    for (const [argIndex, p] of handler.params.entries()) {
+      out.params.push(param(p))
+      out.body.push(...this.param(argIndex, p))
+    }
+
+    out.body.push(...this.selfBinding(selfBinding))
+    out.body.push(...this.body(handler.body))
+    return out
+  }
+  param(offset: number, param: ASTParam): IRStmt[] {
+    switch (param.tag) {
+      case "binding":
+        switch (param.binding.tag) {
+          case "identifier":
+            this.useLetArg(param.binding.value, offset)
+            return []
+          case "object": {
+            const local: IRExpr = { tag: "local", index: offset }
+            return this.let(param.binding, local)
+          }
+        }
+      case "var":
+        this.useVarArg(param.binding.value, offset)
+        return []
+      case "do":
+        this.useBlockArg(param.binding.value, offset)
+        return []
+    }
+  }
+  selfBinding(selfBinding: string | null): IRStmt[] {
+    if (!selfBinding) return []
+    return new Let(this.locals).compile(
+      { tag: "identifier", value: selfBinding },
+      { tag: "self" }
+    )
+  }
+  private body(stmts: ASTStmt[]): IRStmt[] {
+    const stmtScope = new Stmt(this.scope)
+    return stmts.flatMap((s) => stmtScope.stmt(s))
+  }
+  private useLetArg(key: string, index: number) {
+    return this.locals.set(key, { index, type: "let" })
+  }
+  private useVarArg(key: string, index: number) {
+    return this.locals.set(key, { index, type: "var" })
+  }
+  private useBlockArg(key: string, index: number) {
+    return this.locals.set(key, { index, type: "do" })
+  }
+  private let(binding: ASTLetBinding, value: IRExpr): IRStmt[] {
+    return new Let(this.locals).compile(binding, value)
   }
 }
 
@@ -194,245 +160,181 @@ function param(p: ASTParam): IRParam {
   }
 }
 
-function handler_(
-  scope: Scope,
-  handler: ASTHandler,
-  selfBinding: string | null
-): IRHandler {
-  const out: IRHandler = { tag: "object", body: [], params: [] }
-
-  for (const [argIndex, p] of handler.params.entries()) {
-    out.params.push(param(p))
-    out.body.push(...handlerParam(scope, argIndex, p))
-  }
-
-  if (selfBinding !== null) {
-    const { index } = scope.useLet(selfBinding)
-    out.body.push({ tag: "assign", index, value: { tag: "self" } })
-  }
-
-  out.body.push(...body(scope, handler.body))
-  return out
-}
-
-function object(
-  parentScope: Scope,
-  selfBinding: string | null,
-  handlers: Map<string, ASTHandler>,
-  elseHandler: ASTHandler | null
-): IRExpr {
-  const instance = parentScope.newInstance()
-  const objectClass: IRClass = {
-    handlers: new Map(),
-    else: null,
-  }
-  if (elseHandler) {
-    const scope = instance.newScope(elseHandler.params.length)
-    objectClass.else = handler_(scope, elseHandler, selfBinding)
-  }
-
-  for (const [selector, handler] of handlers) {
-    const scope = instance.newScope(handler.params.length)
-    const out = handler_(scope, handler, selfBinding)
-    objectClass.handlers.set(selector, out)
-  }
-  return { tag: "object", class: objectClass, ivars: instance.ivars }
-}
-
-function block(
-  scope: Scope,
-  handlers: Map<string, ASTHandler>,
-  elseHandler: ASTHandler | null
-): IRBlockClass {
-  const objectClass: IRBlockClass = { handlers: new Map(), else: null }
-  if (elseHandler) {
-    const offset = scope.newBlock(0)
-    objectClass.else = {
-      body: body(scope, elseHandler.body),
-      offset,
-      params: [],
-    }
-  }
-  for (const [selector, handler] of handlers) {
-    // block params use parent scope, and do not start at zero
-    const offset = scope.newBlock(handler.params.length)
-    const out: IRBlockHandler = { body: [], offset, params: [] }
-    for (const [argIndex, p] of handler.params.entries()) {
-      out.params.push(param(p))
-      out.body.push(...handlerParam(scope, offset + argIndex, p))
-    }
-    out.body.push(...body(scope, handler.body))
-    objectClass.handlers.set(selector, out)
-  }
-  return objectClass
-}
-
-function arg(scope: Scope, arg: ASTArg): IRArg {
-  switch (arg.tag) {
-    case "var":
-      return { tag: "var", index: scope.lookupVar(arg.value.value) }
-    case "expr":
-      const value =
-        arg.value.tag === "identifier"
-          ? scope.lookupBlock(arg.value.value)
-          : expr(scope, arg.value)
-      return { tag: "value", value }
-    case "do":
-      switch (arg.value.tag) {
-        case "object":
-          return {
-            tag: "do",
-            class: block(scope, arg.value.handlers, arg.value.else),
-          }
+class Expr {
+  constructor(private scope: Scope) {}
+  expr(value: ASTExpr, selfBinding: string | null = null): IRExpr {
+    switch (value.tag) {
+      case "self":
+        return this.scope.instance.self()
+      case "integer":
+        return { tag: "primitive", class: intClass, value: value.value }
+      case "string":
+        return { tag: "primitive", class: stringClass, value: value.value }
+      case "identifier":
+        return this.scope.lookup(value.value)
+      case "send": {
+        const argScope = new Send(this.scope.instance, this.scope.locals)
+        const target = argScope.target(value.target)
+        const args = value.args.map((v) => argScope.arg(v))
+        return { tag: "send", target, selector: value.selector, args }
       }
-  }
-}
-
-function expr(scope: Scope, value: ASTExpr): IRExpr {
-  switch (value.tag) {
-    case "self":
-      return scope.getSelf()
-    case "integer":
-      return { tag: "primitive", class: intClass, value: value.value }
-    case "string":
-      return { tag: "primitive", class: stringClass, value: value.value }
-    case "identifier":
-      return scope.lookup(value.value)
-    case "send": {
-      const target =
-        value.target.tag === "identifier"
-          ? scope.lookupBlock(value.target.value)
-          : expr(scope, value.target)
-      const argScope = scope.argScope()
-      const args = value.args.map((v) => arg(argScope, v))
-      return { tag: "send", target, selector: value.selector, args }
-    }
-    case "frame":
-      return frame(
-        value.selector,
-        value.args.map((arg) => ({
-          key: arg.key,
-          value: expr(scope, arg.value),
-        }))
-      )
-    case "object":
-      return object(scope, null, value.handlers, value.else)
-    case "unit":
-      return { tag: "object", class: unitClass, ivars: [] }
-  }
-}
-
-function bindExpr(
-  scope: Scope,
-  binding: ASTLetBinding,
-  value: ASTExpr
-): IRExpr {
-  if (binding.tag === "identifier" && value.tag === "object") {
-    return object(scope, binding.value, value.handlers, value.else)
-  } else {
-    return expr(scope, value)
-  }
-}
-
-function letStmt(
-  scope: Scope,
-  binding: ASTLetBinding,
-  value: IRExpr
-): IRStmt[] {
-  switch (binding.tag) {
-    case "identifier": {
-      const record = scope.useLet(binding.value)
-      return [{ tag: "assign", index: record.index, value }]
-    }
-    case "object":
-      const record = scope.useAnon()
-      return [
-        { tag: "assign", index: record.index, value },
-        ...binding.params.flatMap((param) =>
-          letStmt(scope, param.value, {
-            tag: "send",
-            selector: param.key,
-            target: value,
-            args: [],
-          })
-        ),
-      ]
-  }
-}
-
-function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
-  switch (stmt.tag) {
-    case "let":
-      return letStmt(
-        scope,
-        stmt.binding,
-        bindExpr(scope, stmt.binding, stmt.value)
-      )
-    case "var": {
-      const value = expr(scope, stmt.value)
-      const record = scope.useVar(stmt.binding.value)
-      return [{ tag: "assign", index: record.index, value }]
-    }
-    case "set": {
-      const value = expr(scope, stmt.value)
-      return [
-        { tag: "assign", index: scope.lookupVar(stmt.binding.value), value },
-      ]
-    }
-    case "provide": {
-      return stmt.args.map((arg) => {
-        switch (arg.value.tag) {
-          case "do":
-          case "var":
-            throw "todo"
-          case "expr":
-            return {
-              tag: "provide",
-              key: arg.key,
-              value: expr(scope, arg.value.value),
-            }
+      case "frame":
+        return frame(
+          value.selector,
+          value.args.map((arg) => ({
+            key: arg.key,
+            value: this.expr(arg.value),
+          }))
+        )
+      case "object": {
+        const instance = new ObjectInstance(this.scope)
+        const objectClass: IRClass = {
+          handlers: new Map(),
+          else: null,
         }
-      })
+        if (value.else) {
+          const h = new Handler(instance, new Locals(value.else.params.length))
+          objectClass.else = h.handler(value.else, selfBinding)
+        }
+
+        for (const [selector, handler] of value.handlers) {
+          const h = new Handler(instance, new Locals(handler.params.length))
+          objectClass.handlers.set(selector, h.handler(handler, selfBinding))
+        }
+        return { tag: "object", class: objectClass, ivars: instance.ivars }
+      }
+      case "unit":
+        return { tag: "object", class: unitClass, ivars: [] }
     }
-    case "using": {
-      return stmt.params.flatMap((param) => {
-        switch (param.value.tag) {
-          case "do":
-          case "var":
-            throw "todo"
-          case "binding":
-            return letStmt(scope, param.value.binding, {
-              tag: "using",
-              key: param.key,
+  }
+}
+
+class Let {
+  constructor(private locals: Locals) {}
+  compile(binding: ASTLetBinding, value: IRExpr): IRStmt[] {
+    switch (binding.tag) {
+      case "identifier": {
+        const record = this.useLet(binding.value)
+        return [{ tag: "assign", index: record.index, value }]
+      }
+      case "object":
+        const record = this.useAnon()
+        return [
+          { tag: "assign", index: record.index, value },
+          ...binding.params.flatMap((param) =>
+            this.compile(param.value, {
+              tag: "send",
+              selector: param.key,
+              target: value,
+              args: [],
             })
-        }
-      })
+          ),
+        ]
     }
-    case "import": {
-      /* istanbul ignore next */
-      if (stmt.source.value !== "core") {
-        throw "todo imports"
-      }
-      return letStmt(scope, stmt.binding, {
-        tag: "object",
-        ivars: [],
-        class: core,
-      })
-    }
-    case "defer":
-      return [{ tag: "defer", body: body(scope, stmt.body) }]
-    case "return":
-      return [{ tag: "return", value: expr(scope, stmt.value) }]
-    case "expr":
-      return [{ tag: "expr", value: expr(scope, stmt.value) }]
+  }
+  private useAnon(): ScopeRecord {
+    return this.locals.new("let")
+  }
+  private useLet(key: string): ScopeRecord {
+    return this.locals.set(key, this.locals.new("let"))
   }
 }
 
-function body(scope: Scope, stmts: ASTStmt[]): IRStmt[] {
-  return stmts.flatMap((s) => stmt(scope, s))
+class Stmt {
+  private locals = this.scope.locals
+  constructor(private scope: Scope) {}
+  stmt(stmt: ASTStmt): IRStmt[] {
+    switch (stmt.tag) {
+      case "let":
+        return this.let(stmt.binding, this.bindExpr(stmt.binding, stmt.value))
+      case "var": {
+        const value = this.expr(stmt.value)
+        const record = this.useVar(stmt.binding.value)
+        return [{ tag: "assign", index: record.index, value }]
+      }
+      case "set": {
+        const value = this.expr(stmt.value)
+        return [
+          {
+            tag: "assign",
+            index: this.scope.lookupVarIndex(stmt.binding.value),
+            value,
+          },
+        ]
+      }
+      case "provide": {
+        return stmt.args.map((arg) => {
+          switch (arg.value.tag) {
+            case "do":
+            case "var":
+              throw "todo"
+            case "expr":
+              return {
+                tag: "provide",
+                key: arg.key,
+                value: this.expr(arg.value.value),
+              }
+          }
+        })
+      }
+      case "using": {
+        return stmt.params.flatMap((param) => {
+          switch (param.value.tag) {
+            case "do":
+            case "var":
+              throw "todo"
+            case "binding":
+              return this.let(param.value.binding, {
+                tag: "using",
+                key: param.key,
+              })
+          }
+        })
+      }
+      case "import": {
+        /* istanbul ignore next */
+        if (stmt.source.value !== "core") {
+          throw "todo imports"
+        }
+        return this.let(stmt.binding, {
+          tag: "object",
+          ivars: [],
+          class: core,
+        })
+      }
+      case "defer":
+        return [{ tag: "defer", body: this.body(stmt.body) }]
+      case "return":
+        return [{ tag: "return", value: this.expr(stmt.value) }]
+      case "expr":
+        return [{ tag: "expr", value: this.expr(stmt.value) }]
+    }
+  }
+  private bindExpr(binding: ASTLetBinding, value: ASTExpr): IRExpr {
+    if (binding.tag === "identifier") {
+      return this.expr(value, binding.value)
+    } else {
+      return this.expr(value)
+    }
+  }
+  private expr(value: ASTExpr, selfBinding: string | null = null): IRExpr {
+    return new Expr(this.scope).expr(value, selfBinding)
+  }
+  private body(stmts: ASTStmt[]): IRStmt[] {
+    return stmts.flatMap((s) => this.stmt(s))
+  }
+  private useVar(key: string): ScopeRecord {
+    return this.locals.set(key, this.locals.new("var"))
+  }
+  private let(binding: ASTLetBinding, value: IRExpr): IRStmt[] {
+    return new Let(this.locals).compile(binding, value)
+  }
 }
 
 export function program(stmts: ASTStmt[]): IRStmt[] {
-  const scope = new Scope()
-  return body(scope, stmts)
+  const locals = new Locals()
+  const instance = new NilInstance()
+  const scope = new BasicScope(instance, locals)
+  const stmtScope = new Stmt(scope)
+  return stmts.flatMap((s) => stmtScope.stmt(s))
 }
