@@ -100,7 +100,7 @@ const trueClass: IRClass = new IRClassBuilder()
   )
   .addIR(
     ":",
-    [],
+    [{ tag: "do" }],
     [
       {
         tag: "expr",
@@ -138,7 +138,7 @@ const falseClass: IRClass = new IRClassBuilder()
   )
   .addIR(
     ":",
-    [],
+    [{ tag: "do" }],
     [
       {
         tag: "expr",

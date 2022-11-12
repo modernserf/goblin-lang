@@ -424,3 +424,25 @@ Assert{received: cell{get}  expected: 1}
 let res := bar{b}
 Assert{received: res        expected: "bar b"}
 Assert{received: cell{get}  expected: 2}
+
+# loops
+let loop := [
+  on {: do f}
+    f{:
+      on {break}
+        return []
+    }
+    loop{: f}
+]
+
+var i := 0
+loop{: {: do l}
+  (i = 10){:
+    on {true} 
+      l{break}
+    on {false}
+  }
+  set i := i + 1
+}
+
+Assert{received: i expected: 10}
