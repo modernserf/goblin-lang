@@ -30,13 +30,6 @@ test("parse errors", () => {
   )
   assert.throws(
     () => {
-      parse("()")
-    },
-    ParseError,
-    "paren with no value"
-  )
-  assert.throws(
-    () => {
       parse("(1 2)")
     },
     ParseError,

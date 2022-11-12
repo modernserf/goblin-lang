@@ -441,6 +441,7 @@ loop{: {: do l}
     on {true} 
       l{break}
     on {false}
+      ()
   }
   set i := i + 1
 }

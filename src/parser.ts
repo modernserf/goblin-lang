@@ -8,13 +8,14 @@ export type ParseStmt =
   | { tag: "var"; binding: ParseExpr; value: ParseExpr }
   | { tag: "provide"; binding: ParseExpr; value: ParseExpr }
   | { tag: "import"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "return"; value: ParseExpr | null }
+  | { tag: "return"; value: ParseExpr }
   | { tag: "defer"; body: ParseStmt[] }
   | { tag: "expr"; value: ParseExpr }
 
 // used for both ast exprs and bindings
 export type ParseExpr =
   | { tag: "self" }
+  | { tag: "unit" }
   | { tag: "integer"; value: number }
   | { tag: "string"; value: string }
   | { tag: "identifier"; value: string }
@@ -169,9 +170,13 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
       return { tag: "identifier", value: token.value }
     case "openParen": {
       lexer.advance()
-      const value = must(lexer, "expr", parseExpr)
+      const value = parseExpr(lexer)
       mustToken(lexer, "closeParen")
-      return { tag: "parens", value }
+      if (value) {
+        return { tag: "parens", value }
+      } else {
+        return { tag: "unit" }
+      }
     }
     case "openBracket": {
       lexer.advance()
@@ -251,9 +256,12 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
       const value = must(lexer, "expr", parseExpr)
       return { tag: token.tag, binding, value }
     }
-    case "return":
+    case "return": {
       lexer.advance()
-      return { tag: "return", value: parseExpr(lexer) }
+      const value = parseExpr(lexer)
+      if (value) return { tag: "return", value }
+      return { tag: "return", value: { tag: "unit" } }
+    }
     case "defer": {
       lexer.advance()
       const body = repeat(lexer, parseStmt)

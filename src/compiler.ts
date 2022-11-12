@@ -20,8 +20,6 @@ import {
 } from "./interpreter"
 import { core, intClass, stringClass } from "./stdlib"
 
-const unit: IRExpr = { tag: "object", class: unitClass, ivars: [] }
-
 type ScopeType = "let" | "var" | "do"
 type ScopeRecord = { index: number; type: ScopeType }
 
@@ -293,6 +291,8 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
       return object(scope, null, value.handlers, value.else)
     case "use":
       return { tag: "use", key: value.value }
+    case "unit":
+      return { tag: "object", class: unitClass, ivars: [] }
   }
 }
 
@@ -371,12 +371,7 @@ function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
     case "defer":
       return [{ tag: "defer", body: body(scope, stmt.body) }]
     case "return":
-      return [
-        {
-          tag: "return",
-          value: stmt.value ? expr(scope, stmt.value) : unit,
-        },
-      ]
+      return [{ tag: "return", value: expr(scope, stmt.value) }]
     case "expr":
       return [{ tag: "expr", value: expr(scope, stmt.value) }]
   }
