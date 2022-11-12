@@ -101,7 +101,7 @@ test("invalid destructuring", () => {
 test("provide", () => {
   assert.throws(() => {
     check(`
-      provide [x: 1] := foo
+      provide{x}
     `)
   }, InvalidProvideBindingError)
 })

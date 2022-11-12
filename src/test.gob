@@ -267,9 +267,9 @@ Assert{
 let result := do
   let obj := [{get} use foo]
 
-  provide foo := 1
+  provide{foo: 1}
   let x := obj{get}
-  provide foo := 2
+  provide{foo: 2}
   let y := obj{get}
   x + y
 end
@@ -280,13 +280,13 @@ Assert{
 
 let result := do
   let a := [{get} use foo]
-  provide foo := 3
+  provide{foo: 3}
   let b := [
     on {pv 1: fn} 
-      provide foo := 1
+      provide{foo: 1}
       fn{get}
     on {pv 2: fn}
-      provide foo := 2
+      provide{foo: 2}
       fn{get}
   ]
   b{pv 1: a} + b{pv 2: a} + a{get}

@@ -6,8 +6,8 @@ export type ParseStmt =
   | { tag: "let"; binding: ParseExpr; value: ParseExpr }
   | { tag: "set"; binding: ParseExpr; value: ParseExpr }
   | { tag: "var"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "provide"; binding: ParseExpr; value: ParseExpr }
   | { tag: "import"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "provide"; message: ParseMessage<ParseArg> }
   | { tag: "return"; value: ParseExpr }
   | { tag: "defer"; body: ParseStmt[] }
   | { tag: "expr"; value: ParseExpr }
@@ -248,13 +248,19 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
     case "let":
     case "set":
     case "var":
-    case "provide":
     case "import": {
       lexer.advance()
       const binding = must(lexer, "binding", parseExpr)
       mustToken(lexer, "colonEquals")
       const value = must(lexer, "expr", parseExpr)
       return { tag: token.tag, binding, value }
+    }
+    case "provide": {
+      lexer.advance()
+      mustToken(lexer, "openBrace")
+      const message = parseMessage(lexer, arg)
+      mustToken(lexer, "closeBrace")
+      return { tag: "provide", message }
     }
     case "return": {
       lexer.advance()

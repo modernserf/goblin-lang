@@ -12,12 +12,13 @@ export type ASTStmt =
   | { tag: "let"; binding: ASTLetBinding; value: ASTExpr }
   | { tag: "set"; binding: ASTSetBinding; value: ASTExpr }
   | { tag: "var"; binding: ASTVarBinding; value: ASTExpr }
-  | { tag: "provide"; binding: ASTProvideBinding; value: ASTExpr }
+  | { tag: "provide"; args: ASTProvidePair[] }
   | { tag: "import"; binding: ASTImportBinding; source: ASTImportSource }
   | { tag: "return"; value: ASTExpr }
   | { tag: "defer"; body: ASTStmt[] }
   | { tag: "expr"; value: ASTExpr }
 
+export type ASTProvidePair = { key: string; value: ASTArg }
 export type ASTBindPair = { key: string; value: ASTLetBinding }
 export type ASTLetBinding =
   | { tag: "identifier"; value: string }
@@ -138,6 +139,22 @@ function handlerSet(ins: ParseHandler[]): HandlerSet {
   return out
 }
 
+function astArg(arg: ParseArg): ASTArg {
+  switch (arg.tag) {
+    case "value":
+      return { tag: "expr", value: expr(arg.value) }
+    case "var":
+      switch (arg.value.tag) {
+        case "identifier":
+          return { tag: "var", value: arg.value }
+        default:
+          throw new InvalidVarArgError()
+      }
+    case "handlers":
+      return { tag: "do", value: handlerSet(arg.handlers) }
+  }
+}
+
 function expr(value: ParseExpr): ASTExpr {
   switch (value.tag) {
     case "self":
@@ -218,19 +235,7 @@ function expr(value: ParseExpr): ASTExpr {
           return { tag: "expr", value: { tag: "identifier", value } }
         },
         pair(_, arg) {
-          switch (arg.tag) {
-            case "value":
-              return { tag: "expr", value: expr(arg.value) }
-            case "var":
-              switch (arg.value.tag) {
-                case "identifier":
-                  return { tag: "var", value: arg.value }
-                default:
-                  throw new InvalidVarArgError()
-              }
-            case "handlers":
-              return { tag: "do", value: handlerSet(arg.handlers) }
-          }
+          return astArg(arg)
         },
         build(selector, args) {
           return { tag: "send", target, selector, args }
@@ -287,11 +292,6 @@ function varBinding(value: ParseExpr): ASTVarBinding {
   throw new InvalidVarBindingError()
 }
 
-function provideBinding(value: ParseExpr): ASTProvideBinding {
-  if (value.tag === "identifier") return value
-  throw new InvalidProvideBindingError()
-}
-
 function importBinding(value: ParseExpr): ASTImportBinding {
   switch (value.tag) {
     case "frame":
@@ -327,11 +327,23 @@ function stmt(value: ParseStmt): ASTStmt {
         value: expr(value.value),
       }
     case "provide":
-      return {
-        tag: "provide",
-        binding: provideBinding(value.binding),
-        value: expr(value.value),
-      }
+      return build<ParseArg, ASTProvidePair, ASTStmt>(value.message, {
+        key() {
+          throw new InvalidProvideBindingError()
+        },
+        punValue(key) {
+          return {
+            key,
+            value: { tag: "expr", value: { tag: "identifier", value: key } },
+          }
+        },
+        pair(key, arg) {
+          return { key, value: astArg(arg) }
+        },
+        build(_, args) {
+          return { tag: "provide", args }
+        },
+      })
     case "import":
       return {
         tag: "import",

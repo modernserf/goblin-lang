@@ -354,8 +354,19 @@ function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
       ]
     }
     case "provide": {
-      const value = expr(scope, stmt.value)
-      return [{ tag: "provide", key: stmt.binding.value, value }]
+      return stmt.args.map((arg) => {
+        switch (arg.value.tag) {
+          case "do":
+          case "var":
+            throw "todo"
+          case "expr":
+            return {
+              tag: "provide",
+              key: arg.key,
+              value: expr(scope, arg.value.value),
+            }
+        }
+      })
     }
     case "import": {
       /* istanbul ignore next */
