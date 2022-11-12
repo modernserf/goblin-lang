@@ -79,11 +79,6 @@ test("invalid calls", () => {
       val{arg: var 1} 
     `)
   }, InvalidVarArgError)
-  assert.throws(() => {
-    check(`
-      val{arg: do 1} 
-    `)
-  }, InvalidBlockArgError)
 })
 
 test("invalid destructuring", () => {
@@ -95,11 +90,6 @@ test("invalid destructuring", () => {
   assert.throws(() => {
     check(`
       let [x: var x] := foo
-    `)
-  }, InvalidDestructuringError)
-  assert.throws(() => {
-    check(`
-      let [x: do x] := foo
     `)
   }, InvalidDestructuringError)
   assert.throws(() => {

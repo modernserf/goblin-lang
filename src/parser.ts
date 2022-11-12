@@ -48,7 +48,9 @@ export class ParseError {
   constructor(readonly expected: string, readonly received: string) {}
 }
 
-function arg(lexer: Lexer): ParseArg {
+type Parser<T> = (lexer: Lexer) => T
+
+function param(lexer: Lexer): ParseArg {
   const token = lexer.peek()
   switch (token.tag) {
     case "var":
@@ -60,7 +62,22 @@ function arg(lexer: Lexer): ParseArg {
     case "on":
     case "else":
     case "openBrace":
-      return { tag: "handlers", handlers: handlers_(lexer) }
+      return { tag: "handlers", handlers: parseHandlers(lexer) }
+    default:
+      return { tag: "value", value: must(lexer, "expr", expr) }
+  }
+}
+
+function arg(lexer: Lexer): ParseArg {
+  const token = lexer.peek()
+  switch (token.tag) {
+    case "var":
+      lexer.advance()
+      return { tag: "var", value: must(lexer, "expr", expr) }
+    case "on":
+    case "else":
+    case "openBrace":
+      return { tag: "handlers", handlers: parseHandlers(lexer) }
     default:
       return { tag: "value", value: must(lexer, "expr", expr) }
   }
@@ -85,11 +102,11 @@ function keyPart(lexer: Lexer): string | null {
   }
 }
 
-function key_(lexer: Lexer): string {
+function parseKey(lexer: Lexer): string {
   return repeat(lexer, keyPart).join(" ")
 }
 
-function message_(lexer: Lexer): ParseMessage {
+function parseMessage(lexer: Lexer, parser: Parser<ParseArg>): ParseMessage {
   const pairs: ParsePair[] = []
   while (true) {
     const token = lexer.peek()
@@ -99,9 +116,9 @@ function message_(lexer: Lexer): ParseMessage {
       continue
     }
 
-    const key = key_(lexer)
+    const key = parseKey(lexer)
     if (accept(lexer, "colon")) {
-      const value = must(lexer, "arg", arg)
+      const value = must(lexer, "arg", parser)
       pairs.push({ tag: "pair", key, value })
       continue
     }
@@ -111,9 +128,9 @@ function message_(lexer: Lexer): ParseMessage {
   }
 }
 
-function handlers_(lexer: Lexer): ParseHandler[] {
+function parseHandlers(lexer: Lexer): ParseHandler[] {
   if (accept(lexer, "openBrace")) {
-    const message = message_(lexer)
+    const message = parseMessage(lexer, param)
     mustToken(lexer, "closeBrace")
     const body = repeat(lexer, stmt)
     return [{ tag: "on", message, body }]
@@ -125,7 +142,7 @@ function handlers_(lexer: Lexer): ParseHandler[] {
       out.push({ tag: "else", body })
     } else if (accept(lexer, "on")) {
       mustToken(lexer, "openBrace")
-      const message = message_(lexer)
+      const message = parseMessage(lexer, param)
       mustToken(lexer, "closeBrace")
       const body = repeat(lexer, stmt)
       out.push({ tag: "on", message, body })
@@ -159,12 +176,12 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
     }
     case "openBracket": {
       lexer.advance()
-      const handlers = handlers_(lexer)
+      const handlers = parseHandlers(lexer)
       if (handlers.length) {
         mustToken(lexer, "closeBracket")
         return { tag: "object", handlers }
       }
-      const message = message_(lexer)
+      const message = parseMessage(lexer, arg)
       mustToken(lexer, "closeBracket")
       return { tag: "frame", message }
     }
@@ -190,7 +207,7 @@ function callExpr(lexer: Lexer): ParseExpr | null {
   if (!target) return null
   while (true) {
     if (!accept(lexer, "openBrace")) return target
-    const message = message_(lexer)
+    const message = parseMessage(lexer, arg)
     mustToken(lexer, "closeBrace")
     target = { tag: "send", target, message }
   }

@@ -43,7 +43,7 @@ export type ASTArg =
   | { tag: "var"; value: ASTVarArg }
   | { tag: "do"; value: ASTBlockArg }
 export type ASTVarArg = { tag: "identifier"; value: string }
-export type ASTBlockArg = { tag: "identifier"; value: string } | HandlerSet
+export type ASTBlockArg = HandlerSet
 
 type HandlerSet = {
   tag: "object"
@@ -228,13 +228,9 @@ function expr(value: ParseExpr): ASTExpr {
                 default:
                   throw new InvalidVarArgError()
               }
+            /* istanbul ignore next */
             case "do":
-              switch (arg.value.tag) {
-                case "identifier":
-                  return { tag: "do", value: arg.value }
-                default:
-                  throw new InvalidBlockArgError()
-              }
+              throw new Error("unreachable")
             case "handlers":
               return { tag: "do", value: handlerSet(arg.handlers) }
           }

@@ -39,12 +39,12 @@ Assert{
 }
 
 Assert{
-  received: (do 2 - 1 end)
+  received: do 2 - 1 end
   expected: 1
 }
 
 Assert{
-  received: (do 2; - 1 end)
+  received: do 2; - 1 end
   expected: -1
 }
 
@@ -376,7 +376,7 @@ let List := [
     on {map: do f}
       List{
         head: f{: h}
-        tail: t{map: do f}
+        tail: t{map: f}
       }
   ]
 ]

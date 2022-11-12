@@ -244,14 +244,13 @@ function arg(scope: Scope, arg: ASTArg): IRArg {
     case "var":
       return { tag: "var", index: scope.lookupVar(arg.value.value) }
     case "expr":
-      return { tag: "value", value: expr(scope, arg.value) }
+      const value =
+        arg.value.tag === "identifier"
+          ? scope.lookupBlock(arg.value.value)
+          : expr(scope, arg.value)
+      return { tag: "value", value }
     case "do":
       switch (arg.value.tag) {
-        case "identifier":
-          return {
-            tag: "value",
-            value: scope.lookupBlock(arg.value.value),
-          }
         case "object":
           return {
             tag: "do",

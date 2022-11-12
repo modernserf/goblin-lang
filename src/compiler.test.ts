@@ -78,15 +78,6 @@ test("do usage", () => {
     compile(`
       let foo := []
       let bar := [
-        {foo: do b} foo{: b}
-      ] 
-    `)
-  }, BlockReferenceError)
-
-  assert.throws(() => {
-    compile(`
-      let foo := []
-      let bar := [
         {foo: do b} b
       ] 
     `)
@@ -118,16 +109,7 @@ test("do usage", () => {
     compile(`
       let foo := []
       let bar := [
-        {foo: do b} foo{: do b}
-      ] 
-    `)
-  })
-
-  assert.doesNotThrow(() => {
-    compile(`
-      let foo := []
-      let bar := [
-        {foo: b} foo{: do b}
+        {foo: do b} foo{: b}
       ] 
     `)
   })
