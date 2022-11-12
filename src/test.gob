@@ -117,9 +117,13 @@ Assert{
 
 let empty := []
 let result := empty{:
-  on {} 1
-  on {other} 2
-  else 3
+  on {}
+    1
+  on {other} 
+    2
+  else
+    3
+  end
 }
 
 Assert{

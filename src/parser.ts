@@ -151,6 +151,7 @@ function parseHandlers(lexer: Lexer): ParseHandler[] {
       const body = repeat(lexer, parseStmt)
       out.push({ tag: "on", message, body })
     } else {
+      accept(lexer, "end")
       return out
     }
   }
