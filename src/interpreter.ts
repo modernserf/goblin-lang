@@ -12,7 +12,7 @@ export type IRExpr =
   | { tag: "primitive"; class: IRClass; value: PrimitiveValue }
   | { tag: "object"; class: IRClass; ivars: IRExpr[] }
   | { tag: "send"; selector: string; target: IRExpr; args: IRArg[] }
-  | { tag: "use"; key: string }
+  | { tag: "using"; key: string }
 
 export type IRArg =
   | { tag: "value"; value: IRExpr }
@@ -227,7 +227,7 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
       }
     case "send":
       return send(ctx, value.selector, expr(ctx, value.target), value.args)
-    case "use":
+    case "using":
       return ctx.use(value.key)
   }
 }

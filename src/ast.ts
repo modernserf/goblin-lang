@@ -13,12 +13,14 @@ export type ASTStmt =
   | { tag: "set"; binding: ASTSetBinding; value: ASTExpr }
   | { tag: "var"; binding: ASTVarBinding; value: ASTExpr }
   | { tag: "provide"; args: ASTProvidePair[] }
+  | { tag: "using"; params: ASTUsingPair[] }
   | { tag: "import"; binding: ASTImportBinding; source: ASTImportSource }
   | { tag: "return"; value: ASTExpr }
   | { tag: "defer"; body: ASTStmt[] }
   | { tag: "expr"; value: ASTExpr }
 
 export type ASTProvidePair = { key: string; value: ASTArg }
+export type ASTUsingPair = { key: string; value: ASTParam }
 export type ASTBindPair = { key: string; value: ASTLetBinding }
 export type ASTLetBinding =
   | { tag: "identifier"; value: string }
@@ -37,7 +39,6 @@ export type ASTExpr =
   | { tag: "identifier"; value: string }
   | { tag: "send"; target: ASTExpr; selector: string; args: ASTArg[] }
   | { tag: "frame"; selector: string; args: ASTFrameArg[] }
-  | { tag: "use"; value: string }
   | HandlerSet
 
 export type ASTFrameArg = { key: string; value: ASTExpr }
@@ -87,6 +88,19 @@ export class DuplicateHandlerError {
 }
 export class DuplicateElseHandlerError {}
 
+function astParam(param: ParseParam): ASTParam {
+  switch (param.tag) {
+    case "value":
+      return { tag: "binding", binding: letBinding(param.value) }
+    case "var":
+      if (param.value.tag !== "identifier") throw new InvalidVarParamError()
+      return { tag: "var", binding: param.value }
+    case "do":
+      if (param.value.tag !== "identifier") throw new InvalidBlockParamError()
+      return { tag: "do", binding: param.value }
+  }
+}
+
 function handlerSet(ins: ParseHandler[]): HandlerSet {
   const out: HandlerSet = {
     tag: "object",
@@ -113,18 +127,7 @@ function handlerSet(ins: ParseHandler[]): HandlerSet {
         return { tag: "binding", binding: { tag: "identifier", value } }
       },
       pair(_, param) {
-        switch (param.tag) {
-          case "value":
-            return { tag: "binding", binding: letBinding(param.value) }
-          case "var":
-            if (param.value.tag !== "identifier")
-              throw new InvalidVarParamError()
-            return { tag: "var", binding: param.value }
-          case "do":
-            if (param.value.tag !== "identifier")
-              throw new InvalidBlockParamError()
-            return { tag: "do", binding: param.value }
-        }
+        return astParam(param)
       },
       build(selector, params) {
         return { selector, params, body }
@@ -161,7 +164,6 @@ function expr(value: ParseExpr): ASTExpr {
     case "integer":
     case "string":
     case "identifier":
-    case "use":
     case "unit":
       return value
     case "parens":
@@ -342,6 +344,27 @@ function stmt(value: ParseStmt): ASTStmt {
         },
         build(_, args) {
           return { tag: "provide", args }
+        },
+      })
+    case "using":
+      return build<ParseParam, ASTUsingPair, ASTStmt>(value.message, {
+        key() {
+          throw new InvalidProvideBindingError()
+        },
+        punValue(key) {
+          return {
+            key,
+            value: {
+              tag: "binding",
+              binding: { tag: "identifier", value: key },
+            },
+          }
+        },
+        pair(key, param) {
+          return { key, value: astParam(param) }
+        },
+        build(_, params) {
+          return { tag: "using", params }
         },
       })
     case "import":

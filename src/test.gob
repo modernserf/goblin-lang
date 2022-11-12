@@ -265,7 +265,7 @@ Assert{
 }
 
 let result := do
-  let obj := [{get} use foo]
+  let obj := [{get} using{_foo_} foo]
 
   provide{foo: 1}
   let x := obj{get}
@@ -279,7 +279,7 @@ Assert{
 }
 
 let result := do
-  let a := [{get} use foo]
+  let a := [{get} using{_foo_} foo]
   provide{foo: 3}
   let b := [
     on {pv 1: fn} 

@@ -49,7 +49,7 @@ test("no method", () => {
 test("no provider", () => {
   assert.throws(() => {
     run(`
-      use _value that doesn't exist_ 
+      using{value that doesn't exist: x}
     `)
   }, NoProviderError)
 })

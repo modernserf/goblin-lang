@@ -10,7 +10,7 @@ export type Token =
   | { tag: "var" }
   | { tag: "set" }
   | { tag: "provide" }
-  | { tag: "use" }
+  | { tag: "using" }
   | { tag: "import" }
   | { tag: "on" }
   | { tag: "else" }
@@ -45,7 +45,7 @@ export const keywords: Set<Token["tag"]> = new Set([
   "var",
   "set",
   "provide",
-  "use",
+  "using",
   "import",
   "on",
   "else",

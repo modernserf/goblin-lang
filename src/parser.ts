@@ -8,6 +8,7 @@ export type ParseStmt =
   | { tag: "var"; binding: ParseExpr; value: ParseExpr }
   | { tag: "import"; binding: ParseExpr; value: ParseExpr }
   | { tag: "provide"; message: ParseMessage<ParseArg> }
+  | { tag: "using"; message: ParseMessage<ParseParam> }
   | { tag: "return"; value: ParseExpr }
   | { tag: "defer"; body: ParseStmt[] }
   | { tag: "expr"; value: ParseExpr }
@@ -23,7 +24,6 @@ export type ParseExpr =
   | { tag: "object"; handlers: ParseHandler[] }
   | { tag: "frame"; message: ParseMessage<ParseArg> }
   | { tag: "send"; target: ParseExpr; message: ParseMessage<ParseArg> }
-  | { tag: "use"; value: string }
   | { tag: "do"; body: ParseStmt[] }
   | { tag: "unaryOp"; target: ParseExpr; operator: string }
   | { tag: "binaryOp"; target: ParseExpr; arg: ParseExpr; operator: string }
@@ -189,12 +189,6 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
       mustToken(lexer, "closeBracket")
       return { tag: "frame", message }
     }
-    case "use": {
-      lexer.advance()
-      const value =
-        accept(lexer, "quotedIdent") || mustToken(lexer, "identifier")
-      return { tag: "use", value: value.value }
-    }
     case "do": {
       lexer.advance()
       const body = repeat(lexer, parseStmt)
@@ -261,6 +255,13 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
       const message = parseMessage(lexer, arg)
       mustToken(lexer, "closeBrace")
       return { tag: "provide", message }
+    }
+    case "using": {
+      lexer.advance()
+      mustToken(lexer, "openBrace")
+      const message = parseMessage(lexer, param)
+      mustToken(lexer, "closeBrace")
+      return { tag: "using", message }
     }
     case "return": {
       lexer.advance()

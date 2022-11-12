@@ -289,8 +289,6 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
       )
     case "object":
       return object(scope, null, value.handlers, value.else)
-    case "use":
-      return { tag: "use", key: value.value }
     case "unit":
       return { tag: "object", class: unitClass, ivars: [] }
   }
@@ -365,6 +363,20 @@ function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
               key: arg.key,
               value: expr(scope, arg.value.value),
             }
+        }
+      })
+    }
+    case "using": {
+      return stmt.params.flatMap((param) => {
+        switch (param.value.tag) {
+          case "do":
+          case "var":
+            throw "todo"
+          case "binding":
+            return letStmt(scope, param.value.binding, {
+              tag: "using",
+              key: param.key,
+            })
         }
       })
     }

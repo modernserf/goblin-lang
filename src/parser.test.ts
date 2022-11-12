@@ -66,9 +66,9 @@ test("parse errors", () => {
   )
   assert.throws(
     () => {
-      parse("use 1")
+      parse("using 1")
     },
     ParseError,
-    "use without identifier"
+    "using without message"
   )
 })
