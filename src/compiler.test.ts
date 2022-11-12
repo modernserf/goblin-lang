@@ -11,6 +11,7 @@ import {
   OuterScopeVarError,
   program,
   ReferenceError,
+  VarDoubleBorrowError,
 } from "./compiler"
 
 export function compile(source: string) {
@@ -63,6 +64,41 @@ test("not a var", () => {
       ]
     `)
   }, OuterScopeVarError)
+})
+
+test("var double borrow", () => {
+  assert.throws(() => {
+    compile(`
+      var x := 1
+      let fn := [{swap: var left with: var right}
+        let tmp := left
+        set left := right
+        set right := left
+      ]
+      fn{swap: var x with: var x}
+    `)
+  }, VarDoubleBorrowError)
+
+  assert.throws(() => {
+    compile(`
+      var x := 1
+      let fn := [{arg: var arg block: do block}
+      ]
+      fn{arg: var x block: {}
+        set x := 2
+      }
+    `)
+  }, VarDoubleBorrowError)
+  assert.throws(() => {
+    compile(`
+      var x := 1
+      let fn := [{arg: var arg block: do block}
+      ]
+      fn{arg: var x block: {}
+        let y := x
+      }
+    `)
+  }, VarDoubleBorrowError)
 })
 
 test("self at module root", () => {

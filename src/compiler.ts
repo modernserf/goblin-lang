@@ -36,12 +36,13 @@ export class NoModuleSelfError {}
 export class BlockReferenceError {
   constructor(readonly key: string) {}
 }
+export class VarDoubleBorrowError {}
 
 class Scope {
-  private locals = new Map<string, ScopeRecord>()
   constructor(
-    private instance: Instance | null = null,
-    private localsIndex = 0
+    protected instance: Instance | null = null,
+    protected localsIndex = 0,
+    protected locals = new Map<string, ScopeRecord>()
   ) {}
   lookup(key: string): IRExpr {
     const res = this.locals.get(key)
@@ -60,7 +61,7 @@ class Scope {
     }
     return this.lookupInstance(key)
   }
-  private lookupInstance(key: string): IRExpr {
+  protected lookupInstance(key: string): IRExpr {
     if (!this.instance) throw new ReferenceError(key)
     return this.instance.lookup(key)
   }
@@ -77,6 +78,9 @@ class Scope {
       return { tag: "local", index: record.index }
     }
     return this.lookupInstance(key)
+  }
+  argScope(): Scope {
+    return new ArgScope(this.instance, this.localsIndex, this.locals)
   }
   useAnon(): ScopeRecord {
     return this.newRecord("let")
@@ -114,6 +118,29 @@ class Scope {
     const prevIndex = this.localsIndex
     this.localsIndex += arity
     return prevIndex
+  }
+}
+
+class ArgScope extends Scope {
+  private borrows = new Set<string>()
+  lookup(key: string): IRExpr {
+    const res = this.locals.get(key)
+    if (!res) return this.lookupInstance(key)
+    switch (res.type) {
+      case "do":
+        throw new BlockReferenceError(key)
+      case "var":
+        if (this.borrows.has(key)) throw new VarDoubleBorrowError()
+        this.borrows.add(key)
+        return { tag: "local", index: res.index }
+      case "let":
+        return { tag: "local", index: res.index }
+    }
+  }
+  lookupVar(key: string): number {
+    if (this.borrows.has(key)) throw new VarDoubleBorrowError()
+    this.borrows.add(key)
+    return super.lookupVar(key)
   }
 }
 
@@ -276,7 +303,8 @@ function expr(scope: Scope, value: ASTExpr): IRExpr {
         value.target.tag === "identifier"
           ? scope.lookupBlock(value.target.value)
           : expr(scope, value.target)
-      const args = value.args.map((v) => arg(scope, v))
+      const argScope = scope.argScope()
+      const args = value.args.map((v) => arg(argScope, v))
       return { tag: "send", target, selector: value.selector, args }
     }
     case "frame":

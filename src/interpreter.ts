@@ -170,9 +170,14 @@ function sendHandler(
     case "object":
       const child = sender.createChild(target)
       loadArgs(sender, child, 0, handler.params, args)
-      const result = Return.handleReturn(child, () => body(child, handler.body))
-      unloadArgs(sender, child, 0, args)
-      return result
+      try {
+        const result = Return.handleReturn(child, () =>
+          body(child, handler.body)
+        )
+        return result
+      } finally {
+        unloadArgs(sender, child, 0, args)
+      }
   }
 }
 

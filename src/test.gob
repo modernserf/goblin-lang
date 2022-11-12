@@ -447,3 +447,16 @@ loop{: {: do l}
 }
 
 Assert{received: i expected: 10}
+
+var counter := 0
+[{: var arg}
+
+  let fn := [{arg: var arg f: do block}
+    set arg := arg + 1
+    block{}
+  ]
+
+  fn{arg: var arg f: {} return}
+]{: var counter}
+
+Assert{received: counter expected: 1}
