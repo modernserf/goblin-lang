@@ -20,28 +20,31 @@ export type ParseExpr =
   | { tag: "identifier"; value: string }
   | { tag: "parens"; value: ParseExpr }
   | { tag: "object"; handlers: ParseHandler[] }
-  | { tag: "frame"; message: ParseMessage }
-  | { tag: "send"; target: ParseExpr; message: ParseMessage }
+  | { tag: "frame"; message: ParseMessage<ParseArg> }
+  | { tag: "send"; target: ParseExpr; message: ParseMessage<ParseArg> }
   | { tag: "use"; value: string }
   | { tag: "do"; body: ParseStmt[] }
   | { tag: "unaryOp"; target: ParseExpr; operator: string }
   | { tag: "binaryOp"; target: ParseExpr; arg: ParseExpr; operator: string }
 
-export type ParseMessage =
+export type ParseMessage<T> =
   | { tag: "key"; key: string }
-  | { tag: "pairs"; pairs: ParsePair[] }
-export type ParsePair =
-  | { tag: "pair"; key: string; value: ParseArg }
+  | { tag: "pairs"; pairs: ParsePair<T>[] }
+export type ParsePair<T> =
+  | { tag: "pair"; key: string; value: T }
   | { tag: "punPair"; key: string }
 export type ParseArg =
   | { tag: "value"; value: ParseExpr }
   | { tag: "var"; value: ParseExpr }
-  | { tag: "do"; value: ParseExpr }
   | { tag: "handlers"; handlers: ParseHandler[] }
+export type ParseParam =
+  | { tag: "value"; value: ParseExpr }
+  | { tag: "var"; value: ParseExpr }
+  | { tag: "do"; value: ParseExpr }
 
 // TODO: multiple messages, decorators
 export type ParseHandler =
-  | { tag: "on"; message: ParseMessage; body: ParseStmt[] }
+  | { tag: "on"; message: ParseMessage<ParseParam>; body: ParseStmt[] }
   | { tag: "else"; body: ParseStmt[] }
 
 export class ParseError {
@@ -50,7 +53,7 @@ export class ParseError {
 
 type Parser<T> = (lexer: Lexer) => T
 
-function param(lexer: Lexer): ParseArg {
+function param(lexer: Lexer): ParseParam {
   const token = lexer.peek()
   switch (token.tag) {
     case "var":
@@ -59,10 +62,6 @@ function param(lexer: Lexer): ParseArg {
     case "do":
       lexer.advance()
       return { tag: "do", value: must(lexer, "expr", expr) }
-    case "on":
-    case "else":
-    case "openBrace":
-      return { tag: "handlers", handlers: parseHandlers(lexer) }
     default:
       return { tag: "value", value: must(lexer, "expr", expr) }
   }
@@ -106,8 +105,8 @@ function parseKey(lexer: Lexer): string {
   return repeat(lexer, keyPart).join(" ")
 }
 
-function parseMessage(lexer: Lexer, parser: Parser<ParseArg>): ParseMessage {
-  const pairs: ParsePair[] = []
+function parseMessage<T>(lexer: Lexer, parser: Parser<T>): ParseMessage<T> {
+  const pairs: ParsePair<T>[] = []
   while (true) {
     const token = lexer.peek()
     if (token.tag === "quotedIdent") {

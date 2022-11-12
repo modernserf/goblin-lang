@@ -14,7 +14,6 @@ import {
   InvalidImportBindingError,
   InvalidImportSourceError,
   InvalidLetBindingError,
-  InvalidParamError,
   InvalidProvideBindingError,
   InvalidSetTargetError,
   InvalidVarArgError,
@@ -126,11 +125,6 @@ test("method params", () => {
       [{arg: var 1} 1]
     `)
   }, InvalidVarParamError)
-  assert.throws(() => {
-    check(`
-      [{arg: on {x} 1} 1]
-    `)
-  }, InvalidParamError)
   assert.throws(() => {
     check(`
       [{arg: do [x: x]} x] 

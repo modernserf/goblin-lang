@@ -5,6 +5,7 @@ import {
   ParseHandler,
   ParsePair,
   ParseStmt,
+  ParseParam,
 } from "./parser"
 
 export type ASTStmt =
@@ -64,7 +65,6 @@ export type ASTParam =
 export type ASTVarParam = { tag: "identifier"; value: string }
 export type ASTBlockParam = { tag: "identifier"; value: string }
 
-export class InvalidParamError {}
 export class InvalidVarParamError {}
 export class InvalidBlockParamError {}
 export class InvalidFrameArgError {}
@@ -103,7 +103,7 @@ function handlerSet(ins: ParseHandler[]): HandlerSet {
     }
 
     const body = handler.body.map((s) => stmt(s))
-    const m = build<ASTParam, ASTHandler>(handler.message, {
+    const m = build<ParseParam, ASTParam, ASTHandler>(handler.message, {
       key(selector) {
         return { selector, params: [], body }
       },
@@ -118,8 +118,6 @@ function handlerSet(ins: ParseHandler[]): HandlerSet {
             if (param.value.tag !== "identifier")
               throw new InvalidVarParamError()
             return { tag: "var", binding: param.value }
-          case "handlers":
-            throw new InvalidParamError()
           case "do":
             if (param.value.tag !== "identifier")
               throw new InvalidBlockParamError()
@@ -193,7 +191,7 @@ function expr(value: ParseExpr): ASTExpr {
     case "object":
       return handlerSet(value.handlers)
     case "frame":
-      return build<ASTFrameArg, ASTExpr>(value.message, {
+      return build<ParseArg, ASTFrameArg, ASTExpr>(value.message, {
         key(selector) {
           return { tag: "frame", selector, args: [] }
         },
@@ -210,7 +208,7 @@ function expr(value: ParseExpr): ASTExpr {
       })
     case "send":
       const target = expr(value.target)
-      return build<ASTArg, ASTExpr>(value.message, {
+      return build<ParseArg, ASTArg, ASTExpr>(value.message, {
         key(selector) {
           return { tag: "send", target, selector, args: [] }
         },
@@ -228,9 +226,6 @@ function expr(value: ParseExpr): ASTExpr {
                 default:
                   throw new InvalidVarArgError()
               }
-            /* istanbul ignore next */
-            case "do":
-              throw new Error("unreachable")
             case "handlers":
               return { tag: "do", value: handlerSet(arg.handlers) }
           }
@@ -242,7 +237,7 @@ function expr(value: ParseExpr): ASTExpr {
   }
 }
 
-function destructureItem(item: ParsePair): ASTBindPair {
+function destructureItem(item: ParsePair<ParseArg>): ASTBindPair {
   switch (item.tag) {
     case "punPair":
       return {
@@ -251,7 +246,6 @@ function destructureItem(item: ParsePair): ASTBindPair {
       }
     case "pair":
       switch (item.value.tag) {
-        case "do":
         case "handlers":
         case "var":
           throw new InvalidDestructuringError()
@@ -261,7 +255,7 @@ function destructureItem(item: ParsePair): ASTBindPair {
   }
 }
 
-function destructureMessage(message: ParseMessage): ASTBindPair[] {
+function destructureMessage(message: ParseMessage<ParseArg>): ASTBindPair[] {
   switch (message.tag) {
     case "key":
       throw new InvalidDestructuringError()
@@ -357,16 +351,16 @@ export function program(items: ParseStmt[]): ASTStmt[] {
 
 // utils
 
-interface Builder<Item, Container> {
+interface Builder<In, Item, Container> {
   key(key: string): Container
   punValue(key: string): Item
-  pair(key: string, value: ParseArg): Item
+  pair(key: string, value: In): Item
   build(selector: string, values: Item[]): Container
 }
 
-function build<Item, Container>(
-  message: ParseMessage,
-  builder: Builder<Item, Container>
+function build<In, Item, Container>(
+  message: ParseMessage<In>,
+  builder: Builder<In, Item, Container>
 ): Container {
   if (message.tag === "key") {
     return builder.key(message.key)
