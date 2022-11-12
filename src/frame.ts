@@ -1,5 +1,7 @@
 import { IRClass, IRExpr } from "./interpreter"
 
+const $0: IRExpr = { tag: "local", index: 0 }
+
 const frameCache = new Map<string, IRClass>()
 export function frame(
   selector: string,
@@ -45,11 +47,12 @@ export function frame(
     ],
   })
   for (const [index, { key }] of args.entries()) {
+    const ivar: IRExpr = { tag: "ivar", index }
     // getter: [x: 1 y: 2]{x}
     frameClass.handlers.set(key, {
       tag: "object",
       params: [],
-      body: [{ tag: "return", value: { tag: "ivar", index } }],
+      body: [{ tag: "return", value: ivar }],
     })
     // setter: [x: 1 y: 2]{x: 3}
     frameClass.handlers.set(`${key}:`, {
@@ -63,11 +66,38 @@ export function frame(
             class: frameClass,
             ivars: args.map((_, j) => {
               if (j === index) {
-                return { tag: "local", index: 0 }
+                return $0
               } else {
-                return { tag: "ivar", index }
+                return { tag: "ivar", index: j }
               }
             }),
+          },
+        },
+      ],
+    })
+    // updater: [x: 1 y: 2]{->x: {:x} x + 1}
+    // [on {->x: do f} self{x: f{: x}}]
+    frameClass.handlers.set(`-> ${key}:`, {
+      tag: "object",
+      params: [{ tag: "do" }],
+      body: [
+        {
+          tag: "return",
+          value: {
+            tag: "send",
+            selector: `${key}:`,
+            target: { tag: "self" },
+            args: [
+              {
+                tag: "value",
+                value: {
+                  tag: "send",
+                  selector: ":",
+                  target: $0,
+                  args: [{ tag: "value", value: ivar }],
+                },
+              },
+            ],
           },
         },
       ],

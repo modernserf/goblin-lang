@@ -452,7 +452,7 @@ var counter := 0
 [{: var arg}
 
   let fn := [{arg: var arg f: do block}
-    set arg := arg + 1
+    set arg{+: 1}
     block{}
   ]
 
@@ -460,3 +460,19 @@ var counter := 0
 ]{: var counter}
 
 Assert{received: counter expected: 1}
+
+# frame updates
+var a := [b: 1 c: 2]
+set a{->b: [+: 1]}
+Assert{
+  received: a
+  expected: [b: 2 c: 2]
+}
+
+var a := [b: [c: [d: 0]]]
+set a{->b:[->c:[->d:[+: 1]]]}
+
+Assert{
+  received: a
+  expected: [b: [c: [d: 1]]]
+}

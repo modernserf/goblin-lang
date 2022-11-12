@@ -289,6 +289,21 @@ function setBinding(value: ParseExpr): ASTSetBinding {
   throw new InvalidSetTargetError()
 }
 
+function setInPlace(value: ParseExpr): ASTStmt {
+  let root = value
+  while (true) {
+    switch (root.tag) {
+      case "identifier":
+        return { tag: "set", binding: root, value: expr(value) }
+      case "send":
+        root = root.target
+        continue
+      default:
+        throw new InvalidSetTargetError()
+    }
+  }
+}
+
 function varBinding(value: ParseExpr): ASTVarBinding {
   if (value.tag === "identifier") return value
   throw new InvalidVarBindingError()
@@ -322,6 +337,8 @@ function stmt(value: ParseStmt): ASTStmt {
         binding: setBinding(value.binding),
         value: expr(value.value),
       }
+    case "setInPlace":
+      return setInPlace(value.binding)
     case "var":
       return {
         tag: "var",

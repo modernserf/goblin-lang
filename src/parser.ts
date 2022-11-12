@@ -5,6 +5,7 @@ import { keywords, Lexer, Token } from "./lexer"
 export type ParseStmt =
   | { tag: "let"; binding: ParseExpr; value: ParseExpr }
   | { tag: "set"; binding: ParseExpr; value: ParseExpr }
+  | { tag: "setInPlace"; binding: ParseExpr }
   | { tag: "var"; binding: ParseExpr; value: ParseExpr }
   | { tag: "import"; binding: ParseExpr; value: ParseExpr }
   | { tag: "provide"; message: ParseMessage<ParseArg> }
@@ -240,7 +241,6 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
   const token = lexer.peek()
   switch (token.tag) {
     case "let":
-    case "set":
     case "var":
     case "import": {
       lexer.advance()
@@ -248,6 +248,16 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
       mustToken(lexer, "colonEquals")
       const value = must(lexer, "expr", parseExpr)
       return { tag: token.tag, binding, value }
+    }
+    case "set": {
+      lexer.advance()
+      const binding = must(lexer, "binding", parseExpr)
+      if (accept(lexer, "colonEquals")) {
+        const value = must(lexer, "expr", parseExpr)
+        return { tag: token.tag, binding, value }
+      } else {
+        return { tag: "setInPlace", binding }
+      }
     }
     case "provide": {
       lexer.advance()

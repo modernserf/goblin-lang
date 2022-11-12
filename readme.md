@@ -135,17 +135,6 @@ foo{:
 }
 ```
 
-# pipeline meta-operator
-
-same precedence as call expr
-useful for conversions, avoids the desire for mixins / inheritance because left-to-right flow never needs to be broken
-
-```
-<baseExpr>::<baseExpr>
-
-list::Iter{take: 3} => Iter{: list}{take: 3}
-```
-
 # set & var paths
 
 ```

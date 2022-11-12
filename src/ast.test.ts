@@ -51,6 +51,16 @@ test("invalid bindings", () => {
       set [x: p] := [x: 2]
     `)
   }, InvalidSetTargetError)
+  assert.throws(() => {
+    check(`
+      set x + 1
+    `)
+  }, InvalidSetTargetError)
+  assert.doesNotThrow(() => {
+    check(`
+      set x{+: 1}
+    `)
+  })
 })
 
 test("duplicate methods", () => {
