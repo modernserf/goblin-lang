@@ -62,7 +62,7 @@ test("arg/param mismatch", () => {
           value
         on {var method: var x} 
           set x := 1
-        on {block method: block b} 
+        on {do method: do b} 
           b{: 1}
         {}
       ]
@@ -77,7 +77,7 @@ test("arg/param mismatch", () => {
           value
         on {var method: var x}
           set x := 1
-        on {block method: block b}
+        on {do method: do b}
           b{: 1}
         {}
       ]
@@ -95,7 +95,7 @@ test("arg/param mismatch", () => {
           value
         on {var method: var x}
           set x := 1
-        on {block method: block b}
+        on {do method: do b}
           b{: 1}
         {}
       ]

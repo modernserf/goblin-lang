@@ -19,7 +19,7 @@ import {
 } from "./interpreter"
 import { core, intClass, stringClass } from "./stdlib"
 
-type ScopeType = "let" | "var" | "block"
+type ScopeType = "let" | "var" | "do"
 type ScopeRecord = { index: number; type: ScopeType }
 
 export class ReferenceError {
@@ -45,7 +45,7 @@ class Scope {
   lookup(key: string): IRExpr {
     const res = this.locals.get(key)
     if (res) {
-      if (res.type === "block") throw new BlockReferenceError(key)
+      if (res.type === "do") throw new BlockReferenceError(key)
       return { tag: "local", index: res.index }
     }
     return this.lookupInstance(key)
@@ -54,7 +54,7 @@ class Scope {
     const record = this.locals.get(key)
     if (record) {
       if (record.type == "var") throw new OuterScopeVarError(key)
-      if (record.type === "block") throw new BlockReferenceError(key)
+      if (record.type === "do") throw new BlockReferenceError(key)
       return { tag: "local", index: record.index }
     }
     return this.lookupInstance(key)
@@ -107,7 +107,7 @@ class Scope {
     return this.setLocal(key, { index, type: "var" })
   }
   useBlockArg(key: string, index: number) {
-    return this.setLocal(key, { index, type: "block" })
+    return this.setLocal(key, { index, type: "do" })
   }
   newBlock(arity: number) {
     const prevIndex = this.localsIndex
@@ -149,7 +149,7 @@ function handlerParam(scope: Scope, offset: number, param: ASTParam): IRStmt[] {
     case "var":
       scope.useVarArg(param.binding.value, offset)
       return []
-    case "block":
+    case "do":
       scope.useBlockArg(param.binding.value, offset)
       return []
   }
@@ -159,8 +159,8 @@ function param(p: ASTParam): IRParam {
   switch (p.tag) {
     case "binding":
       return { tag: "value" }
-    case "block":
-      return { tag: "block" }
+    case "do":
+      return { tag: "do" }
     case "var":
       return { tag: "var" }
   }
@@ -245,7 +245,7 @@ function arg(scope: Scope, arg: ASTArg): IRArg {
       return { tag: "var", index: scope.lookupVar(arg.value.value) }
     case "expr":
       return { tag: "value", value: expr(scope, arg.value) }
-    case "block":
+    case "do":
       switch (arg.value.tag) {
         case "identifier":
           return {
@@ -254,7 +254,7 @@ function arg(scope: Scope, arg: ASTArg): IRArg {
           }
         case "object":
           return {
-            tag: "block",
+            tag: "do",
             class: block(scope, arg.value.handlers, arg.value.else),
           }
       }

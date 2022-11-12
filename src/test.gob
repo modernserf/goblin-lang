@@ -39,12 +39,12 @@ Assert{
 }
 
 Assert{
-  received: do 2 - 1 end
+  received: (do 2 - 1 end)
   expected: 1
 }
 
 Assert{
-  received: do 2; - 1 end
+  received: (do 2; - 1 end)
   expected: -1
 }
 
@@ -343,7 +343,7 @@ Assert{
   expected: 1
 }
 
-# block vars
+# do vars
 var x := 1
 do
   set x := 2
@@ -366,17 +366,17 @@ Assert{
   expected: 1
 }
 
-# block propagation
+# do propagation
 let List := [
   on {nil} [
-    on {map: block __} 
+    on {map: do __} 
       self
   ]
   on {head: h tail: t} [
-    on {map: block f}
+    on {map: do f}
       List{
         head: f{: h}
-        tail: t{map: block f}
+        tail: t{map: do f}
       }
   ]
 ]
@@ -398,7 +398,7 @@ Assert{
 # defer
 let cell := Cell{: 0}
 let foo := [
-  on {: block b}
+  on {: do b}
     defer
       cell{update: [+: 1]}
     end

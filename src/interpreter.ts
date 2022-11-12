@@ -17,7 +17,7 @@ export type IRExpr =
 export type IRArg =
   | { tag: "value"; value: IRExpr }
   | { tag: "var"; index: number }
-  | { tag: "block"; class: IRBlockClass }
+  | { tag: "do"; class: IRBlockClass }
 
 export type IRClass = {
   handlers: Map<string, IRHandler>
@@ -28,7 +28,7 @@ export type IRHandler =
   | { tag: "primitive"; fn: IRPrimitiveHandler }
 type IRPrimitiveHandler = (value: PrimitiveValue, args: Value[]) => Value
 
-export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "block" }
+export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "do" }
 
 export type IRBlockClass = {
   handlers: Map<string, IRBlockHandler>
@@ -42,7 +42,7 @@ export type IRBlockHandler = {
 
 export type Value =
   | { tag: "object"; class: IRClass; ivars: Value[] }
-  | { tag: "block"; class: IRBlockClass; ctx: Interpreter }
+  | { tag: "do"; class: IRBlockClass; ctx: Interpreter }
   | { tag: "primitive"; class: IRClass; value: PrimitiveValue }
 type PrimitiveValue = any
 
@@ -124,11 +124,10 @@ function loadArgs(
         target.setLocal(offset + i, sender.getLocal(arg.index))
         return
       }
-      case "block": {
-        if (param.tag !== "block")
-          throw new ArgMismatchError(param.tag, arg.tag)
+      case "do": {
+        if (param.tag !== "do") throw new ArgMismatchError(param.tag, arg.tag)
         target.setLocal(offset + i, {
-          tag: "block",
+          tag: "do",
           class: arg.class,
           ctx: sender,
         })
@@ -183,7 +182,7 @@ function send(
   target: Value,
   args: IRArg[]
 ): Value {
-  if (target.tag === "block") {
+  if (target.tag === "do") {
     const ctx = target.ctx
     const handler = target.class.handlers.get(selector)
     if (!handler) {

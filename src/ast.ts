@@ -41,7 +41,7 @@ export type ASTFrameArg = { key: string; value: ASTExpr }
 export type ASTArg =
   | { tag: "expr"; value: ASTExpr }
   | { tag: "var"; value: ASTVarArg }
-  | { tag: "block"; value: ASTBlockArg }
+  | { tag: "do"; value: ASTBlockArg }
 export type ASTVarArg = { tag: "identifier"; value: string }
 export type ASTBlockArg = { tag: "identifier"; value: string } | HandlerSet
 
@@ -60,7 +60,7 @@ export type ASTHandler = {
 export type ASTParam =
   | { tag: "binding"; binding: ASTLetBinding }
   | { tag: "var"; binding: ASTVarParam }
-  | { tag: "block"; binding: ASTBlockParam }
+  | { tag: "do"; binding: ASTBlockParam }
 export type ASTVarParam = { tag: "identifier"; value: string }
 export type ASTBlockParam = { tag: "identifier"; value: string }
 
@@ -120,10 +120,10 @@ function handlerSet(ins: ParseHandler[]): HandlerSet {
             return { tag: "var", binding: param.value }
           case "handlers":
             throw new InvalidParamError()
-          case "block":
+          case "do":
             if (param.value.tag !== "identifier")
               throw new InvalidBlockParamError()
-            return { tag: "block", binding: param.value }
+            return { tag: "do", binding: param.value }
         }
       },
       build(selector, params) {
@@ -172,7 +172,7 @@ function expr(value: ParseExpr): ASTExpr {
         selector: ":",
         args: [
           {
-            tag: "block",
+            tag: "do",
             value: {
               tag: "object",
               else: null,
@@ -228,15 +228,15 @@ function expr(value: ParseExpr): ASTExpr {
                 default:
                   throw new InvalidVarArgError()
               }
-            case "block":
+            case "do":
               switch (arg.value.tag) {
                 case "identifier":
-                  return { tag: "block", value: arg.value }
+                  return { tag: "do", value: arg.value }
                 default:
                   throw new InvalidBlockArgError()
               }
             case "handlers":
-              return { tag: "block", value: handlerSet(arg.handlers) }
+              return { tag: "do", value: handlerSet(arg.handlers) }
           }
         },
         build(selector, args) {
@@ -255,7 +255,7 @@ function destructureItem(item: ParsePair): ASTBindPair {
       }
     case "pair":
       switch (item.value.tag) {
-        case "block":
+        case "do":
         case "handlers":
         case "var":
           throw new InvalidDestructuringError()

@@ -73,12 +73,12 @@ test("self at module root", () => {
   }, NoModuleSelfError)
 })
 
-test("block usage", () => {
+test("do usage", () => {
   assert.throws(() => {
     compile(`
       let foo := []
       let bar := [
-        {foo: block b} foo{: b}
+        {foo: do b} foo{: b}
       ] 
     `)
   }, BlockReferenceError)
@@ -87,7 +87,7 @@ test("block usage", () => {
     compile(`
       let foo := []
       let bar := [
-        {foo: block b} b
+        {foo: do b} b
       ] 
     `)
   }, BlockReferenceError)
@@ -96,7 +96,7 @@ test("block usage", () => {
     compile(`
       let foo := []
       let bar := [
-        {foo: block b}
+        {foo: do b}
           let baz := b
           1
       ] 
@@ -106,7 +106,7 @@ test("block usage", () => {
   assert.throws(() => {
     compile(`
       let obj := [
-        on {: block f} [
+        on {: do f} [
           on {inner}
             f{: 1} 
         ]
@@ -118,7 +118,7 @@ test("block usage", () => {
     compile(`
       let foo := []
       let bar := [
-        {foo: block b} foo{: block b}
+        {foo: do b} foo{: do b}
       ] 
     `)
   })
@@ -127,7 +127,7 @@ test("block usage", () => {
     compile(`
       let foo := []
       let bar := [
-        {foo: b} foo{: block b}
+        {foo: b} foo{: do b}
       ] 
     `)
   })

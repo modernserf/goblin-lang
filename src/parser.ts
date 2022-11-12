@@ -36,7 +36,7 @@ export type ParsePair =
 export type ParseArg =
   | { tag: "value"; value: ParseExpr }
   | { tag: "var"; value: ParseExpr }
-  | { tag: "block"; value: ParseExpr }
+  | { tag: "do"; value: ParseExpr }
   | { tag: "handlers"; handlers: ParseHandler[] }
 
 // TODO: multiple messages, decorators
@@ -54,9 +54,9 @@ function arg(lexer: Lexer): ParseArg {
     case "var":
       lexer.advance()
       return { tag: "var", value: must(lexer, "expr", expr) }
-    case "block":
+    case "do":
       lexer.advance()
-      return { tag: "block", value: must(lexer, "expr", expr) }
+      return { tag: "do", value: must(lexer, "expr", expr) }
     case "on":
     case "else":
     case "openBrace":

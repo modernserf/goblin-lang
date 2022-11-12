@@ -28,7 +28,7 @@ export function frame(
   // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
   frameClass.handlers.set(":", {
     tag: "object",
-    params: [{ tag: "block" }],
+    params: [{ tag: "do" }],
     body: [
       {
         tag: "return",

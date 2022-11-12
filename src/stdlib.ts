@@ -278,7 +278,7 @@ const cellInstance = new IRClassBuilder()
   })
   .addIR(
     "update:",
-    [{ tag: "block" }],
+    [{ tag: "do" }],
     [
       {
         tag: "expr",
