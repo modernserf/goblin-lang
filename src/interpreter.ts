@@ -56,7 +56,7 @@ export class NoProviderError {
   constructor(readonly key: string) {}
 }
 
-const unitClass: IRClass = { handlers: new Map(), else: null }
+export const unitClass: IRClass = { handlers: new Map(), else: null }
 export const unit: Value = { tag: "object", class: unitClass, ivars: [] }
 
 class Interpreter {

@@ -14,7 +14,7 @@ export type ASTStmt =
   | { tag: "var"; binding: ASTVarBinding; value: ASTExpr }
   | { tag: "provide"; binding: ASTProvideBinding; value: ASTExpr }
   | { tag: "import"; binding: ASTImportBinding; source: ASTImportSource }
-  | { tag: "return"; value: ASTExpr }
+  | { tag: "return"; value: ASTExpr | null }
   | { tag: "defer"; body: ASTStmt[] }
   | { tag: "expr"; value: ASTExpr }
 
@@ -339,7 +339,7 @@ function stmt(value: ParseStmt): ASTStmt {
     case "defer":
       return { tag: "defer", body: value.body.map(stmt) }
     case "return":
-      return { tag: "return", value: expr(value.value) }
+      return { tag: "return", value: value.value ? expr(value.value) : null }
     case "expr":
       return { tag: "expr", value: expr(value.value) }
   }

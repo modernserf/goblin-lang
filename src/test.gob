@@ -430,7 +430,7 @@ let loop := [
   on {: do f}
     f{:
       on {break}
-        return []
+        return
     }
     loop{: f}
 ]

@@ -16,8 +16,11 @@ import {
   IRBlockClass,
   IRBlockHandler,
   IRParam,
+  unitClass,
 } from "./interpreter"
 import { core, intClass, stringClass } from "./stdlib"
+
+const unit: IRExpr = { tag: "object", class: unitClass, ivars: [] }
 
 type ScopeType = "let" | "var" | "do"
 type ScopeRecord = { index: number; type: ScopeType }
@@ -368,7 +371,12 @@ function stmt(scope: Scope, stmt: ASTStmt): IRStmt[] {
     case "defer":
       return [{ tag: "defer", body: body(scope, stmt.body) }]
     case "return":
-      return [{ tag: "return", value: expr(scope, stmt.value) }]
+      return [
+        {
+          tag: "return",
+          value: stmt.value ? expr(scope, stmt.value) : unit,
+        },
+      ]
     case "expr":
       return [{ tag: "expr", value: expr(scope, stmt.value) }]
   }
