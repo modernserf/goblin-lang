@@ -8,11 +8,16 @@ import {
   IRExpr,
   IRParam,
   unit,
+  Interpreter,
+  getBool,
 } from "./interpreter"
 
 class IRClassBuilder {
   private methods = new Map<string, IRHandler>()
-  addPrimitive(key: string, fn: (value: any, args: Value[]) => Value): this {
+  addPrimitive(
+    key: string,
+    fn: (value: any, args: Value[], ctx: Interpreter) => Value
+  ): this {
     /* istanbul ignore next */
     if (this.methods.has(key)) throw new Error("duplicate method")
     this.methods.set(key, { tag: "primitive", fn })
@@ -31,181 +36,6 @@ class IRClassBuilder {
 
 // locals (including method args)
 const $0: IRExpr = { tag: "local", index: 0 }
-const $1: IRExpr = { tag: "local", index: 1 }
-const $2: IRExpr = { tag: "local", index: 2 }
-
-// ivars (including parent class)
-const _0: IRExpr = { tag: "ivar", index: 0 }
-
-const selfRef = (index: number): IRStmt => ({
-  tag: "assign",
-  index,
-  value: { tag: "self" },
-})
-
-/*
-let Bool := [
-	on {!} [
-    on {!} Bool
-		on {true} Bool{false}
-		on {false} Bool{true}
-	]
-	on {true} [
-    on {!} Bool{false}
-		on {: block match} match{true}
-		on {=: other} other{: Bool} # {true} => true, {false} => false
-	]
-	on {false} [
-    on {!} Bool{true}
-		on {: block match} match{false}
-		on {=: other} other{: !Bool} # {true} => false, {false} => true
-	]
-]
-*/
-
-const notClass: IRClass = new IRClassBuilder()
-  .addIR("!", [], [{ tag: "expr", value: _0 }])
-  .addIR(
-    "true",
-    [],
-    [
-      {
-        tag: "expr",
-        value: { tag: "send", target: _0, selector: "false", args: [] },
-      },
-    ]
-  )
-  .addIR(
-    "false",
-    [],
-    [
-      {
-        tag: "expr",
-        value: { tag: "send", target: _0, selector: "true", args: [] },
-      },
-    ]
-  )
-  .build()
-
-const trueClass: IRClass = new IRClassBuilder()
-  .addIR(
-    "!",
-    [],
-    [
-      {
-        tag: "expr",
-        value: { tag: "send", selector: "false", target: _0, args: [] },
-      },
-    ]
-  )
-  .addIR(
-    ":",
-    [{ tag: "do" }],
-    [
-      {
-        tag: "expr",
-        value: { tag: "send", target: $0, selector: "true", args: [] },
-      },
-    ]
-  )
-  .addIR(
-    "=:",
-    [{ tag: "value" }],
-    [
-      {
-        tag: "expr",
-        value: {
-          tag: "send",
-          target: $0,
-          selector: ":",
-          args: [{ tag: "value", value: _0 }],
-        },
-      },
-    ]
-  )
-  .build()
-
-const falseClass: IRClass = new IRClassBuilder()
-  .addIR(
-    "!",
-    [],
-    [
-      {
-        tag: "expr",
-        value: { tag: "send", selector: "true", target: _0, args: [] },
-      },
-    ]
-  )
-  .addIR(
-    ":",
-    [{ tag: "do" }],
-    [
-      {
-        tag: "expr",
-        value: { tag: "send", target: $0, selector: "false", args: [] },
-      },
-    ]
-  )
-  .addIR(
-    "=:",
-    [{ tag: "value" }],
-    [
-      {
-        tag: "expr",
-        value: {
-          tag: "send",
-          target: $0,
-          selector: ":",
-          args: [
-            {
-              tag: "value",
-              value: { tag: "send", selector: "!", args: [], target: _0 },
-            },
-          ],
-        },
-      },
-    ]
-  )
-  .build()
-
-const boolClass: IRClass = new IRClassBuilder()
-  .addIR(
-    "!",
-    [],
-    [
-      selfRef(0),
-      { tag: "expr", value: { tag: "object", class: notClass, ivars: [$0] } },
-    ]
-  )
-  .addIR(
-    "true",
-    [],
-    [
-      selfRef(0),
-      { tag: "expr", value: { tag: "object", class: trueClass, ivars: [$0] } },
-    ]
-  )
-  .addIR(
-    "false",
-    [],
-    [
-      selfRef(0),
-      { tag: "expr", value: { tag: "object", class: falseClass, ivars: [$0] } },
-    ]
-  )
-  .build()
-
-const boolModule: Value = { tag: "object", class: boolClass, ivars: [] }
-const trueValue: Value = {
-  tag: "object",
-  class: trueClass,
-  ivars: [boolModule],
-}
-const falseValue: Value = {
-  tag: "object",
-  class: falseClass,
-  ivars: [boolModule],
-}
 
 function strValue(arg: Value): string {
   if (arg.tag !== "primitive" || arg.class !== stringClass) {
@@ -215,11 +45,11 @@ function strValue(arg: Value): string {
 }
 
 export const stringClass = new IRClassBuilder()
-  .addPrimitive("=:", (self, [arg]) => {
+  .addPrimitive("=:", (self, [arg], ctx) => {
     if (self === strValue(arg)) {
-      return trueValue
+      return getBool(ctx, "true")
     } else {
-      return falseValue
+      return getBool(ctx, "false")
     }
   })
   .addPrimitive(
@@ -251,11 +81,11 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("-", (self) => {
     return { tag: "primitive", class: intClass, value: -self }
   })
-  .addPrimitive("=:", (self, [arg]) => {
+  .addPrimitive("=:", (self, [arg], ctx) => {
     if (self === intValue(arg)) {
-      return trueValue
+      return getBool(ctx, "true")
     } else {
-      return falseValue
+      return getBool(ctx, "false")
     }
   })
   .addPrimitive("abs", (self) => {
@@ -268,6 +98,51 @@ export const intClass: IRClass = new IRClassBuilder()
       return unit
     }
   )
+  .build()
+
+// TODO: implicit conversions of ints to floats
+function floatValue(arg: Value): number {
+  if (arg.tag !== "primitive" || arg.class !== floatClass) {
+    throw new PrimitiveTypeError("float")
+  }
+  return arg.value
+}
+
+export const floatClass: IRClass = new IRClassBuilder()
+  .addPrimitive("+:", (self, [arg]) => {
+    return {
+      tag: "primitive",
+      class: floatClass,
+      value: self + floatValue(arg),
+    }
+  })
+  .addPrimitive("-:", (self, [arg]) => {
+    return {
+      tag: "primitive",
+      class: floatClass,
+      value: self - floatValue(arg),
+    }
+  })
+  .addPrimitive("*:", (self, [arg]) => {
+    return {
+      tag: "primitive",
+      class: floatClass,
+      value: self * floatValue(arg),
+    }
+  })
+  .addPrimitive("-", (self) => {
+    return { tag: "primitive", class: floatClass, value: -self }
+  })
+  .addPrimitive("=:", (self, [arg], ctx) => {
+    if (self === floatValue(arg)) {
+      return getBool(ctx, "true")
+    } else {
+      return getBool(ctx, "false")
+    }
+  })
+  .addPrimitive("abs", (self) => {
+    return { tag: "primitive", class: floatClass, value: Math.abs(self) }
+  })
   .build()
 
 const cellInstance = new IRClassBuilder()
@@ -336,6 +211,5 @@ const assertModule: Value = {
 
 export const core = new IRClassBuilder()
   .addPrimitive("Cell", () => cellModule)
-  .addPrimitive("Bool", () => boolModule)
   .addPrimitive("Assert", () => assertModule)
   .build()

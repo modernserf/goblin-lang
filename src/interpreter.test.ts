@@ -17,7 +17,7 @@ export function run(source: string) {
   const parseTree = parse(new Lexer(source))
   const ast = astWalk(parseTree)
   const ir = compile(ast)
-  return interpret(ir)
+  return interpret(ir, new Map())
 }
 
 test("primitive methods", () => {

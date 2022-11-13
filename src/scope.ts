@@ -140,29 +140,6 @@ export class RootScope extends Scope {
   constructor() {
     super(new NilInstance(), new Locals())
   }
-  lookup(key: string): IRExpr {
-    const res = this.locals.get(key)
-    if (!res) return this.instance.lookup(key)
-    switch (res.type) {
-      case "do":
-        throw new BlockReferenceError(key)
-      case "var":
-      case "let":
-        return { tag: "root", index: res.index }
-    }
-  }
-  lookupOuterLet(key: string): IRExpr {
-    const res = this.locals.get(key)
-    if (!res) return this.instance.lookup(key)
-    switch (res.type) {
-      case "do":
-        throw new BlockReferenceError(key)
-      case "var":
-        throw new OuterScopeVarError(key)
-      case "let":
-        return { tag: "root", index: res.index }
-    }
-  }
 }
 
 export class BasicScope extends Scope {}

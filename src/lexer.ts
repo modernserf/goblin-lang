@@ -1,5 +1,6 @@
 export type Token =
   | { tag: "integer"; value: number }
+  | { tag: "float"; value: number }
   | { tag: "string"; value: string }
   | { tag: "identifier"; value: string }
   | { tag: "quotedIdent"; value: string }
@@ -33,6 +34,7 @@ export type Token =
 const re = {
   commentWhitespace: /(?:#[^\n]*|\s)+/y,
   integer: /[0-9][0-9_]*/y,
+  float: /\.[0-9_]+/y,
   string: /"(?:\\"|[^"])*"/y,
   identKw: /[a-zA-Z][a-zA-Z0-9']*/y,
   identUnderscore: /_(?:\\_|[^_])*_/y,
@@ -94,8 +96,17 @@ export class Lexer {
   }
   private next(): Token {
     const intm = this.callRe(re.integer)
-    if (intm)
-      return { tag: "integer", value: Number(intm.value.replace(/_/g, "")) }
+    if (intm) {
+      const floatm = this.callRe(re.float)
+      if (floatm) {
+        return {
+          tag: "float",
+          value: Number((intm.value + floatm.value).replace(/_/g, "")),
+        }
+      } else {
+        return { tag: "integer", value: Number(intm.value.replace(/_/g, "")) }
+      }
+    }
 
     const str = this.callRe(re.string)
     if (str) {

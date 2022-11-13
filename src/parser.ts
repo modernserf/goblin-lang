@@ -19,6 +19,7 @@ export type ParseExpr =
   | { tag: "self" }
   | { tag: "unit" }
   | { tag: "integer"; value: number }
+  | { tag: "float"; value: number }
   | { tag: "string"; value: string }
   | { tag: "identifier"; value: string }
   | { tag: "parens"; value: ParseExpr }
@@ -166,6 +167,9 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
     case "integer":
       lexer.advance()
       return { tag: "integer", value: token.value }
+    case "float":
+      lexer.advance()
+      return { tag: "float", value: token.value }
     case "string":
       lexer.advance()
       return { tag: "string", value: token.value }

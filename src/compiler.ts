@@ -29,7 +29,7 @@ import {
   SendScope,
   RootScope,
 } from "./scope"
-import { core, intClass, stringClass } from "./stdlib"
+import { floatClass, intClass, stringClass } from "./stdlib"
 
 class Send {
   private scope = new SendScope(this.instance, this.locals)
@@ -175,15 +175,11 @@ class Expr {
       case "self":
         return this.scope.instance.self()
       case "integer":
-        return {
-          tag: "constant",
-          value: { tag: "primitive", class: intClass, value: value.value },
-        }
+        return this.literal(intClass, value.value)
+      case "float":
+        return this.literal(floatClass, value.value)
       case "string":
-        return {
-          tag: "constant",
-          value: { tag: "primitive", class: stringClass, value: value.value },
-        }
+        return this.literal(stringClass, value.value)
       case "identifier":
         return this.scope.lookup(value.value)
       case "send":
@@ -224,6 +220,12 @@ class Expr {
           tag: "constant",
           value: { tag: "object", class: unitClass, ivars: [] },
         }
+    }
+  }
+  private literal(cls: IRClass, value: any): IRExpr {
+    return {
+      tag: "constant",
+      value: { tag: "primitive", class: cls, value },
     }
   }
 }
@@ -310,17 +312,8 @@ class Stmt {
           }
         })
       }
-      case "import": {
-        /* istanbul ignore next */
-        if (stmt.source.value !== "core") {
-          throw "todo imports"
-        }
-        return this.let(stmt.binding, {
-          tag: "object",
-          ivars: [],
-          class: core,
-        })
-      }
+      case "import":
+        return this.let(stmt.binding, { tag: "module", key: stmt.source.value })
       case "defer":
         return [{ tag: "defer", body: this.body(stmt.body) }]
       case "return":

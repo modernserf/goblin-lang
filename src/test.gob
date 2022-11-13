@@ -1,8 +1,10 @@
 import [
   _Cell_
   _Assert_
-  _Bool_
 ] := "core"
+import [
+    _Bool_ _true_ _false_
+] := "core2"
 
 # strings
 let str := "Hello, world!"
@@ -14,12 +16,12 @@ Assert{
 # bools
 Assert{
   received: "Hello" = "Hello"
-  expected: Bool{true}
+  expected: true
 }
 
 Assert{
   received: "Hello" = "Goodbye"
-  expected: Bool{false}
+  expected: false
 }
 
 # numbers, operators
@@ -48,16 +50,20 @@ Assert{
   expected: -1
 }
 
-Assert{
-  received: 1 = 1
-  expected: Bool{true}
-}
+# Assert{
+#   received: 1 = 1
+#   expected: true
+# }
 
-Assert{
-  received: 1 = 2
-  expected: Bool{false}
-}
+# Assert{
+#   received: 1 = 2
+#   expected: false
+# }
 
+# Assert{
+#   received: 1.0 = 1.0
+#   expected: true
+# }
 
 # locals
 let x := 1

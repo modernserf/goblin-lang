@@ -1,3 +1,5 @@
+export type IRModules = Map<string, IRStmt[]>
+
 export type IRStmt =
   | { tag: "assign"; index: number; value: IRExpr }
   | { tag: "return"; value: IRExpr }
@@ -6,7 +8,11 @@ export type IRStmt =
   | { tag: "defer"; body: IRStmt[] }
 
 export type IRExpr =
-  | { tag: "root"; index: number }
+  // TODO: bindings to imports & root-level values use this instead of local/ivar
+  // so that objects don't have to capture them
+  // when modules are linked together, all values are put in one big table
+  // & each module has an offset
+  // | { tag: "module"; index: number; module: string }
   | { tag: "local"; index: number }
   | { tag: "ivar"; index: number }
   | { tag: "self" }
@@ -17,6 +23,7 @@ export type IRExpr =
   // eg to self, to primitive literals, eventually tracking across known bindings
   | { tag: "sendDirect"; handler: IRHandler; target: IRExpr; args: IRArg[] }
   | { tag: "using"; key: string }
+  | { tag: "module"; key: string }
 
 export type IRArg =
   | { tag: "value"; value: IRExpr }
@@ -30,7 +37,11 @@ export type IRClass = {
 export type IRHandler =
   | { tag: "object"; body: IRStmt[]; params: IRParam[] }
   | { tag: "primitive"; fn: IRPrimitiveHandler }
-type IRPrimitiveHandler = (value: PrimitiveValue, args: Value[]) => Value
+type IRPrimitiveHandler = (
+  value: PrimitiveValue,
+  args: Value[],
+  ctx: Interpreter
+) => Value
 
 export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "do" }
 
@@ -63,25 +74,37 @@ export class NoProviderError {
 export const unitClass: IRClass = { handlers: new Map(), else: null }
 export const unit: Value = { tag: "object", class: unitClass, ivars: [] }
 
-class Interpreter {
-  static root(): Interpreter {
-    const rootScope: Value[] = []
-    return new Interpreter(unit, new Map(), rootScope, rootScope)
+export class Modules {
+  private cache = new Map<string, Value>()
+  private circularRefs = new Set<string>()
+  constructor(private sources: IRModules) {}
+  get(key: string): Value {
+    const cached = this.cache.get(key)
+    if (cached) return cached
+
+    if (this.circularRefs.has(key)) throw "circular ref"
+    this.circularRefs.add(key)
+
+    const source = this.sources.get(key)
+    if (!source) throw "no such module"
+
+    const ctx = new Interpreter(unit, new Map(), this)
+    const result: Value = body(ctx, source)
+    this.cache.set(key, result)
+    return result
   }
+}
+
+export class Interpreter {
+  static root(moduleSources: Map<string, IRStmt[]>): Interpreter {
+    return new Interpreter(unit, new Map(), new Modules(moduleSources))
+  }
+  private locals: Value[] = []
   constructor(
     readonly self: Value,
     private provideScope: Map<string, Value>,
-    private rootScope: Value[],
-    private locals: Value[]
+    private modules: Modules
   ) {}
-  getRoot(index: number): Value {
-    const result = this.rootScope[index]
-    /* istanbul ignore next */
-    if (!result) {
-      throw new Error(`missing root binding ${index}`)
-    }
-    return result
-  }
   setLocal(index: number, value: Value) {
     this.locals[index] = value
   }
@@ -111,7 +134,10 @@ class Interpreter {
     this.provideScope = next
   }
   createChild(self: Value): Interpreter {
-    return new Interpreter(self, this.provideScope, this.rootScope, [])
+    return new Interpreter(self, this.provideScope, this.modules)
+  }
+  getModule(key: string) {
+    return this.modules.get(key)
   }
 }
 
@@ -182,7 +208,7 @@ function sendHandler(
         if (arg.tag !== "value") throw "invalid arg"
         return expr(sender, arg.value)
       })
-      return handler.fn(targetValue, argValues)
+      return handler.fn(targetValue, argValues, sender)
     }
     case "object":
       const child = sender.createChild(target)
@@ -241,8 +267,6 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
       return ctx.getIvar(value.index)
     case "local":
       return ctx.getLocal(value.index)
-    case "root":
-      return ctx.getRoot(value.index)
     case "object":
       return {
         tag: "object",
@@ -260,6 +284,8 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
       )
     case "using":
       return ctx.use(value.key)
+    case "module":
+      return ctx.getModule(value.key)
   }
 }
 
@@ -309,7 +335,20 @@ function body(ctx: Interpreter, stmts: IRStmt[]): Value {
   }
 }
 
-export function program(stmts: IRStmt[]): Value {
-  const ctx = Interpreter.root()
+// TODO: figure out a better way for primitive classes to use bools
+const getBoolCache = new Map<string, Value>()
+export function getBool(ctx: Interpreter, key: string): Value {
+  const res = getBoolCache.get(key)
+  if (res) return res
+
+  const module = ctx.getModule("core2")
+  const handler = module.class.handlers.get(key) as IRHandler
+  const value = sendHandler(ctx, module, handler, [])
+  getBoolCache.set(key, value)
+  return value
+}
+
+export function program(stmts: IRStmt[], modules: IRModules): Value {
+  const ctx = Interpreter.root(modules)
   return body(ctx, stmts)
 }

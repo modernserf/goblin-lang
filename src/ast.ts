@@ -35,6 +35,7 @@ export type ASTExpr =
   | { tag: "self" }
   | { tag: "unit" }
   | { tag: "integer"; value: number }
+  | { tag: "float"; value: number }
   | { tag: "string"; value: string }
   | { tag: "identifier"; value: string }
   | { tag: "send"; target: ASTExpr; selector: string; args: ASTArg[] }
@@ -162,6 +163,7 @@ function expr(value: ParseExpr): ASTExpr {
   switch (value.tag) {
     case "self":
     case "integer":
+    case "float":
     case "string":
     case "identifier":
     case "unit":
