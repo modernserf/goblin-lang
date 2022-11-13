@@ -6,12 +6,17 @@ export type IRStmt =
   | { tag: "defer"; body: IRStmt[] }
 
 export type IRExpr =
+  // TODO: "root" references that don't require capture as ivar
   | { tag: "local"; index: number }
   | { tag: "ivar"; index: number }
   | { tag: "self" }
-  | { tag: "primitive"; class: IRClass; value: PrimitiveValue }
+  // TODO: objects with only constant ivars can be optimized into constants as well
+  | { tag: "constant"; value: Value }
   | { tag: "object"; class: IRClass; ivars: IRExpr[] }
   | { tag: "send"; selector: string; target: IRExpr; args: IRArg[] }
+  // TODO: compiler pass that converts all statically resolvable sends to sendDirect
+  // eg to self, to primitive literals, eventually tracking across known bindings
+  | { tag: "sendDirect"; handler: IRHandler; target: IRExpr; args: IRArg[] }
   | { tag: "using"; key: string }
 
 export type IRArg =
@@ -218,8 +223,8 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
   switch (value.tag) {
     case "self":
       return ctx.self
-    case "primitive":
-      return value
+    case "constant":
+      return value.value
     case "ivar":
       return ctx.getIvar(value.index)
     case "local":
@@ -232,6 +237,13 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
       }
     case "send":
       return send(ctx, value.selector, expr(ctx, value.target), value.args)
+    case "sendDirect":
+      return sendHandler(
+        ctx,
+        expr(ctx, value.target),
+        value.handler,
+        value.args
+      )
     case "using":
       return ctx.use(value.key)
   }

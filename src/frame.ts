@@ -1,4 +1,5 @@
 import { IRClass, IRExpr } from "./interpreter"
+import { constObject } from "./optimize"
 
 const $0: IRExpr = { tag: "local", index: 0 }
 
@@ -9,7 +10,7 @@ export function frame(
 ): IRExpr {
   const ivars = args.map((arg) => arg.value)
   const cachedClass = frameCache.get(selector)
-  if (cachedClass) return { tag: "object", ivars, class: cachedClass }
+  if (cachedClass) return constObject(cachedClass, ivars)
 
   const frameClass: IRClass = { handlers: new Map(), else: null }
   // constructor: [x: 1 y: 2]{x: 3 y: 4}
@@ -104,5 +105,5 @@ export function frame(
     })
   }
   frameCache.set(selector, frameClass)
-  return { tag: "object", ivars, class: frameClass }
+  return constObject(frameClass, ivars)
 }

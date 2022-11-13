@@ -16,8 +16,10 @@ import {
   IRBlockClass,
   IRBlockHandler,
   IRParam,
+  Value,
   unitClass,
 } from "./interpreter"
+import { constObject } from "./optimize"
 import {
   BasicScope,
   Instance,
@@ -167,9 +169,15 @@ class Expr {
       case "self":
         return this.scope.instance.self()
       case "integer":
-        return { tag: "primitive", class: intClass, value: value.value }
+        return {
+          tag: "constant",
+          value: { tag: "primitive", class: intClass, value: value.value },
+        }
       case "string":
-        return { tag: "primitive", class: stringClass, value: value.value }
+        return {
+          tag: "constant",
+          value: { tag: "primitive", class: stringClass, value: value.value },
+        }
       case "identifier":
         return this.scope.lookup(value.value)
       case "send": {
@@ -201,10 +209,14 @@ class Expr {
           const h = new Handler(instance, new Locals(handler.params.length))
           objectClass.handlers.set(selector, h.handler(handler, selfBinding))
         }
-        return { tag: "object", class: objectClass, ivars: instance.ivars }
+
+        return constObject(objectClass, instance.ivars)
       }
       case "unit":
-        return { tag: "object", class: unitClass, ivars: [] }
+        return {
+          tag: "constant",
+          value: { tag: "object", class: unitClass, ivars: [] },
+        }
     }
   }
 }
