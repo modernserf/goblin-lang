@@ -24,10 +24,10 @@ import {
   Instance,
   ObjectInstance,
   Locals,
-  NilInstance,
   Scope,
   ScopeRecord,
   SendScope,
+  RootScope,
 } from "./scope"
 import { core, intClass, stringClass } from "./stdlib"
 
@@ -351,9 +351,6 @@ class Stmt {
 }
 
 export function program(stmts: ASTStmt[]): IRStmt[] {
-  const locals = new Locals()
-  const instance = new NilInstance()
-  const scope = new BasicScope(instance, locals)
-  const stmtScope = new Stmt(scope)
+  const stmtScope = new Stmt(new RootScope())
   return stmts.flatMap((s) => stmtScope.stmt(s))
 }

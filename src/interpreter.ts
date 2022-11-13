@@ -6,11 +6,10 @@ export type IRStmt =
   | { tag: "defer"; body: IRStmt[] }
 
 export type IRExpr =
-  // TODO: "root" references that don't require capture as ivar
+  | { tag: "root"; index: number }
   | { tag: "local"; index: number }
   | { tag: "ivar"; index: number }
   | { tag: "self" }
-  // TODO: objects with only constant ivars can be optimized into constants as well
   | { tag: "constant"; value: Value }
   | { tag: "object"; class: IRClass; ivars: IRExpr[] }
   | { tag: "send"; selector: string; target: IRExpr; args: IRArg[] }
@@ -66,10 +65,23 @@ export const unit: Value = { tag: "object", class: unitClass, ivars: [] }
 
 class Interpreter {
   static root(): Interpreter {
-    return new Interpreter(unit, new Map())
+    const rootScope: Value[] = []
+    return new Interpreter(unit, new Map(), rootScope, rootScope)
   }
-  private locals: Value[] = []
-  constructor(readonly self: Value, private provideScope: Map<string, Value>) {}
+  constructor(
+    readonly self: Value,
+    private provideScope: Map<string, Value>,
+    private rootScope: Value[],
+    private locals: Value[]
+  ) {}
+  getRoot(index: number): Value {
+    const result = this.rootScope[index]
+    /* istanbul ignore next */
+    if (!result) {
+      throw new Error(`missing root binding ${index}`)
+    }
+    return result
+  }
   setLocal(index: number, value: Value) {
     this.locals[index] = value
   }
@@ -99,7 +111,7 @@ class Interpreter {
     this.provideScope = next
   }
   createChild(self: Value): Interpreter {
-    return new Interpreter(self, this.provideScope)
+    return new Interpreter(self, this.provideScope, this.rootScope, [])
   }
 }
 
@@ -229,6 +241,8 @@ function expr(ctx: Interpreter, value: IRExpr): Value {
       return ctx.getIvar(value.index)
     case "local":
       return ctx.getLocal(value.index)
+    case "root":
+      return ctx.getRoot(value.index)
     case "object":
       return {
         tag: "object",

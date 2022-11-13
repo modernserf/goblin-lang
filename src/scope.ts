@@ -98,15 +98,7 @@ export class ObjectInstance implements Instance {
   }
 }
 
-export interface Scope {
-  lookup(key: string): IRExpr
-  lookupOuterLet(key: string): IRExpr
-  lookupVarIndex(key: string): number
-  readonly locals: Locals
-  readonly instance: Instance
-}
-
-export class BasicScope implements Scope {
+export class Scope {
   constructor(readonly instance: Instance, readonly locals: Locals) {}
   lookup(key: string): IRExpr {
     const res = this.locals.get(key)
@@ -144,12 +136,41 @@ export class BasicScope implements Scope {
   }
 }
 
+export class RootScope extends Scope {
+  constructor() {
+    super(new NilInstance(), new Locals())
+  }
+  lookup(key: string): IRExpr {
+    const res = this.locals.get(key)
+    if (!res) return this.instance.lookup(key)
+    switch (res.type) {
+      case "do":
+        throw new BlockReferenceError(key)
+      case "var":
+      case "let":
+        return { tag: "root", index: res.index }
+    }
+  }
+  lookupOuterLet(key: string): IRExpr {
+    const res = this.locals.get(key)
+    if (!res) return this.instance.lookup(key)
+    switch (res.type) {
+      case "do":
+        throw new BlockReferenceError(key)
+      case "var":
+        throw new OuterScopeVarError(key)
+      case "let":
+        return { tag: "root", index: res.index }
+    }
+  }
+}
+
+export class BasicScope extends Scope {}
+
 // - allow do-blocks to be message args & targets
 // - track var borrows
-export class SendScope implements Scope {
+export class SendScope extends Scope {
   private borrows = new Set<string>()
-  private delegate = new BasicScope(this.instance, this.locals)
-  constructor(readonly instance: Instance, readonly locals: Locals) {}
   lookup(key: string): IRExpr {
     const res = this.locals.get(key)
     if (!res) return this.instance.lookup(key)
@@ -166,9 +187,6 @@ export class SendScope implements Scope {
   lookupVarIndex(key: string): number {
     if (this.borrows.has(key)) throw new VarDoubleBorrowError()
     this.borrows.add(key)
-    return this.delegate.lookupVarIndex(key)
-  }
-  lookupOuterLet(key: string): IRExpr {
-    return this.delegate.lookupOuterLet(key)
+    return super.lookupVarIndex(key)
   }
 }
