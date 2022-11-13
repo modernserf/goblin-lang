@@ -13,6 +13,7 @@ import {
   VarDoubleBorrowError,
 } from "./scope"
 import { program } from "./compiler"
+import { NoHandlerError } from "./interpreter"
 
 export function compile(source: string) {
   const parseTree = parse(new Lexer(source))
@@ -113,6 +114,11 @@ test("self at module root", () => {
       self 
     `)
   }, NoModuleSelfError)
+  assert.throws(() => {
+    compile(`
+      self{foo}
+    `)
+  }, NoModuleSelfError)
 })
 
 test("do usage", () => {
@@ -155,4 +161,15 @@ test("do usage", () => {
       ] 
     `)
   })
+})
+
+test("selfDirect", () => {
+  assert.throws(() => {
+    compile(`
+      let foo := [
+        on {x}
+          self{y}
+      ]
+    `)
+  }, NoHandlerError)
 })

@@ -85,8 +85,8 @@ export function frame(
         {
           tag: "return",
           value: {
-            tag: "send",
-            selector: `${key}:`,
+            tag: "sendDirect",
+            handler: frameClass.handlers.get(`${key}:`)!,
             target: { tag: "self" },
             args: [
               {

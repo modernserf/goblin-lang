@@ -1,4 +1,4 @@
-import { IRExpr } from "./interpreter"
+import { IRClass, IRExpr, IRHandler, NoHandlerError } from "./interpreter"
 
 export type ScopeType = "let" | "var" | "do"
 export type ScopeRecord = { index: number; type: ScopeType }
@@ -41,6 +41,7 @@ export class Locals {
 export interface Instance {
   lookup(key: string): IRExpr
   self(): IRExpr
+  getPlaceholderHandler(selector: string): IRHandler
 }
 
 export class NilInstance implements Instance {
@@ -50,10 +51,14 @@ export class NilInstance implements Instance {
   self(): IRExpr {
     throw new NoModuleSelfError()
   }
+  getPlaceholderHandler(selector: string): IRHandler {
+    throw new NoModuleSelfError()
+  }
 }
 
 export class ObjectInstance implements Instance {
   private ivarMap = new Map<string, ScopeRecord>()
+  private placeholderHandlers: { selector: string; handler: IRHandler }[] = []
   readonly ivars: IRExpr[] = []
   constructor(private parentScope: Scope) {}
   lookup(key: string): IRExpr {
@@ -67,6 +72,29 @@ export class ObjectInstance implements Instance {
   }
   self(): IRExpr {
     return { tag: "self" }
+  }
+  getPlaceholderHandler(selector: string): IRHandler {
+    const handler: IRHandler = { tag: "object", body: [], params: [] }
+    this.placeholderHandlers.push({ selector, handler })
+    return handler
+  }
+  compileSelfHandlers(cls: IRClass) {
+    for (const placeholder of this.placeholderHandlers) {
+      const handler = cls.handlers.get(placeholder.selector)
+      if (!handler) {
+        // TODO: use elseHandler if available
+        throw new NoHandlerError(placeholder.selector)
+      }
+      /* istanbul ignore next */
+      if (
+        placeholder.handler.tag === "primitive" ||
+        handler.tag === "primitive"
+      ) {
+        throw new Error("unreachable")
+      }
+      placeholder.handler.body = handler.body
+      placeholder.handler.params = handler.params
+    }
   }
 }
 

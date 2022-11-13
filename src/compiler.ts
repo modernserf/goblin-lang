@@ -16,7 +16,6 @@ import {
   IRBlockClass,
   IRBlockHandler,
   IRParam,
-  Value,
   unitClass,
 } from "./interpreter"
 import { constObject } from "./optimize"
@@ -35,10 +34,17 @@ import { core, intClass, stringClass } from "./stdlib"
 class Send {
   private scope = new SendScope(this.instance, this.locals)
   constructor(private instance: Instance, private locals: Locals) {}
-  target(arg: ASTExpr): IRExpr {
-    return this.expr(arg)
+  send(selector: string, astTarget: ASTExpr, astArgs: ASTArg[]): IRExpr {
+    const args = astArgs.map((v) => this.arg(v))
+    if (astTarget.tag === "self") {
+      const handler = this.instance.getPlaceholderHandler(selector)
+      return { tag: "sendDirect", target: astTarget, handler, args }
+    } else {
+      const target = this.expr(astTarget)
+      return { tag: "send", target, selector, args }
+    }
   }
-  arg(arg: ASTArg): IRArg {
+  private arg(arg: ASTArg): IRArg {
     switch (arg.tag) {
       case "var":
         return { tag: "var", index: this.scope.lookupVarIndex(arg.value.value) }
@@ -180,12 +186,12 @@ class Expr {
         }
       case "identifier":
         return this.scope.lookup(value.value)
-      case "send": {
-        const argScope = new Send(this.scope.instance, this.scope.locals)
-        const target = argScope.target(value.target)
-        const args = value.args.map((v) => argScope.arg(v))
-        return { tag: "send", target, selector: value.selector, args }
-      }
+      case "send":
+        return new Send(this.scope.instance, this.scope.locals).send(
+          value.selector,
+          value.target,
+          value.args
+        )
       case "frame":
         return frame(
           value.selector,
@@ -210,6 +216,7 @@ class Expr {
           objectClass.handlers.set(selector, h.handler(handler, selfBinding))
         }
 
+        instance.compileSelfHandlers(objectClass)
         return constObject(objectClass, instance.ivars)
       }
       case "unit":
