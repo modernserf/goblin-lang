@@ -29,7 +29,7 @@ import {
   SendScope,
   RootScope,
 } from "./scope"
-import { floatClass, intClass, stringClass } from "./stdlib"
+import { floatClass, intClass, stringClass } from "./primitive"
 
 class Send {
   private scope = new SendScope(this.instance, this.locals)
