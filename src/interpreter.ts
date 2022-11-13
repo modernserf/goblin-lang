@@ -341,7 +341,7 @@ export function getBool(ctx: Interpreter, key: string): Value {
   const res = getBoolCache.get(key)
   if (res) return res
 
-  const module = ctx.getModule("core2")
+  const module = ctx.getModule("core")
   const handler = module.class.handlers.get(key) as IRHandler
   const value = sendHandler(ctx, module, handler, [])
   getBoolCache.set(key, value)

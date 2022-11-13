@@ -17,6 +17,7 @@ import {
   IRBlockHandler,
   IRParam,
   unitClass,
+  Value,
 } from "./interpreter"
 import { constObject } from "./optimize"
 import {
@@ -341,6 +342,20 @@ class Stmt {
   private let(binding: ASTLetBinding, value: IRExpr): IRStmt[] {
     return new Let(this.locals).compile(binding, value)
   }
+}
+
+export function coreModule(stmts: ASTStmt[], nativeValue: Value): IRStmt[] {
+  const scope = new RootScope()
+  const rec = scope.locals.set("native", scope.locals.new("let"))
+  const stmtScope = new Stmt(scope)
+  return [
+    {
+      tag: "assign",
+      index: rec.index,
+      value: { tag: "constant", value: nativeValue },
+    },
+    ...stmts.flatMap((s) => stmtScope.stmt(s)),
+  ]
 }
 
 export function program(stmts: ASTStmt[]): IRStmt[] {

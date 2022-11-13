@@ -239,5 +239,24 @@ let Result := [
     OR{error: err}
 ]
 
+let Cell := [
+  on {: value} 
+    let instance := native{Cell}{: value}
+    return [
+      on {}
+        instance{get}
+      on {: next}
+        instance{set: next}
+        self
+      on {->: do f}
+        let prev := instance{get}
+        let next := f{: prev}
+        instance{set: next}
+        self
+    ]
+]
+
+let Assert := native{Assert}
+
 # TODO: exports
-[_Bool_ _true_ _false_ _Option_ _Result_]
+[_Bool_ _true_ _false_ _Option_ _Result_ _Cell_ _Assert_]

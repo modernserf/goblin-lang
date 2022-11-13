@@ -11,7 +11,7 @@ import {
   getBool,
 } from "./interpreter"
 
-class IRClassBuilder {
+export class IRClassBuilder {
   private methods = new Map<string, IRHandler>()
   addPrimitive(
     key: string,
@@ -20,12 +20,6 @@ class IRClassBuilder {
     /* istanbul ignore next */
     if (this.methods.has(key)) throw new Error("duplicate method")
     this.methods.set(key, { tag: "primitive", fn })
-    return this
-  }
-  addIR(key: string, params: IRParam[], body: IRStmt[]): this {
-    /* istanbul ignore next */
-    if (this.methods.has(key)) throw new Error("duplicate method")
-    this.methods.set(key, { tag: "object", body, params })
     return this
   }
   build(): IRClass {

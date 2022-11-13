@@ -1,10 +1,6 @@
 import [
-  _Cell_
-  _Assert_
+    _Bool_ _true_ _false_ _Cell_ _Assert_
 ] := "core"
-import [
-    _Bool_ _true_ _false_
-] := "core2"
 
 # strings
 let str := "Hello, world!"
@@ -309,10 +305,10 @@ Assert{
 # cell
 let a := Cell{: 0}
 let b := a
-a{set: 1}
+a{: 1}
 
 Assert{
-  received: b{get}
+  received: b{}
   expected: 1
 }
 
@@ -410,7 +406,7 @@ let cell := Cell{: 0}
 let foo := [
   on {: do b}
     defer
-      cell{update: [+: 1]}
+      cell{->: [+: 1]}
     end
     b{}
     "foo"
@@ -428,12 +424,12 @@ let bar := [
 ]
 
 let res := bar{a}
-Assert{received: res        expected: "foo"}
-Assert{received: cell{get}  expected: 1}
+Assert{received: res     expected: "foo"}
+Assert{received: cell{}  expected: 1}
 
 let res := bar{b}
-Assert{received: res        expected: "bar b"}
-Assert{received: cell{get}  expected: 2}
+Assert{received: res     expected: "bar b"}
+Assert{received: cell{}  expected: 2}
 
 # loops
 let loop := [
