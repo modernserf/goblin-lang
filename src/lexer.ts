@@ -13,6 +13,7 @@ export type Token =
   | { tag: "provide" }
   | { tag: "using" }
   | { tag: "import" }
+  | { tag: "export" }
   | { tag: "on" }
   | { tag: "if" }
   | { tag: "then" }
@@ -51,6 +52,7 @@ export const keywords: Set<Token["tag"]> = new Set([
   "provide",
   "using",
   "import",
+  "export",
   "on",
   "if",
   "then",

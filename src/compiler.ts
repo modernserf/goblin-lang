@@ -262,12 +262,20 @@ class Let {
   }
 }
 
+export class ScopedExportError {
+  constructor(readonly binding: ASTLetBinding) {}
+}
+export class DuplicateExportError {
+  constructor(readonly key: string) {}
+}
+
 class Stmt {
   private locals = this.scope.locals
-  constructor(private scope: Scope) {}
+  constructor(protected scope: Scope) {}
   stmt(stmt: ASTStmt): IRStmt[] {
     switch (stmt.tag) {
       case "let":
+        // if (stmt.export) throw new ScopedExportError(stmt.binding)
         return this.let(stmt.binding, this.bindExpr(stmt.binding, stmt.value))
       case "var": {
         const value = this.expr(stmt.value)
@@ -323,14 +331,14 @@ class Stmt {
         return [{ tag: "expr", value: this.expr(stmt.value) }]
     }
   }
-  private bindExpr(binding: ASTLetBinding, value: ASTExpr): IRExpr {
+  protected bindExpr(binding: ASTLetBinding, value: ASTExpr): IRExpr {
     if (binding.tag === "identifier") {
       return this.expr(value, binding.value)
     } else {
       return this.expr(value)
     }
   }
-  private expr(value: ASTExpr, selfBinding: string | null = null): IRExpr {
+  protected expr(value: ASTExpr, selfBinding: string | null = null): IRExpr {
     return new Expr(this.scope).expr(value, selfBinding)
   }
   private body(stmts: ASTStmt[]): IRStmt[] {
@@ -339,22 +347,73 @@ class Stmt {
   private useVar(key: string): ScopeRecord {
     return this.locals.set(key, this.locals.new("var"))
   }
-  private let(binding: ASTLetBinding, value: IRExpr): IRStmt[] {
+  protected let(binding: ASTLetBinding, value: IRExpr): IRStmt[] {
     return new Let(this.locals).compile(binding, value)
+  }
+}
+
+class RootStmt extends Stmt {
+  private exports = new Map<string, IRExpr>()
+  module(stmts: ASTStmt[]): IRStmt[] {
+    const body = stmts.flatMap((stmt) => this.stmt(stmt))
+    const exportClass: IRClass = {
+      handlers: new Map(),
+      else: null,
+    }
+    const ivars: IRExpr[] = []
+    for (const [i, [key, value]] of Array.from(this.exports).entries()) {
+      ivars[i] = value
+      exportClass.handlers.set(key, {
+        tag: "object",
+        params: [],
+        body: [{ tag: "expr", value: { tag: "ivar", index: i } }],
+      })
+    }
+    body.push({
+      tag: "expr",
+      value: { tag: "object", class: exportClass, ivars },
+    })
+    return body
+  }
+  stmt(stmt: ASTStmt): IRStmt[] {
+    if (stmt.tag === "let" && stmt.export) {
+      const stmts = this.let(
+        stmt.binding,
+        this.bindExpr(stmt.binding, stmt.value)
+      )
+      this.getExports(stmt.binding)
+      return stmts
+    }
+    return super.stmt(stmt)
+  }
+  private getExports(binding: ASTLetBinding) {
+    switch (binding.tag) {
+      case "identifier":
+        if (this.exports.has(binding.value))
+          throw new DuplicateExportError(binding.value)
+        const value = this.scope.lookup(binding.value)
+        this.exports.set(binding.value, value)
+        return
+      case "object":
+        for (const param of binding.params) {
+          this.getExports(param.value)
+        }
+    }
   }
 }
 
 export function coreModule(stmts: ASTStmt[], nativeValue: Value): IRStmt[] {
   const scope = new RootScope()
   const rec = scope.locals.set("native", scope.locals.new("let"))
-  const stmtScope = new Stmt(scope)
+  const stmtScope = new RootStmt(scope)
   return [
     {
       tag: "assign",
       index: rec.index,
       value: { tag: "constant", value: nativeValue },
     },
-    ...stmts.flatMap((s) => stmtScope.stmt(s)),
+    ...stmtScope.module(stmts),
+    // ...stmts.flatMap((s) => stmtScope.stmt(s)),
   ]
 }
 

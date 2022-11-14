@@ -1,4 +1,4 @@
-let Bool := [
+export let Bool := [
   on {true} [
     on {: do f} 
       f{true}
@@ -63,7 +63,7 @@ let Bool := [
   ]
 ]
 
-let [_true_ _false_] := Bool
+export let [_true_ _false_] := Bool
 
 # Option & Result in single value for mutual recursion
 let OR := [
@@ -219,7 +219,7 @@ let OR := [
   ]
 ]
 
-let Option := [
+export let Option := [
   on {} 
     OR{none}
   on {: value}
@@ -230,7 +230,7 @@ let Option := [
     OR{none}
 ]
 
-let Result := [
+export let Result := [
   on {: value}
     OR{ok: value}
   on {ok: value}
@@ -239,7 +239,7 @@ let Result := [
     OR{error: err}
 ]
 
-let Cell := [
+export let Cell := [
   on {: value} 
     let instance := native{Cell}{: value}
     return [
@@ -256,7 +256,4 @@ let Cell := [
     ]
 ]
 
-let Assert := native{Assert}
-
-# TODO: exports
-[_Bool_ _true_ _false_ _Option_ _Result_ _Cell_ _Assert_]
+export let Assert := native{Assert}

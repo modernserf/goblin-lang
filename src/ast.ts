@@ -9,7 +9,7 @@ import {
 } from "./parser"
 
 export type ASTStmt =
-  | { tag: "let"; binding: ASTLetBinding; value: ASTExpr }
+  | { tag: "let"; binding: ASTLetBinding; value: ASTExpr; export: boolean }
   | { tag: "set"; binding: ASTSetBinding; value: ASTExpr }
   | { tag: "var"; binding: ASTVarBinding; value: ASTExpr }
   | { tag: "provide"; args: ASTProvidePair[] }
@@ -371,6 +371,7 @@ function stmt(value: ParseStmt): ASTStmt {
         tag: "let",
         binding: letBinding(value.binding),
         value: expr(value.value),
+        export: value.export,
       }
     case "set":
       return {
