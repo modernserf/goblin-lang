@@ -5,8 +5,8 @@ import { program as astWalk } from "./ast"
 import { coreModule } from "./compiler"
 
 import { readFileSync } from "fs"
-import { IRStmt, unit, Value } from "./interpreter"
-import { IRClassBuilder } from "./primitive"
+import { IRClass, IRStmt, unit, Value } from "./interpreter"
+import { intClass, intValue, IRClassBuilder } from "./primitive"
 
 const cellInstance = new IRClassBuilder()
   .addPrimitive("get", (self) => self.value)
@@ -26,6 +26,44 @@ const cellModule: Value = {
     .build(),
 }
 
+const arrayInstance: IRClass = new IRClassBuilder()
+  .addPrimitive("length", (self) => {
+    return { tag: "primitive", class: intClass, value: self.length }
+  })
+  .addPrimitive("at:", (self, [index]) => {
+    const i = intValue(index)
+    if (self.length <= i) throw new Error("index out of range")
+    return self[i]
+  })
+  .addPrimitive("at:value:", (self, [index, value]) => {
+    const i = intValue(index)
+    if (self.length <= i) throw new Error("index out of range")
+    self[i] = value
+    return { tag: "primitive", class: arrayInstance, value: self }
+  })
+  .addPrimitive("push:", (self, [value]) => {
+    self.push(value)
+    return { tag: "primitive", class: arrayInstance, value: self }
+  })
+  .addPrimitive("pop", (self, []) => {
+    if (self.length === 0) throw new Error("array empty")
+    return self.pop()
+  })
+  .addPrimitive("copy", (self) => {
+    return { tag: "primitive", class: arrayInstance, value: self.slice() }
+  })
+  .build()
+
+const arrayModule: Value = {
+  tag: "object",
+  ivars: [],
+  class: new IRClassBuilder()
+    .addPrimitive("", () => {
+      return { tag: "primitive", class: arrayInstance, value: [] }
+    })
+    .build(),
+}
+
 const assertModule: Value = {
   tag: "object",
   ivars: [],
@@ -39,6 +77,7 @@ const assertModule: Value = {
 
 const nativeClass = new IRClassBuilder()
   .addPrimitive("Cell", () => cellModule)
+  .addPrimitive("Array", () => arrayModule)
   .addPrimitive("Assert", () => assertModule)
   .build()
 

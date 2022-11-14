@@ -30,7 +30,7 @@ export class IRClassBuilder {
 // locals (including method args)
 const $0: IRExpr = { tag: "local", index: 0 }
 
-function strValue(arg: Value): string {
+export function strValue(arg: Value): string {
   if (arg.tag !== "primitive" || arg.class !== stringClass) {
     throw new PrimitiveTypeError("string")
   }
@@ -54,7 +54,7 @@ export const stringClass = new IRClassBuilder()
   )
   .build()
 
-function intValue(arg: Value): number {
+export function intValue(arg: Value): number {
   if (arg.tag !== "primitive" || arg.class !== intClass) {
     throw new PrimitiveTypeError("integer")
   }
@@ -94,7 +94,7 @@ export const intClass: IRClass = new IRClassBuilder()
   .build()
 
 // TODO: implicit conversions of ints to floats
-function floatValue(arg: Value): number {
+export function floatValue(arg: Value): number {
   if (arg.tag !== "primitive" || arg.class !== floatClass) {
     throw new PrimitiveTypeError("float")
   }
