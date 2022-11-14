@@ -2,30 +2,7 @@ import [
     _Bool_ _true_ _false_ _Cell_ _Assert_
 ] := "core"
 
-# strings
-let str := "Hello, world!"
-Assert{
-  received: str 
-  expected: "Hello, world!"
-}
-
-# bools
-Assert{
-  received: "Hello" = "Hello"
-  expected: true
-}
-
-Assert{
-  received: "Hello" = "Goodbye"
-  expected: false
-}
-
-# numbers, operators
-Assert{
-  received: 1 + 2
-  expected: 3
-}
-
+# operator precedence
 Assert{
   received: 2 + 3 * 4
   expected: 20
@@ -46,20 +23,6 @@ Assert{
   expected: -1
 }
 
-Assert{
-  received: 1 = 1
-  expected: true
-}
-
-Assert{
-  received: 1 = 2
-  expected: false
-}
-
-Assert{
-  received: 1.0 = 1.0
-  expected: true
-}
 
 # locals
 let x := 1

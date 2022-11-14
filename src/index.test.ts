@@ -6,7 +6,12 @@ import "./compiler.test"
 import "./interpreter.test"
 import { run } from "./index"
 
-test("test file", async () => {
-  const file = await readFile("./src/test.gob", { encoding: "utf-8" })
-  run(file)
-})
+function testFile(name: string, path: string) {
+  test(name, async () => {
+    const file = await readFile(path, { encoding: "utf-8" })
+    run(file)
+  })
+}
+
+testFile("primitives", "./src/primitive.test.gob")
+testFile("test file", "./src/test.gob")

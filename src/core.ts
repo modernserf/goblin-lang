@@ -13,6 +13,7 @@ import {
   strValue,
   trueVal,
   falseVal,
+  boolValue,
 } from "./primitive"
 
 const cellInstance = new IRClassBuilder()
@@ -83,6 +84,14 @@ const assertModule: Value = {
   class: new IRClassBuilder()
     .addPrimitive("expected:received:", (_, [exp, recv]) => {
       assert.deepEqual(recv, exp)
+      return unit
+    })
+    .addPrimitive("true:", (_, [arg]) => {
+      assert(boolValue(arg))
+      return unit
+    })
+    .addPrimitive("false:", (_, [arg]) => {
+      assert(boolValue(arg) === false)
       return unit
     })
     .build(),

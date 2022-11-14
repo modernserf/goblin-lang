@@ -7,8 +7,6 @@ import {
   unit,
   Interpreter,
   send,
-  IRParam,
-  IRStmt,
 } from "./interpreter"
 
 export class IRClassBuilder {
@@ -48,6 +46,17 @@ export const boolClass: IRClass = new IRClassBuilder()
     }
     return falseVal
   })
+  .addPrimitive("!", (self) => {
+    return self ? falseVal : trueVal
+  })
+  // unlike in JS, we want these to check their arguments
+  .addPrimitive("&&:", (self, [arg]) => {
+    return boolValue(arg) && self ? trueVal : falseVal
+  })
+  .addPrimitive("||:", (self, [arg]) => {
+    return boolValue(arg) || self ? trueVal : falseVal
+  })
+
   .build()
 
 export const trueVal: Value = {
@@ -69,11 +78,18 @@ export function strValue(arg: Value): string {
 }
 
 export const stringClass: IRClass = new IRClassBuilder()
-  .addPrimitive("=:", (self, [arg], ctx) => {
+  .addPrimitive("=:", (self, [arg]) => {
     if (arg.tag === "primitive" && arg.class === stringClass) {
       return arg.value === self ? trueVal : falseVal
     }
     return falseVal
+  })
+  .addPrimitive("++:", (self, [arg]) => {
+    return {
+      tag: "primitive",
+      class: stringClass,
+      value: `${self}${strValue(arg)}`,
+    }
   })
   .addPrimitive(
     "js debug",
@@ -91,16 +107,43 @@ export function intValue(arg: Value): number {
   return arg.value
 }
 
-// TODO: float conversion where appropriate
+function numeric(
+  self: number,
+  arg: Value,
+  fn: (a: number, b: number) => number
+): Value {
+  if (
+    arg.tag === "primitive" &&
+    (arg.class === intClass || arg.class === floatClass)
+  ) {
+    return { tag: "primitive", class: arg.class, value: fn(self, arg.value) }
+  }
+  throw new PrimitiveTypeError("integer")
+}
+
+function numericCompare(
+  self: number,
+  arg: Value,
+  fn: (a: number, b: number) => boolean
+): Value {
+  if (
+    arg.tag === "primitive" &&
+    (arg.class === intClass || arg.class === floatClass)
+  ) {
+    return { tag: "primitive", class: boolClass, value: fn(self, arg.value) }
+  }
+  throw new PrimitiveTypeError("integer")
+}
+
 export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("+:", (self, [arg]) => {
-    return { tag: "primitive", class: intClass, value: self + intValue(arg) }
+    return numeric(self, arg, (a, b) => a + b)
   })
   .addPrimitive("-:", (self, [arg]) => {
-    return { tag: "primitive", class: intClass, value: self - intValue(arg) }
+    return numeric(self, arg, (a, b) => a - b)
   })
   .addPrimitive("*:", (self, [arg]) => {
-    return { tag: "primitive", class: intClass, value: self * intValue(arg) }
+    return numeric(self, arg, (a, b) => a * b)
   })
   .addPrimitive("&:", (self, [arg]) => {
     return { tag: "primitive", class: intClass, value: self & intValue(arg) }
@@ -111,14 +154,17 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("abs", (self) => {
     return { tag: "primitive", class: intClass, value: Math.abs(self) }
   })
-  .addPrimitive("=:", (self, [arg], ctx) => {
+  .addPrimitive("=:", (self, [arg]) => {
     if (arg.tag === "primitive" && arg.class === intClass) {
       return arg.value === self ? trueVal : falseVal
     }
     return falseVal
   })
+  .addPrimitive("==:", (self, [arg]) => {
+    return numericCompare(self, arg, (a, b) => a === b)
+  })
   .addPrimitive(">=:", (self, [arg], ctx) => {
-    return self >= intValue(arg) ? trueVal : falseVal
+    return numericCompare(self, arg, (a, b) => a >= b)
   })
   .addPrimitive(
     "js debug",
@@ -129,12 +175,14 @@ export const intClass: IRClass = new IRClassBuilder()
   )
   .build()
 
-// TODO: implicit conversions of ints to floats
 export function floatValue(arg: Value): number {
-  if (arg.tag !== "primitive" || arg.class !== floatClass) {
-    throw new PrimitiveTypeError("float")
+  if (
+    arg.tag === "primitive" &&
+    (arg.class === intClass || arg.class === floatClass)
+  ) {
+    return arg.value
   }
-  return arg.value
+  throw new PrimitiveTypeError("float")
 }
 
 export const floatClass: IRClass = new IRClassBuilder()
@@ -162,13 +210,19 @@ export const floatClass: IRClass = new IRClassBuilder()
   .addPrimitive("-", (self) => {
     return { tag: "primitive", class: floatClass, value: -self }
   })
+  .addPrimitive("abs", (self) => {
+    return { tag: "primitive", class: floatClass, value: Math.abs(self) }
+  })
   .addPrimitive("=:", (self, [arg], ctx) => {
     if (arg.tag === "primitive" && arg.class === floatClass) {
       return arg.value === self ? trueVal : falseVal
     }
     return falseVal
   })
-  .addPrimitive("abs", (self) => {
-    return { tag: "primitive", class: floatClass, value: Math.abs(self) }
+  .addPrimitive("==:", (self, [arg]) => {
+    return numericCompare(self, arg, (a, b) => a === b)
+  })
+  .addPrimitive(">=:", (self, [arg], ctx) => {
+    return numericCompare(self, arg, (a, b) => a >= b)
   })
   .build()
