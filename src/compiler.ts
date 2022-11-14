@@ -275,7 +275,7 @@ class Stmt {
   stmt(stmt: ASTStmt): IRStmt[] {
     switch (stmt.tag) {
       case "let":
-        // if (stmt.export) throw new ScopedExportError(stmt.binding)
+        if (stmt.export) throw new ScopedExportError(stmt.binding)
         return this.let(stmt.binding, this.bindExpr(stmt.binding, stmt.value))
       case "var": {
         const value = this.expr(stmt.value)
@@ -413,11 +413,10 @@ export function coreModule(stmts: ASTStmt[], nativeValue: Value): IRStmt[] {
       value: { tag: "constant", value: nativeValue },
     },
     ...stmtScope.module(stmts),
-    // ...stmts.flatMap((s) => stmtScope.stmt(s)),
   ]
 }
 
 export function program(stmts: ASTStmt[]): IRStmt[] {
-  const stmtScope = new Stmt(new RootScope())
+  const stmtScope = new RootStmt(new RootScope())
   return stmts.flatMap((s) => stmtScope.stmt(s))
 }

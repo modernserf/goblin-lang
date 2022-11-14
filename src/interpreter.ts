@@ -61,9 +61,7 @@ export type Value =
   | { tag: "primitive"; class: IRClass; value: PrimitiveValue }
 type PrimitiveValue = any
 
-export class PrimitiveTypeError {
-  constructor(readonly expected: string) {}
-}
+// TODO: RuntimeError base class
 export class NoHandlerError {
   constructor(readonly selector: string) {}
 }

@@ -5,7 +5,6 @@ import {
   ArgMismatchError,
   NoHandlerError,
   NoProviderError,
-  PrimitiveTypeError,
 } from "./interpreter"
 
 test("panic", () => {
@@ -15,27 +14,6 @@ test("panic", () => {
       Panic{message: "error message"}
     `)
   }, new Error("error message"))
-})
-
-test("primitive methods", () => {
-  assert.throws(() => {
-    run(`1 + "hello"`)
-  }, PrimitiveTypeError)
-  assert.throws(() => {
-    run(`(1 = 1) && 1`)
-  }, PrimitiveTypeError)
-  assert.throws(() => {
-    run(`1.0 + "hello"`)
-  }, PrimitiveTypeError)
-  assert.throws(() => {
-    run(`"foo" ++ 1`)
-  }, PrimitiveTypeError)
-  assert.throws(() => {
-    run(`1 & 1.0`)
-  }, PrimitiveTypeError)
-  assert.throws(() => {
-    run(`1 >= "foo"`)
-  }, PrimitiveTypeError)
 })
 
 test("no method", () => {

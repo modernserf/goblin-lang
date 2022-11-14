@@ -1,0 +1,66 @@
+import [_Assert_ _Array_ _Cell_ _Vec_] := "core"
+
+# cell
+let a := Cell{: 0}
+let b := a
+a{: 1}
+
+Assert{
+  received: b{}
+  expected: 1
+}
+
+# arrays
+let xs := Array{}
+xs{push: 1}{push: 2}{push: 3}
+
+Assert{
+  received: xs{at: 1}
+  expected: 2
+}
+
+xs{at: 1 value: 6}
+Assert{
+  received: xs{at: 1}
+  expected: 6
+}
+Assert{
+  received: xs{pop}
+  expected: 3
+}
+Assert{
+  received: xs{length}
+  expected: 2
+}
+let ys := xs{copy}
+xs{pop}
+Assert{
+  received: xs{length} + 1
+  expected: ys{length}
+}
+
+let base := Array{}, 1, 2, 3
+let slice := base{from: 1 to: 3}
+Assert{received: slice{length} expected: 2}
+Assert{received: slice{at: 0} expected: 2}
+
+
+# vec
+
+let xs := Vec{}, 1, 2, 3
+
+let ys := xs, 4, 5
+Assert{received: xs{length} expected: 3}
+Assert{received: ys{length} expected: 5}
+
+let mapped := xs{map:[+: 10]}
+Assert{
+  received: mapped
+  expected: Vec{}, 11, 12, 13
+}
+
+let filtered := ys{filter: {:x} x & 1 = 0}
+Assert{
+  received: filtered
+  expected: Vec{}, 2, 4
+}

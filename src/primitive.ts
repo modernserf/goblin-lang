@@ -2,12 +2,15 @@ import {
   IRClass,
   Value,
   IRHandler,
-  PrimitiveTypeError,
   IRExpr,
   unit,
   Interpreter,
   send,
 } from "./interpreter"
+
+export class PrimitiveTypeError {
+  constructor(readonly expected: string) {}
+}
 
 export class IRClassBuilder {
   private methods = new Map<string, IRHandler>()

@@ -4,6 +4,8 @@ import "./parser.test"
 import "./ast.test"
 import "./compiler.test"
 import "./interpreter.test"
+import "./primitive.test"
+import "./core.test"
 import { run } from "./index"
 
 function testFile(name: string, path: string) {
@@ -14,4 +16,5 @@ function testFile(name: string, path: string) {
 }
 
 testFile("primitives", "./src/primitive.test.gob")
+testFile("structures", "./src/structures.test.gob")
 testFile("test file", "./src/test.gob")

@@ -12,7 +12,7 @@ import {
   ReferenceError,
   VarDoubleBorrowError,
 } from "./scope"
-import { program } from "./compiler"
+import { DuplicateExportError, program, ScopedExportError } from "./compiler"
 import { NoHandlerError } from "./interpreter"
 
 export function compile(source: string) {
@@ -172,4 +172,26 @@ test("selfDirect", () => {
       ]
     `)
   }, NoHandlerError)
+})
+
+test("exports", () => {
+  assert.throws(() => {
+    compile(`
+      let foo := [
+        on {x}
+          export let x := 1
+      ]
+    `)
+  }, ScopedExportError)
+  assert.throws(() => {
+    compile(`
+      export let x := 1
+      export let x := 2
+    `)
+  }, DuplicateExportError)
+  assert.doesNotThrow(() => {
+    compile(`
+      export let x := 1
+    `)
+  })
 })

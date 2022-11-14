@@ -34,19 +34,27 @@ const cellModule: Value = {
     .build(),
 }
 
+export class IndexOutOfRangeError {}
+export class EmptyArrayError {}
+
 const arrayInstance: IRClass = new IRClassBuilder()
   .addPrimitive("length", (self) => {
     return { tag: "primitive", class: intClass, value: self.length }
   })
+  // todo: do we want `at` index to wrap around?
   .addPrimitive("at:", (self, [index]) => {
     const i = intValue(index)
-    if (self.length <= i) throw new Error("index out of range")
+    if (self.length <= i) throw new IndexOutOfRangeError()
     return self[i]
   })
   .addPrimitive("at:value:", (self, [index, value]) => {
     const i = intValue(index)
-    if (self.length <= i) throw new Error("index out of range")
+    if (self.length <= i) throw new IndexOutOfRangeError()
     self[i] = value
+    return { tag: "primitive", class: arrayInstance, value: self }
+  })
+  .addPrimitive(",:", (self, [value]) => {
+    self.push(value)
     return { tag: "primitive", class: arrayInstance, value: self }
   })
   .addPrimitive("push:", (self, [value]) => {
@@ -54,16 +62,16 @@ const arrayInstance: IRClass = new IRClassBuilder()
     return { tag: "primitive", class: arrayInstance, value: self }
   })
   .addPrimitive("pop", (self, []) => {
-    if (self.length === 0) throw new Error("array empty")
+    if (self.length === 0) throw new EmptyArrayError()
     return self.pop()
   })
   .addPrimitive("copy", (self) => {
     return { tag: "primitive", class: arrayInstance, value: self.slice() }
   })
+  // todo: error handling, `from:`, `to:`
   .addPrimitive("from:to:", (self, [from, to]) => {
     const f = intValue(from)
     const t = intValue(to)
-    // todo: more error handling
     return { tag: "primitive", class: arrayInstance, value: self.slice(f, t) }
   })
   .build()
