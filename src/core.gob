@@ -1,69 +1,9 @@
-export let Bool := [
-  on {true} [
-    on {: do f} 
-      f{true}
-    on {!} 
-      Bool{false}
-    # "bitwise" boolean logic
-    # `other` must match with bool, always returns bool
-    on {&: other} other{:
-      on {true} Bool{true}
-      on {false} Bool{false}
-    }
-    on {|: other} other{:
-      on {true} Bool{true}
-      on {false} Bool{true}
-    }
-    on {^: other} other{:
-      on {true} Bool{false}
-      on {false} Bool{true}
-    }
-    on {=: other} other{:
-      on {true} Bool{true}
-      on {false} Bool{false}
-    }
-    on {!=: other} other{:
-      on {true} Bool{false}
-      on {false} Bool{true}
-    }
-    on {then: t else: f}
-      t
-    on {then do: do t else do: do f}
-      t{}
-  ]
-  on {false} [
-    on {: do f} 
-      f{false}
-    on {!} 
-      Bool{true}
-    on {&: other} other{:
-      on {true} Bool{false}
-      on {false} Bool{false}
-    }
-    on {|: other} other{:
-      on {true} Bool{true}
-      on {false} Bool{false}
-    }
-    on {^: other} other{:
-      on {true} Bool{true}
-      on {false} Bool{false}
-    }
-    on {=: other} other{:
-      on {true} Bool{false}
-      on {false} Bool{true}
-    }
-    on {!=: other} other{:
-      on {true} Bool{true}
-      on {false} Bool{false}
-    }
-    on {then: t else: f}
-      f
-    on {then do: do t else do: do f}
-      f{}
-  ]
-]
+export let [_true_ _false_] := native
 
-export let [_true_ _false_] := Bool
+export let Bool := [
+  on {true} true
+  on {false} false
+]
 
 # Option & Result in single value for mutual recursion
 let OR := [

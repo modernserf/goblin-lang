@@ -204,9 +204,14 @@ function sendHandler(
     case "primitive": {
       const targetValue = target.tag === "primitive" ? target.value : null
       const argValues = args.map((arg) => {
-        /* istanbul ignore next */
-        if (arg.tag !== "value") throw "invalid arg"
-        return expr(sender, arg.value)
+        switch (arg.tag) {
+          case "value":
+            return expr(sender, arg.value)
+          case "do":
+            return { tag: "do", class: arg.class, ctx: sender } as const
+          default:
+            throw "todo: handle non-values in primitive fns"
+        }
       })
       return handler.fn(targetValue, argValues, sender)
     }
@@ -224,7 +229,7 @@ function sendHandler(
   }
 }
 
-function send(
+export function send(
   sender: Interpreter,
   selector: string,
   target: Value,
@@ -333,19 +338,6 @@ function body(ctx: Interpreter, stmts: IRStmt[]): Value {
       body(ctx, defer)
     }
   }
-}
-
-// TODO: figure out a better way for primitive classes to use bools
-const getBoolCache = new Map<string, Value>()
-export function getBool(ctx: Interpreter, key: string): Value {
-  const res = getBoolCache.get(key)
-  if (res) return res
-
-  const module = ctx.getModule("core")
-  const handler = module.class.handlers.get(key) as IRHandler
-  const value = sendHandler(ctx, module, handler, [])
-  getBoolCache.set(key, value)
-  return value
 }
 
 export function program(stmts: IRStmt[], modules: IRModules): Value {

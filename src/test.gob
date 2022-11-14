@@ -46,20 +46,20 @@ Assert{
   expected: -1
 }
 
-# Assert{
-#   received: 1 = 1
-#   expected: true
-# }
+Assert{
+  received: 1 = 1
+  expected: true
+}
 
-# Assert{
-#   received: 1 = 2
-#   expected: false
-# }
+Assert{
+  received: 1 = 2
+  expected: false
+}
 
-# Assert{
-#   received: 1.0 = 1.0
-#   expected: true
-# }
+Assert{
+  received: 1.0 = 1.0
+  expected: true
+}
 
 # locals
 let x := 1

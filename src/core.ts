@@ -6,7 +6,14 @@ import { coreModule } from "./compiler"
 
 import { readFileSync } from "fs"
 import { IRClass, IRStmt, unit, Value } from "./interpreter"
-import { intClass, intValue, IRClassBuilder, strValue } from "./primitive"
+import {
+  intClass,
+  intValue,
+  IRClassBuilder,
+  strValue,
+  trueVal,
+  falseVal,
+} from "./primitive"
 
 const cellInstance = new IRClassBuilder()
   .addPrimitive("get", (self) => self.value)
@@ -96,6 +103,8 @@ const nativeClass = new IRClassBuilder()
   .addPrimitive("Array", () => arrayModule)
   .addPrimitive("Assert", () => assertModule)
   .addPrimitive("Panic", () => panicModule)
+  .addPrimitive("true", () => trueVal)
+  .addPrimitive("false", () => falseVal)
   .build()
 
 const native: Value = { tag: "primitive", class: nativeClass, value: null }

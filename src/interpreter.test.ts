@@ -24,12 +24,6 @@ test("primitive methods", () => {
   assert.throws(() => {
     run(`1 + "hello"`)
   }, PrimitiveTypeError)
-  assert.throws(() => {
-    run(`"hello" = 1`)
-  }, PrimitiveTypeError)
-  assert.throws(() => {
-    run(`1.0 = 1`)
-  }, PrimitiveTypeError)
 })
 
 test("no method", () => {
