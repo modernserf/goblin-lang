@@ -6,7 +6,7 @@ import { coreModule } from "./compiler"
 
 import { readFileSync } from "fs"
 import { IRClass, IRStmt, unit, Value } from "./interpreter"
-import { intClass, intValue, IRClassBuilder } from "./primitive"
+import { intClass, intValue, IRClassBuilder, strValue } from "./primitive"
 
 const cellInstance = new IRClassBuilder()
   .addPrimitive("get", (self) => self.value)
@@ -52,6 +52,12 @@ const arrayInstance: IRClass = new IRClassBuilder()
   .addPrimitive("copy", (self) => {
     return { tag: "primitive", class: arrayInstance, value: self.slice() }
   })
+  .addPrimitive("from:to:", (self, [from, to]) => {
+    const f = intValue(from)
+    const t = intValue(to)
+    // todo: more error handling
+    return { tag: "primitive", class: arrayInstance, value: self.slice(f, t) }
+  })
   .build()
 
 const arrayModule: Value = {
@@ -75,10 +81,21 @@ const assertModule: Value = {
     .build(),
 }
 
+const panicModule: Value = {
+  tag: "object",
+  ivars: [],
+  class: new IRClassBuilder()
+    .addPrimitive("message:", (_, [message]) => {
+      throw new Error(strValue(message))
+    })
+    .build(),
+}
+
 const nativeClass = new IRClassBuilder()
   .addPrimitive("Cell", () => cellModule)
   .addPrimitive("Array", () => arrayModule)
   .addPrimitive("Assert", () => assertModule)
+  .addPrimitive("Panic", () => panicModule)
   .build()
 
 const native: Value = { tag: "primitive", class: nativeClass, value: null }

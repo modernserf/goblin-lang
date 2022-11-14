@@ -259,3 +259,82 @@ export let Cell := [
 export let Assert := native{Assert}
 
 export let Array := native{Array}
+
+export let Panic := native{Panic}
+
+export let Control := [
+  on {loop: do f}
+    f{}
+    self{loop: f}
+]
+
+let VecImpl := [
+  on {_array_ _length_} 
+    let private := [
+      on {copy}
+        VecImpl{
+          array: array{from: 0 to: length} 
+          length: length 
+        }
+      on {index: index}
+        if index >= length then Panic{message: "index out of range"} end
+        # TODO: handle negative index wraparound
+        index
+    ]
+    return [
+      on {length}
+        length
+      on {at: index}
+        array{at: private{index: index}}
+      on {at: index value: val}
+        VecImpl{
+          array: array{copy}{at: private{index: index} value: val} 
+          length: length
+        }
+      on {,: val}
+        self{push: val}
+      on {push: val}
+        if array{length} = length then
+          array{push: val}
+          VecImpl{array: array length: length + 1}
+        else
+          private{copy}{push: val}
+        end
+      on {pop}
+        let len := private{index: length - 1}
+        # TODO: should periodically reallocate array so unused items can be GC'd
+        return [
+          most: VecImpl{array: array length: len}
+          last: array{at: len}
+        ]
+      on {map: do f}
+        var i := 0
+        var out := Array{}
+        Control{loop: {}
+          if i >= length then 
+            return VecImpl{array: out length: length}
+          end
+          let value := array{at: i}
+          out{push: f{: value}}
+          set i{+: 1}
+        }
+      on {filter: do f}
+        var i := 0
+        var out := Array{}
+        Control{loop: {}
+          if i >= length then 
+            return VecImpl{array: out length: out{length}}
+          end
+          let value := array{at: i}
+          if f{: array{at: i}} then
+            out{push: value}
+          end
+          set i{+: 1}
+        }
+    ]
+]
+
+export let Vec := [
+  on {}
+    VecImpl{array: Array{} length: 0}
+]

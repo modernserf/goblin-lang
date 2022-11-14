@@ -71,8 +71,14 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("*:", (self, [arg]) => {
     return { tag: "primitive", class: intClass, value: self * intValue(arg) }
   })
+  .addPrimitive("&:", (self, [arg]) => {
+    return { tag: "primitive", class: intClass, value: self & intValue(arg) }
+  })
   .addPrimitive("-", (self) => {
     return { tag: "primitive", class: intClass, value: -self }
+  })
+  .addPrimitive("abs", (self) => {
+    return { tag: "primitive", class: intClass, value: Math.abs(self) }
   })
   .addPrimitive("=:", (self, [arg], ctx) => {
     if (self === intValue(arg)) {
@@ -81,8 +87,12 @@ export const intClass: IRClass = new IRClassBuilder()
       return getBool(ctx, "false")
     }
   })
-  .addPrimitive("abs", (self) => {
-    return { tag: "primitive", class: intClass, value: Math.abs(self) }
+  .addPrimitive(">=:", (self, [arg], ctx) => {
+    if (self >= intValue(arg)) {
+      return getBool(ctx, "true")
+    } else {
+      return getBool(ctx, "false")
+    }
   })
   .addPrimitive(
     "js debug",
