@@ -8,6 +8,9 @@ test("primitive methods", () => {
     run(`1 + "hello"`)
   }, PrimitiveTypeError)
   assert.throws(() => {
+    run(`1 + [x: 2]`)
+  }, PrimitiveTypeError)
+  assert.throws(() => {
     run(`(1 = 1) && 1`)
   }, PrimitiveTypeError)
   assert.throws(() => {

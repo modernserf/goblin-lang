@@ -16,7 +16,6 @@ import {
   IRBlockClass,
   IRParam,
   Value,
-  IRConstantExpr,
   IRObjectExpr,
   IRIvarExpr,
   IRModuleExpr,
@@ -187,11 +186,11 @@ class Expr {
       case "self":
         return this.scope.instance.self()
       case "integer":
-        return this.literal(intClass, value.value)
+        return new PrimitiveValue(intClass, value.value)
       case "float":
-        return this.literal(floatClass, value.value)
+        return new PrimitiveValue(floatClass, value.value)
       case "string":
-        return this.literal(stringClass, value.value)
+        return new PrimitiveValue(stringClass, value.value)
       case "identifier":
         return this.scope.lookup(value.value)
       case "send":
@@ -225,11 +224,8 @@ class Expr {
         return constObject(objectClass, instance.ivars)
       }
       case "unit":
-        return new IRConstantExpr(unit)
+        return unit
     }
-  }
-  private literal(cls: IRClass, value: any): IRExpr {
-    return new IRConstantExpr(new PrimitiveValue(cls, value))
   }
 }
 
@@ -387,10 +383,7 @@ export function coreModule(stmts: ASTStmt[], nativeValue: Value): IRStmt[] {
   const scope = new RootScope()
   const rec = scope.locals.set("native", scope.locals.new("let"))
   const stmtScope = new RootStmt(scope)
-  return [
-    new IRAssignStmt(rec.index, new IRConstantExpr(nativeValue)),
-    ...stmtScope.module(stmts),
-  ]
+  return [new IRAssignStmt(rec.index, nativeValue), ...stmtScope.module(stmts)]
 }
 
 export function program(stmts: ASTStmt[]): IRStmt[] {

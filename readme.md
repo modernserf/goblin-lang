@@ -17,7 +17,7 @@ value{:
 		n{to String} ++ " items"
 }
 # becomes
-value{
+value{:
 	do {count: n}
 		if n = 0 then
 			"No items"
