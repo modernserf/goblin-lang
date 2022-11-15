@@ -24,11 +24,15 @@ export type ASTUsingPair = { key: string; value: ASTParam }
 export type ASTBindPair = { key: string; value: ASTLetBinding }
 export type ASTLetBinding =
   | { tag: "identifier"; value: string }
-  | { tag: "object"; params: ASTBindPair[] }
+  | { tag: "object"; params: ASTBindPair[]; as: string | null }
 export type ASTSetBinding = { tag: "identifier"; value: string } // TODO: `set` paths
 export type ASTVarBinding = { tag: "identifier"; value: string }
 export type ASTProvideBinding = { tag: "identifier"; value: string }
-export type ASTImportBinding = { tag: "object"; params: ASTBindPair[] }
+export type ASTImportBinding = {
+  tag: "object"
+  params: ASTBindPair[]
+  as: null
+}
 export type ASTImportSource = { tag: "string"; value: string }
 
 export type ASTExpr =
@@ -255,6 +259,7 @@ function expr(value: ParseExpr): ASTExpr {
     case "object":
       return handlerSet(value.handlers)
     case "frame":
+      if (value.as) throw new InvalidFrameArgError()
       return build<ParseArg, ASTFrameArg, ASTExpr>(value.message, {
         key(selector) {
           return { tag: "frame", selector, args: [] }
@@ -321,7 +326,12 @@ function letBinding(value: ParseExpr): ASTLetBinding {
     case "identifier":
       return value
     case "frame":
-      return { tag: "object", params: destructureMessage(value.message) }
+      let as: string | null = null
+      if (value.as) {
+        if (value.as.tag !== "identifier") throw new InvalidLetBindingError()
+        as = value.as.value
+      }
+      return { tag: "object", params: destructureMessage(value.message), as }
     default:
       throw new InvalidLetBindingError()
   }
@@ -355,7 +365,12 @@ function varBinding(value: ParseExpr): ASTVarBinding {
 function importBinding(value: ParseExpr): ASTImportBinding {
   switch (value.tag) {
     case "frame":
-      return { tag: "object", params: destructureMessage(value.message) }
+      if (value.as) throw new InvalidImportBindingError()
+      return {
+        tag: "object",
+        params: destructureMessage(value.message),
+        as: null,
+      }
     default:
       throw new InvalidImportBindingError()
   }

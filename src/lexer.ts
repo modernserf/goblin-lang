@@ -18,6 +18,7 @@ export type Token =
   | { tag: "if" }
   | { tag: "then" }
   | { tag: "else" }
+  | { tag: "as" }
   | { tag: "do" }
   | { tag: "defer" }
   | { tag: "end" }
@@ -57,6 +58,7 @@ export const keywords: Set<Token["tag"]> = new Set([
   "if",
   "then",
   "else",
+  "as",
   "do",
   "defer",
   "end",

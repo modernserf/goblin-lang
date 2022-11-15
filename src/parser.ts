@@ -24,7 +24,7 @@ export type ParseExpr =
   | { tag: "identifier"; value: string }
   | { tag: "parens"; value: ParseExpr }
   | { tag: "object"; handlers: ParseHandler[] }
-  | { tag: "frame"; message: ParseMessage<ParseArg> }
+  | { tag: "frame"; message: ParseMessage<ParseArg>; as: ParseExpr | null }
   | { tag: "send"; target: ParseExpr; message: ParseMessage<ParseArg> }
   | { tag: "do"; body: ParseStmt[] }
   | { tag: "if"; conds: ParseCond[]; else: ParseStmt[] }
@@ -203,7 +203,11 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
       }
       const message = parseMessage(lexer, arg)
       mustToken(lexer, "closeBracket")
-      return { tag: "frame", message }
+      if (accept(lexer, "as")) {
+        const as = must(lexer, "binding", parseExpr)
+        return { tag: "frame", message, as }
+      }
+      return { tag: "frame", message, as: null }
     }
     case "do": {
       lexer.advance()

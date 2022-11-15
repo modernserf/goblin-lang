@@ -240,7 +240,7 @@ class Let {
         return [{ tag: "assign", index: record.index, value }]
       }
       case "object":
-        const record = this.useAnon()
+        const record = this.useAs(binding.as)
         return [
           { tag: "assign", index: record.index, value },
           ...binding.params.flatMap((param) =>
@@ -254,8 +254,9 @@ class Let {
         ]
     }
   }
-  private useAnon(): ScopeRecord {
-    return this.locals.new("let")
+  private useAs(as: string | null): ScopeRecord {
+    if (as === null) return this.locals.new("let")
+    return this.useLet(as)
   }
   private useLet(key: string): ScopeRecord {
     return this.locals.set(key, this.locals.new("let"))

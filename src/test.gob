@@ -50,10 +50,14 @@ Assert{
 }
 
 # destructuring
-let [x: foo y: [_a_ _b_]] := [x: 1 y: [a: 2 b: 3]]
+let [x: foo y: [_a_ _b_]] as all := [x: 1 y: [a: 2 b: 3]]
 Assert{
   received: foo + a + b
   expected: 6
+}
+Assert{
+  received: all
+  expected: [x: 1 y: [a: 2 b: 3]]
 }
 
 let p := [
@@ -264,6 +268,7 @@ Assert{
   received: result
   expected: 6
 }
+
 
 # else
 let pattern := [
