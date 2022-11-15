@@ -173,3 +173,15 @@ test("todo: sub-pattern", () => {
     `)
   })
 })
+
+test("default values", () => {
+  assert.throws(() => {
+    check(`
+      let obj := [
+        on {} 1
+        on {x: x := 0 y: y := 0}
+          x + y
+      ]
+    `)
+  }, DuplicateHandlerError)
+})

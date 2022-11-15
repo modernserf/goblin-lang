@@ -1,27 +1,5 @@
 # More pattern-matching / method-dispatch features
 
-## default handler args
-
-Be aware of accidental duplicate patterns
-
-```goblin
-let Point := [
-	on {x: x = 0 y: y = 0}
-		# ...
-]
-# becomes
-let Point := [
-	on {}
-		Point{x: 0 y: 0}
-	on {x: x}
-		Point{x: x y: 0}
-	on {y: y}
-		Point{x: 0 y: y}
-	on {x: x y: y}
-		# ...
-]
-```
-
 ## optional (as in Option type) / "nullable" handler args
 
 This one seems more 'clever' than useful

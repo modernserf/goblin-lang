@@ -44,7 +44,7 @@ export type ParseArg =
   | { tag: "var"; value: ParseExpr }
   | { tag: "handlers"; handlers: ParseHandler[] }
 export type ParseParam =
-  | { tag: "value"; value: ParseExpr }
+  | { tag: "value"; value: ParseExpr; defaultValue: ParseExpr | null }
   | { tag: "var"; value: ParseExpr }
   | { tag: "do"; value: ParseExpr }
   | { tag: "on"; message: ParseMessage<ParseParam> }
@@ -76,7 +76,12 @@ function param(lexer: Lexer): ParseParam {
       return { tag: "on", message }
     }
     default:
-      return { tag: "value", value: must(lexer, "expr", parseExpr) }
+      const value = must(lexer, "binding", parseExpr)
+      if (accept(lexer, "colonEquals")) {
+        const defaultValue = must(lexer, "expr", parseExpr)
+        return { tag: "value", value, defaultValue }
+      }
+      return { tag: "value", value, defaultValue: null }
   }
 }
 

@@ -96,6 +96,8 @@ export class DuplicateElseHandlerError {}
 function astParam(param: ParseParam): ASTParam {
   switch (param.tag) {
     case "value":
+      if (param.defaultValue) {
+      }
       return { tag: "binding", binding: letBinding(param.value) }
     case "var":
       if (param.value.tag !== "identifier") throw new InvalidVarParamError()
@@ -108,13 +110,67 @@ function astParam(param: ParseParam): ASTParam {
   }
 }
 
+type ParamWithBindings = {
+  pairs: ParsePair<ParseParam>[]
+  bindings: { binding: ParseExpr; value: ParseExpr }[]
+}
+
+function expandDefaultParams(
+  pairs: ParsePair<ParseParam>[]
+): ParamWithBindings[] {
+  const out: ParamWithBindings[] = [{ pairs: [], bindings: [] }]
+  for (const pair of pairs) {
+    if (
+      pair.tag === "pair" &&
+      pair.value.tag === "value" &&
+      pair.value.defaultValue
+    ) {
+      const copy = out.map((x) => ({
+        pairs: x.pairs.slice(),
+        bindings: x.bindings.slice(),
+      }))
+      for (const item of out) {
+        item.pairs.push(pair)
+      }
+      for (const item of copy) {
+        item.bindings.push({
+          binding: pair.value.value,
+          value: pair.value.defaultValue,
+        })
+      }
+      out.push(...copy)
+    } else {
+      for (const item of out) {
+        item.pairs.push(pair)
+      }
+    }
+  }
+  return out
+}
+
+function expandHandler(handler: ParseHandler): ParseHandler[] {
+  if (handler.tag === "else") return [handler]
+  if (handler.message.tag === "key") return [handler]
+  const out: ParseHandler[] = []
+  for (const { pairs, bindings } of expandDefaultParams(
+    handler.message.pairs
+  )) {
+    const body: ParseStmt[] = bindings.map(({ binding, value }) => {
+      return { tag: "let", binding, value, export: false }
+    })
+    body.push(...handler.body)
+    out.push({ tag: "on", message: { tag: "pairs", pairs }, body })
+  }
+  return out
+}
+
 function handlerSet(ins: ParseHandler[]): HandlerSet {
   const out: HandlerSet = {
     tag: "object",
     handlers: new Map<string, ASTHandler>(),
     else: null,
   }
-  for (const handler of ins) {
+  for (const handler of ins.flatMap(expandHandler)) {
     if (handler.tag === "else") {
       if (out.else) throw new DuplicateElseHandlerError()
       out.else = {
@@ -481,7 +537,6 @@ function build<In, Item, Container>(
   const map = new Map<string, Item>()
 
   for (const param of message.pairs) {
-    const value = "value" in param ? param.value : null
     if (map.has(param.key)) throw new DuplicateKeyError(param.key)
     switch (param.tag) {
       case "punPair":

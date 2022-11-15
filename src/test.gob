@@ -41,6 +41,27 @@ Assert{
   expected: 10
 }
 
+# default params
+let Point := [
+  on {x: x := 0 y: y := 0} [
+    on {x} x
+    on {y} y
+  ]
+]
+Assert{
+  received: Point{x: 1 y: 2}{x}
+  expected: 1
+}
+Assert{
+  received: Point{y: 2}{x}
+  expected: 0
+}
+Assert{
+  received: Point{}{y}
+  expected: 0
+}
+
+
 # frames
 let bar := 2
 let x := [foo: 1 _bar_]
