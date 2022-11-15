@@ -30,13 +30,10 @@ export function frame(
     tag: "object",
     params: args.map(() => ({ tag: "value" })),
     body: [
-      {
-        tag: "return",
-        value: new IRObjectExpr(
-          frameClass,
-          args.map((_, index) => new IRLocalExpr(index))
-        ),
-      },
+      new IRObjectExpr(
+        frameClass,
+        args.map((_, index) => new IRLocalExpr(index))
+      ),
     ],
   })
   // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
@@ -44,17 +41,14 @@ export function frame(
     tag: "object",
     params: [{ tag: "do" }],
     body: [
-      {
-        tag: "return",
-        value: new IRSendExpr(
-          selector,
-          $0,
-          args.map((_, index) => ({
-            tag: "value",
-            value: new IRIvarExpr(index),
-          }))
-        ),
-      },
+      new IRSendExpr(
+        selector,
+        $0,
+        args.map((_, index) => ({
+          tag: "value",
+          value: new IRIvarExpr(index),
+        }))
+      ),
     ],
   })
   for (const [index, { key }] of args.entries()) {
@@ -63,26 +57,23 @@ export function frame(
     handlers.set(key, {
       tag: "object",
       params: [],
-      body: [{ tag: "return", value: ivar }],
+      body: [ivar],
     })
     // setter: [x: 1 y: 2]{x: 3}
     handlers.set(`${key}:`, {
       tag: "object",
       params: [{ tag: "value" }],
       body: [
-        {
-          tag: "return",
-          value: new IRObjectExpr(
-            frameClass,
-            args.map((_, j) => {
-              if (j === index) {
-                return $0
-              } else {
-                return new IRIvarExpr(j)
-              }
-            })
-          ),
-        },
+        new IRObjectExpr(
+          frameClass,
+          args.map((_, j) => {
+            if (j === index) {
+              return $0
+            } else {
+              return new IRIvarExpr(j)
+            }
+          })
+        ),
       ],
     })
     // updater: [x: 1 y: 2]{->x: {:x} x + 1}
@@ -91,19 +82,12 @@ export function frame(
       tag: "object",
       params: [{ tag: "do" }],
       body: [
-        {
-          tag: "return",
-          value: new IRSendDirectExpr(
-            handlers.get(`${key}:`)!,
-            new IRSelfExpr(),
-            [
-              {
-                tag: "value",
-                value: new IRSendExpr(":", $0, [{ tag: "value", value: ivar }]),
-              },
-            ]
-          ),
-        },
+        new IRSendDirectExpr(handlers.get(`${key}:`)!, new IRSelfExpr(), [
+          {
+            tag: "value",
+            value: new IRSendExpr(":", $0, [{ tag: "value", value: ivar }]),
+          },
+        ]),
       ],
     })
   }

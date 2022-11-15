@@ -1,12 +1,5 @@
 export type IRModules = Map<string, IRStmt[]>
 
-export type IRStmt =
-  | { tag: "assign"; index: number; value: IRExpr }
-  | { tag: "return"; value: IRExpr }
-  | { tag: "expr"; value: IRExpr }
-  | { tag: "provide"; key: string; value: IRExpr }
-  | { tag: "defer"; body: IRStmt[] }
-
 export type IRArg =
   | { tag: "value"; value: IRExpr }
   | { tag: "var"; index: number }
@@ -118,6 +111,7 @@ export class Interpreter {
     return new Interpreter(unit, new Map(), new Modules(moduleSources))
   }
   private locals: Value[] = []
+  private defers: IRStmt[][] = []
   constructor(
     readonly self: Value,
     private provideScope: Map<string, Value>,
@@ -156,6 +150,18 @@ export class Interpreter {
   }
   getModule(key: string) {
     return this.modules.get(key)
+  }
+  defer(value: IRStmt[]) {
+    this.defers.push(value)
+  }
+  // TODO: this feels a little janky
+  resolveDefers() {
+    const defers = this.defers.reverse()
+    this.defers = []
+    for (const defer of defers) {
+      body(this, defer)
+    }
+    this.defers = []
   }
 }
 
@@ -279,34 +285,34 @@ export interface IRExpr {
   eval(ctx: Interpreter): Value
 }
 
-export class IRSelfExpr implements IRExpr {
+export class IRSelfExpr implements IRExpr, IRStmt {
   eval(ctx: Interpreter): Value {
     return ctx.self
   }
 }
-// TODO: Value implements IRExpr directly
-export class IRConstantExpr implements IRExpr {
+// TODO: Value implements IRExpr, IRStmt directly
+export class IRConstantExpr implements IRExpr, IRStmt {
   constructor(readonly value: Value) {}
   eval(ctx: Interpreter): Value {
     return this.value
   }
 }
 
-export class IRIvarExpr implements IRExpr {
+export class IRIvarExpr implements IRExpr, IRStmt {
   constructor(private index: number) {}
   eval(ctx: Interpreter): Value {
     return ctx.getIvar(this.index)
   }
 }
 
-export class IRLocalExpr implements IRExpr {
+export class IRLocalExpr implements IRExpr, IRStmt {
   constructor(private index: number) {}
   eval(ctx: Interpreter): Value {
     return ctx.getLocal(this.index)
   }
 }
 
-export class IRObjectExpr implements IRExpr {
+export class IRObjectExpr implements IRExpr, IRStmt {
   constructor(private cls: IRClass, private ivars: IRExpr[]) {}
   eval(ctx: Interpreter): Value {
     return {
@@ -317,7 +323,7 @@ export class IRObjectExpr implements IRExpr {
   }
 }
 
-export class IRSendExpr implements IRExpr {
+export class IRSendExpr implements IRExpr, IRStmt {
   constructor(
     private selector: string,
     private target: IRExpr,
@@ -329,7 +335,7 @@ export class IRSendExpr implements IRExpr {
   }
 }
 
-export class IRSendDirectExpr implements IRExpr {
+export class IRSendDirectExpr implements IRExpr, IRStmt {
   constructor(
     private handler: IRHandler,
     private target: IRExpr,
@@ -340,14 +346,14 @@ export class IRSendDirectExpr implements IRExpr {
   }
 }
 
-export class IRUseExpr implements IRExpr {
+export class IRUseExpr implements IRExpr, IRStmt {
   constructor(private key: string) {}
   eval(ctx: Interpreter): Value {
     return ctx.use(this.key)
   }
 }
 
-export class IRModuleExpr implements IRExpr {
+export class IRModuleExpr implements IRExpr, IRStmt {
   constructor(private key: string) {}
   eval(ctx: Interpreter): Value {
     return ctx.getModule(this.key)
@@ -369,33 +375,47 @@ class Return {
   }
 }
 
+export interface IRStmt {
+  eval(ctx: Interpreter): void | Value
+}
+
+export class IRAssignStmt implements IRStmt {
+  constructor(private index: number, private value: IRExpr) {}
+  eval(ctx: Interpreter): void | Value {
+    ctx.setLocal(this.index, this.value.eval(ctx))
+  }
+}
+
+export class IRReturnStmt implements IRStmt {
+  constructor(private value: IRExpr) {}
+  eval(ctx: Interpreter): void | Value {
+    throw new Return(ctx, this.value.eval(ctx))
+  }
+}
+
+export class IRProvideStmt implements IRStmt {
+  constructor(private key: string, private value: IRExpr) {}
+  eval(ctx: Interpreter): void | Value {
+    ctx.provide(this.key, this.value.eval(ctx))
+  }
+}
+
+export class IRDeferStmt implements IRStmt {
+  constructor(private body: IRStmt[]) {}
+  eval(ctx: Interpreter): void | Value {
+    ctx.defer(this.body)
+  }
+}
+
 function body(ctx: Interpreter, stmts: IRStmt[]): Value {
   let result = unit
-  const defers: IRStmt[][] = []
   try {
     for (const stmt of stmts) {
-      switch (stmt.tag) {
-        case "assign":
-          ctx.setLocal(stmt.index, stmt.value.eval(ctx))
-          break
-        case "return":
-          throw new Return(ctx, stmt.value.eval(ctx))
-        case "expr":
-          result = stmt.value.eval(ctx)
-          break
-        case "provide":
-          ctx.provide(stmt.key, stmt.value.eval(ctx))
-          break
-        case "defer":
-          defers.push(stmt.body)
-          break
-      }
+      result = stmt.eval(ctx) || unit
     }
     return result
   } finally {
-    for (const defer of defers) {
-      body(ctx, defer)
-    }
+    ctx.resolveDefers()
   }
 }
 
