@@ -3,7 +3,9 @@ import {
   IRExpr,
   IRHandler,
   IRIvarExpr,
+  IRLazyHandler,
   IRLocalExpr,
+  IRObjectHandler,
   IRSelfExpr,
 } from "./interpreter"
 
@@ -65,7 +67,8 @@ export class NilInstance implements Instance {
 
 export class ObjectInstance implements Instance {
   private ivarMap = new Map<string, ScopeRecord>()
-  private placeholderHandlers: { selector: string; handler: IRHandler }[] = []
+  private placeholderHandlers: { selector: string; handler: IRLazyHandler }[] =
+    []
   readonly ivars: IRExpr[] = []
   constructor(private parentScope: Scope) {}
   lookup(key: string): IRExpr {
@@ -81,22 +84,14 @@ export class ObjectInstance implements Instance {
     return new IRSelfExpr()
   }
   getPlaceholderHandler(selector: string): IRHandler {
-    const handler: IRHandler = { tag: "object", body: [], params: [] }
+    const handler = new IRLazyHandler()
     this.placeholderHandlers.push({ selector, handler })
     return handler
   }
   compileSelfHandlers(cls: IRClass) {
     for (const placeholder of this.placeholderHandlers) {
       const handler = cls.get(placeholder.selector)
-      /* istanbul ignore next */
-      if (
-        placeholder.handler.tag === "primitive" ||
-        handler.tag === "primitive"
-      ) {
-        throw new Error("unreachable")
-      }
-      placeholder.handler.body = handler.body
-      placeholder.handler.params = handler.params
+      placeholder.handler.replace(handler)
     }
   }
 }

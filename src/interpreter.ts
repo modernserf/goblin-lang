@@ -32,6 +32,11 @@ export class IRClass {
     this.elseHandler = handler
     return this
   }
+  addFrame(selector: string, params: IRParam[], body: IRStmt[]): this {
+    // allow overwriting of methods
+    this.handlers.set(selector, new IRObjectHandler(params, body))
+    return this
+  }
   addPrimitive(
     selector: string,
     fn: (value: any, args: Value[], ctx: Interpreter) => Value
@@ -40,19 +45,10 @@ export class IRClass {
     if (this.handlers.has(selector)) {
       throw new Error(`duplicate selector: ${selector}`)
     }
-    this.handlers.set(selector, { tag: "primitive", fn })
+    this.handlers.set(selector, new IRPrimitiveHandler(fn))
     return this
   }
 }
-
-export type IRHandler =
-  | { tag: "object"; body: IRStmt[]; params: IRParam[] }
-  | { tag: "primitive"; fn: IRPrimitiveHandler }
-type IRPrimitiveHandler = (
-  value: PrimitiveValue,
-  args: Value[],
-  ctx: Interpreter
-) => Value
 
 export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "do" }
 
@@ -69,8 +65,7 @@ export type IRBlockHandler = {
 export type Value =
   | { tag: "object"; class: IRClass; ivars: Value[] }
   | { tag: "do"; class: IRBlockClass; ctx: Interpreter }
-  | { tag: "primitive"; class: IRClass; value: PrimitiveValue }
-type PrimitiveValue = any
+  | { tag: "primitive"; class: IRClass; value: any }
 
 // TODO: RuntimeError base class
 export class NoHandlerError {
@@ -219,39 +214,51 @@ function unloadArgs(
   })
 }
 
-function sendHandler(
-  sender: Interpreter,
-  target: Value,
-  handler: IRHandler,
-  args: IRArg[]
-): Value {
-  switch (handler.tag) {
-    case "primitive": {
-      const targetValue = target.tag === "primitive" ? target.value : null
-      const argValues = args.map((arg) => {
-        switch (arg.tag) {
-          case "value":
-            return arg.value.eval(sender)
-          case "do":
-            return { tag: "do", class: arg.class, ctx: sender } as const
-          /* istanbul ignore next */
-          default:
-            throw "todo: handle var args in primitive fns"
-        }
-      })
-      return handler.fn(targetValue, argValues, sender)
+export interface IRHandler {
+  send(sender: Interpreter, target: Value, args: IRArg[]): Value
+}
+export class IRLazyHandler implements IRHandler {
+  private handler: IRHandler | null = null
+  replace(handler: IRHandler) {
+    this.handler = handler
+  }
+  send(sender: Interpreter, target: Value, args: IRArg[]): Value {
+    if (!this.handler) throw new Error("missing lazy handler")
+    return this.handler.send(sender, target, args)
+  }
+}
+export class IRObjectHandler implements IRHandler {
+  constructor(private params: IRParam[], private body: IRStmt[]) {}
+  send(sender: Interpreter, target: Value, args: IRArg[]): Value {
+    const child = sender.createChild(target)
+    loadArgs(sender, child, 0, this.params, args)
+    try {
+      const result = Return.handleReturn(child, () => body(child, this.body))
+      return result
+    } finally {
+      unloadArgs(sender, child, 0, args)
     }
-    case "object":
-      const child = sender.createChild(target)
-      loadArgs(sender, child, 0, handler.params, args)
-      try {
-        const result = Return.handleReturn(child, () =>
-          body(child, handler.body)
-        )
-        return result
-      } finally {
-        unloadArgs(sender, child, 0, args)
+  }
+}
+
+export class IRPrimitiveHandler implements IRHandler {
+  constructor(
+    private fn: (value: any, args: Value[], ctx: Interpreter) => Value
+  ) {}
+  send(sender: Interpreter, target: Value, args: IRArg[]): Value {
+    const targetValue = target.tag === "primitive" ? target.value : null
+    const argValues = args.map((arg) => {
+      switch (arg.tag) {
+        case "value":
+          return arg.value.eval(sender)
+        case "do":
+          return { tag: "do", class: arg.class, ctx: sender } as const
+        /* istanbul ignore next */
+        default:
+          throw "todo: handle var args in primitive fns"
       }
+    })
+    return this.fn(targetValue, argValues, sender)
   }
 }
 
@@ -278,7 +285,7 @@ export function send(
   }
 
   const handler = target.class.get(selector)
-  return sendHandler(sender, target, handler, args)
+  return handler.send(sender, target, args)
 }
 
 export interface IRExpr {
@@ -342,7 +349,7 @@ export class IRSendDirectExpr implements IRExpr, IRStmt {
     private args: IRArg[]
   ) {}
   eval(ctx: Interpreter): Value {
-    return sendHandler(ctx, this.target.eval(ctx), this.handler, this.args)
+    return this.handler.send(ctx, this.target.eval(ctx), this.args)
   }
 }
 

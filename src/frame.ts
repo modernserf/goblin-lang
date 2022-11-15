@@ -1,7 +1,6 @@
 import {
   IRClass,
   IRExpr,
-  IRHandler,
   IRIvarExpr,
   IRLocalExpr,
   IRObjectExpr,
@@ -22,25 +21,23 @@ export function frame(
   const cachedClass = frameCache.get(selector)
   if (cachedClass) return constObject(cachedClass, ivars)
 
-  // adding to map instead of directly to class because we want to overwrite previous methods
-  const handlers = new Map<string, IRHandler>()
-  const frameClass = new IRClass(handlers)
+  const frameClass = new IRClass()
   // constructor: [x: 1 y: 2]{x: 3 y: 4}
-  handlers.set(selector, {
-    tag: "object",
-    params: args.map(() => ({ tag: "value" })),
-    body: [
+  frameClass.addFrame(
+    selector,
+    args.map(() => ({ tag: "value" })),
+    [
       new IRObjectExpr(
         frameClass,
         args.map((_, index) => new IRLocalExpr(index))
       ),
-    ],
-  })
+    ]
+  )
   // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
-  handlers.set(":", {
-    tag: "object",
-    params: [{ tag: "do" }],
-    body: [
+  frameClass.addFrame(
+    ":",
+    [{ tag: "do" }],
+    [
       new IRSendExpr(
         selector,
         $0,
@@ -49,21 +46,17 @@ export function frame(
           value: new IRIvarExpr(index),
         }))
       ),
-    ],
-  })
+    ]
+  )
   for (const [index, { key }] of args.entries()) {
     const ivar: IRExpr = new IRIvarExpr(index)
     // getter: [x: 1 y: 2]{x}
-    handlers.set(key, {
-      tag: "object",
-      params: [],
-      body: [ivar],
-    })
+    frameClass.addFrame(key, [], [ivar])
     // setter: [x: 1 y: 2]{x: 3}
-    handlers.set(`${key}:`, {
-      tag: "object",
-      params: [{ tag: "value" }],
-      body: [
+    frameClass.addFrame(
+      `${key}:`,
+      [{ tag: "value" }],
+      [
         new IRObjectExpr(
           frameClass,
           args.map((_, j) => {
@@ -74,22 +67,22 @@ export function frame(
             }
           })
         ),
-      ],
-    })
+      ]
+    )
     // updater: [x: 1 y: 2]{->x: {:x} x + 1}
     // [on {->x: do f} self{x: f{: x}}]
-    handlers.set(`-> ${key}:`, {
-      tag: "object",
-      params: [{ tag: "do" }],
-      body: [
-        new IRSendDirectExpr(handlers.get(`${key}:`)!, new IRSelfExpr(), [
+    frameClass.addFrame(
+      `-> ${key}:`,
+      [{ tag: "do" }],
+      [
+        new IRSendDirectExpr(frameClass.get(`${key}:`), new IRSelfExpr(), [
           {
             tag: "value",
             value: new IRSendExpr(":", $0, [{ tag: "value", value: ivar }]),
           },
         ]),
-      ],
-    })
+      ]
+    )
   }
   frameCache.set(selector, frameClass)
   return constObject(frameClass, ivars)

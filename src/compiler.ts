@@ -31,6 +31,7 @@ import {
   IRReturnStmt,
   IRDeferStmt,
   IRProvideStmt,
+  IRObjectHandler,
 } from "./interpreter"
 import { constObject } from "./optimize"
 import {
@@ -115,16 +116,16 @@ class Handler {
   private scope = new BasicScope(this.instance, this.locals)
   constructor(private instance: Instance, private locals: Locals) {}
   handler(handler: ASTHandler, selfBinding: string | null): IRHandler {
-    const out: IRHandler = { tag: "object", body: [], params: [] }
-
+    const body: IRStmt[] = []
+    const params: IRParam[] = []
     for (const [argIndex, p] of handler.params.entries()) {
-      out.params.push(param(p))
-      out.body.push(...this.param(argIndex, p))
+      params.push(param(p))
+      body.push(...this.param(argIndex, p))
     }
 
-    out.body.push(...this.selfBinding(selfBinding))
-    out.body.push(...this.body(handler.body))
-    return out
+    body.push(...this.selfBinding(selfBinding))
+    body.push(...this.body(handler.body))
+    return new IRObjectHandler(params, body)
   }
   param(offset: number, param: ASTParam): IRStmt[] {
     switch (param.tag) {
@@ -352,11 +353,7 @@ class RootStmt extends Stmt {
     const ivars: IRExpr[] = []
     for (const [i, [key, value]] of Array.from(this.exports).entries()) {
       ivars[i] = value
-      exportClass.add(key, {
-        tag: "object",
-        params: [],
-        body: [new IRIvarExpr(i)],
-      })
+      exportClass.add(key, new IRObjectHandler([], [new IRIvarExpr(i)]))
     }
 
     body.push(new IRObjectExpr(exportClass, ivars))
