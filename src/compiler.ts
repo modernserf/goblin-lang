@@ -14,7 +14,6 @@ import {
   IRClass,
   IRHandler,
   IRBlockClass,
-  IRBlockHandler,
   IRParam,
   Value,
   IRConstantExpr,
@@ -80,26 +79,23 @@ class Send {
     handlers: Map<string, ASTHandler>,
     elseHandler: ASTHandler | null
   ): IRBlockClass {
-    const objectClass: IRBlockClass = { handlers: new Map(), else: null }
+    const objectClass = new IRBlockClass()
     if (elseHandler) {
-      const offset = this.locals.allocate(0)
-      objectClass.else = {
-        body: this.body(elseHandler.body),
-        offset,
-        params: [],
-      }
+      objectClass.addElse(this.body(elseHandler.body))
     }
     for (const [selector, handler] of handlers) {
       const paramScope = new Handler(this.instance, this.locals)
       // block params use parent scope, and do not start at zero
       const offset = this.locals.allocate(handler.params.length)
-      const out: IRBlockHandler = { body: [], offset, params: [] }
+      const body: IRStmt[] = []
+      const params: IRParam[] = []
       for (const [argIndex, p] of handler.params.entries()) {
-        out.params.push(param(p))
-        out.body.push(...paramScope.param(offset + argIndex, p))
+        params.push(param(p))
+        body.push(...paramScope.param(offset + argIndex, p))
       }
-      out.body.push(...this.body(handler.body))
-      objectClass.handlers.set(selector, out)
+
+      body.push(...this.body(handler.body))
+      objectClass.add(selector, offset, params, body)
     }
     return objectClass
   }

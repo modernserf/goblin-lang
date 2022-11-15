@@ -52,16 +52,6 @@ export class IRClass {
 
 export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "do" }
 
-export type IRBlockClass = {
-  handlers: Map<string, IRBlockHandler>
-  else: IRBlockHandler | null
-}
-export type IRBlockHandler = {
-  body: IRStmt[]
-  offset: number
-  params: IRParam[]
-}
-
 export type Value =
   | { tag: "object"; class: IRClass; ivars: Value[] }
   | { tag: "do"; class: IRBlockClass; ctx: Interpreter }
@@ -262,6 +252,65 @@ export class IRPrimitiveHandler implements IRHandler {
   }
 }
 
+export class IRBlockClass {
+  constructor(
+    private handlers: Map<string, IRBlockHandler> = new Map(),
+    private elseHandler: IRBlockHandler | null = null
+  ) {}
+  add(
+    selector: string,
+    offset: number,
+    params: IRParam[],
+    body: IRStmt[]
+  ): this {
+    /* istanbul ignore next */
+    if (this.handlers.has(selector)) {
+      throw new Error(`duplicate selector: ${selector}`)
+    }
+    this.handlers.set(selector, new IROnBlockHandler(offset, params, body))
+    return this
+  }
+  addElse(body: IRStmt[]): this {
+    /* istanbul ignore next */
+    if (this.elseHandler) {
+      throw new Error(`duplicate else handler`)
+    }
+    this.elseHandler = new IRElseBlockHandler(body)
+    return this
+  }
+  get(selector: string) {
+    const handler = this.handlers.get(selector)
+    if (handler) return handler
+    if (this.elseHandler) return this.elseHandler
+    throw new NoHandlerError(selector)
+  }
+}
+
+export interface IRBlockHandler {
+  send(sender: Interpreter, ctx: Interpreter, args: IRArg[]): Value
+}
+
+class IRElseBlockHandler implements IRBlockHandler {
+  constructor(private body: IRStmt[]) {}
+  send(sender: Interpreter, ctx: Interpreter, args: IRArg[]): Value {
+    return body(ctx, this.body)
+  }
+}
+
+class IROnBlockHandler implements IRBlockHandler {
+  constructor(
+    private offset: number,
+    private params: IRParam[],
+    private body: IRStmt[]
+  ) {}
+  send(sender: Interpreter, ctx: Interpreter, args: IRArg[]): Value {
+    loadArgs(sender, ctx, this.offset, this.params, args)
+    const result = body(ctx, this.body)
+    unloadArgs(sender, ctx, this.offset, args)
+    return result
+  }
+}
+
 export function send(
   sender: Interpreter,
   selector: string,
@@ -270,18 +319,8 @@ export function send(
 ): Value {
   if (target.tag === "do") {
     const ctx = target.ctx
-    const handler = target.class.handlers.get(selector)
-    if (!handler) {
-      if (target.class.else) {
-        return body(ctx, target.class.else.body)
-      }
-      throw new NoHandlerError(selector)
-    }
-
-    loadArgs(sender, ctx, handler.offset, handler.params, args)
-    const result = body(ctx, handler.body)
-    unloadArgs(sender, ctx, handler.offset, args)
-    return result
+    const handler = target.class.get(selector)
+    return handler.send(sender, ctx, args)
   }
 
   const handler = target.class.get(selector)
