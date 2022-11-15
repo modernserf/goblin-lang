@@ -1,16 +1,19 @@
-import { IRClass, IRExpr, Value } from "./interpreter"
+import {
+  IRClass,
+  IRConstantExpr,
+  IRExpr,
+  IRObjectExpr,
+  Value,
+} from "./interpreter"
 
 export function constObject(cls: IRClass, ivars: IRExpr[]): IRExpr {
   const constIvars: Value[] = []
   for (const ivar of ivars) {
-    if (ivar.tag === "constant") {
+    if (ivar instanceof IRConstantExpr) {
       constIvars.push(ivar.value)
     } else {
-      return { tag: "object", class: cls, ivars: ivars }
+      return new IRObjectExpr(cls, ivars)
     }
   }
-  return {
-    tag: "constant",
-    value: { tag: "object", class: cls, ivars: constIvars },
-  }
+  return new IRConstantExpr({ tag: "object", class: cls, ivars: constIvars })
 }

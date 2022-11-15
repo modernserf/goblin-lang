@@ -1,4 +1,11 @@
-import { IRClass, IRExpr, IRHandler, NoHandlerError } from "./interpreter"
+import {
+  IRClass,
+  IRExpr,
+  IRHandler,
+  IRIvarExpr,
+  IRLocalExpr,
+  IRSelfExpr,
+} from "./interpreter"
 
 export type ScopeType = "let" | "var" | "do"
 export type ScopeRecord = { index: number; type: ScopeType }
@@ -63,15 +70,15 @@ export class ObjectInstance implements Instance {
   constructor(private parentScope: Scope) {}
   lookup(key: string): IRExpr {
     const found = this.ivarMap.get(key)
-    if (found) return { tag: "ivar", index: found.index }
+    if (found) return new IRIvarExpr(found.index)
 
     const index = this.ivars.length
     this.ivars.push(this.parentScope.lookupOuterLet(key))
     this.ivarMap.set(key, { index, type: "let" })
-    return { tag: "ivar", index }
+    return new IRIvarExpr(index)
   }
   self(): IRExpr {
-    return { tag: "self" }
+    return new IRSelfExpr()
   }
   getPlaceholderHandler(selector: string): IRHandler {
     const handler: IRHandler = { tag: "object", body: [], params: [] }
@@ -104,7 +111,7 @@ export class Scope {
         throw new BlockReferenceError(key)
       case "var":
       case "let":
-        return { tag: "local", index: res.index }
+        return new IRLocalExpr(res.index)
     }
   }
   lookupOuterLet(key: string): IRExpr {
@@ -116,7 +123,7 @@ export class Scope {
       case "var":
         throw new OuterScopeVarError(key)
       case "let":
-        return { tag: "local", index: res.index }
+        return new IRLocalExpr(res.index)
     }
   }
   lookupVarIndex(key: string): number {
@@ -151,10 +158,10 @@ export class SendScope extends Scope {
       case "var":
         if (this.borrows.has(key)) throw new VarDoubleBorrowError()
         this.borrows.add(key)
-        return { tag: "local", index: res.index }
+        return new IRLocalExpr(res.index)
       case "do":
       case "let":
-        return { tag: "local", index: res.index }
+        return new IRLocalExpr(res.index)
     }
   }
   lookupVarIndex(key: string): number {

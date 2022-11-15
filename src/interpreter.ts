@@ -7,24 +7,6 @@ export type IRStmt =
   | { tag: "provide"; key: string; value: IRExpr }
   | { tag: "defer"; body: IRStmt[] }
 
-export type IRExpr =
-  // TODO: bindings to imports & root-level values use this instead of local/ivar
-  // so that objects don't have to capture them
-  // when modules are linked together, all values are put in one big table
-  // & each module has an offset
-  // | { tag: "module"; index: number; module: string }
-  | { tag: "local"; index: number }
-  | { tag: "ivar"; index: number }
-  | { tag: "self" }
-  | { tag: "constant"; value: Value }
-  | { tag: "object"; class: IRClass; ivars: IRExpr[] }
-  | { tag: "send"; selector: string; target: IRExpr; args: IRArg[] }
-  // TODO: compiler pass that converts all statically resolvable sends to sendDirect
-  // eg to self, to primitive literals, eventually tracking across known bindings
-  | { tag: "sendDirect"; handler: IRHandler; target: IRExpr; args: IRArg[] }
-  | { tag: "using"; key: string }
-  | { tag: "module"; key: string }
-
 export type IRArg =
   | { tag: "value"; value: IRExpr }
   | { tag: "var"; index: number }
@@ -196,7 +178,7 @@ function loadArgs(
     switch (arg.tag) {
       case "value": {
         if (param.tag === "var") throw new ArgMismatchError(param.tag, arg.tag)
-        target.setLocal(offset + i, expr(sender, arg.value))
+        target.setLocal(offset + i, arg.value.eval(sender))
         return
       }
       case "var": {
@@ -243,7 +225,7 @@ function sendHandler(
       const argValues = args.map((arg) => {
         switch (arg.tag) {
           case "value":
-            return expr(sender, arg.value)
+            return arg.value.eval(sender)
           case "do":
             return { tag: "do", class: arg.class, ctx: sender } as const
           /* istanbul ignore next */
@@ -293,35 +275,82 @@ export function send(
   return sendHandler(sender, target, handler, args)
 }
 
-function expr(ctx: Interpreter, value: IRExpr): Value {
-  switch (value.tag) {
-    case "self":
-      return ctx.self
-    case "constant":
-      return value.value
-    case "ivar":
-      return ctx.getIvar(value.index)
-    case "local":
-      return ctx.getLocal(value.index)
-    case "object":
-      return {
-        tag: "object",
-        class: value.class,
-        ivars: value.ivars.map((ivar) => expr(ctx, ivar)),
-      }
-    case "send":
-      return send(ctx, value.selector, expr(ctx, value.target), value.args)
-    case "sendDirect":
-      return sendHandler(
-        ctx,
-        expr(ctx, value.target),
-        value.handler,
-        value.args
-      )
-    case "using":
-      return ctx.use(value.key)
-    case "module":
-      return ctx.getModule(value.key)
+export interface IRExpr {
+  eval(ctx: Interpreter): Value
+}
+
+export class IRSelfExpr implements IRExpr {
+  eval(ctx: Interpreter): Value {
+    return ctx.self
+  }
+}
+// TODO: Value implements IRExpr directly
+export class IRConstantExpr implements IRExpr {
+  constructor(readonly value: Value) {}
+  eval(ctx: Interpreter): Value {
+    return this.value
+  }
+}
+
+export class IRIvarExpr implements IRExpr {
+  constructor(private index: number) {}
+  eval(ctx: Interpreter): Value {
+    return ctx.getIvar(this.index)
+  }
+}
+
+export class IRLocalExpr implements IRExpr {
+  constructor(private index: number) {}
+  eval(ctx: Interpreter): Value {
+    return ctx.getLocal(this.index)
+  }
+}
+
+export class IRObjectExpr implements IRExpr {
+  constructor(private cls: IRClass, private ivars: IRExpr[]) {}
+  eval(ctx: Interpreter): Value {
+    return {
+      tag: "object",
+      class: this.cls,
+      ivars: this.ivars.map((ivar) => ivar.eval(ctx)),
+    }
+  }
+}
+
+export class IRSendExpr implements IRExpr {
+  constructor(
+    private selector: string,
+    private target: IRExpr,
+    private args: IRArg[]
+  ) {}
+  eval(ctx: Interpreter): Value {
+    // TODO: inline send
+    return send(ctx, this.selector, this.target.eval(ctx), this.args)
+  }
+}
+
+export class IRSendDirectExpr implements IRExpr {
+  constructor(
+    private handler: IRHandler,
+    private target: IRExpr,
+    private args: IRArg[]
+  ) {}
+  eval(ctx: Interpreter): Value {
+    return sendHandler(ctx, this.target.eval(ctx), this.handler, this.args)
+  }
+}
+
+export class IRUseExpr implements IRExpr {
+  constructor(private key: string) {}
+  eval(ctx: Interpreter): Value {
+    return ctx.use(this.key)
+  }
+}
+
+export class IRModuleExpr implements IRExpr {
+  constructor(private key: string) {}
+  eval(ctx: Interpreter): Value {
+    return ctx.getModule(this.key)
   }
 }
 
@@ -347,16 +376,15 @@ function body(ctx: Interpreter, stmts: IRStmt[]): Value {
     for (const stmt of stmts) {
       switch (stmt.tag) {
         case "assign":
-          ctx.setLocal(stmt.index, expr(ctx, stmt.value))
-          result = unit
+          ctx.setLocal(stmt.index, stmt.value.eval(ctx))
           break
         case "return":
-          throw new Return(ctx, expr(ctx, stmt.value))
+          throw new Return(ctx, stmt.value.eval(ctx))
         case "expr":
-          result = expr(ctx, stmt.value)
+          result = stmt.value.eval(ctx)
           break
         case "provide":
-          ctx.provide(stmt.key, expr(ctx, stmt.value))
+          ctx.provide(stmt.key, stmt.value.eval(ctx))
           break
         case "defer":
           defers.push(stmt.body)

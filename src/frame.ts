@@ -1,7 +1,17 @@
-import { IRClass, IRExpr, IRHandler } from "./interpreter"
+import {
+  IRClass,
+  IRExpr,
+  IRHandler,
+  IRIvarExpr,
+  IRLocalExpr,
+  IRObjectExpr,
+  IRSelfExpr,
+  IRSendDirectExpr,
+  IRSendExpr,
+} from "./interpreter"
 import { constObject } from "./optimize"
 
-const $0: IRExpr = { tag: "local", index: 0 }
+const $0: IRExpr = new IRLocalExpr(0)
 
 const frameCache = new Map<string, IRClass>()
 export function frame(
@@ -22,11 +32,10 @@ export function frame(
     body: [
       {
         tag: "return",
-        value: {
-          tag: "object",
-          class: frameClass,
-          ivars: args.map((_, index) => ({ tag: "local", index })),
-        },
+        value: new IRObjectExpr(
+          frameClass,
+          args.map((_, index) => new IRLocalExpr(index))
+        ),
       },
     ],
   })
@@ -37,20 +46,19 @@ export function frame(
     body: [
       {
         tag: "return",
-        value: {
-          tag: "send",
-          selector: selector,
-          target: { tag: "local", index: 0 },
-          args: args.map((_, index) => ({
+        value: new IRSendExpr(
+          selector,
+          $0,
+          args.map((_, index) => ({
             tag: "value",
-            value: { tag: "ivar", index },
-          })),
-        },
+            value: new IRIvarExpr(index),
+          }))
+        ),
       },
     ],
   })
   for (const [index, { key }] of args.entries()) {
-    const ivar: IRExpr = { tag: "ivar", index }
+    const ivar: IRExpr = new IRIvarExpr(index)
     // getter: [x: 1 y: 2]{x}
     handlers.set(key, {
       tag: "object",
@@ -64,17 +72,16 @@ export function frame(
       body: [
         {
           tag: "return",
-          value: {
-            tag: "object",
-            class: frameClass,
-            ivars: args.map((_, j) => {
+          value: new IRObjectExpr(
+            frameClass,
+            args.map((_, j) => {
               if (j === index) {
                 return $0
               } else {
-                return { tag: "ivar", index: j }
+                return new IRIvarExpr(j)
               }
-            }),
-          },
+            })
+          ),
         },
       ],
     })
@@ -86,22 +93,16 @@ export function frame(
       body: [
         {
           tag: "return",
-          value: {
-            tag: "sendDirect",
-            handler: handlers.get(`${key}:`)!,
-            target: { tag: "self" },
-            args: [
+          value: new IRSendDirectExpr(
+            handlers.get(`${key}:`)!,
+            new IRSelfExpr(),
+            [
               {
                 tag: "value",
-                value: {
-                  tag: "send",
-                  selector: ":",
-                  target: $0,
-                  args: [{ tag: "value", value: ivar }],
-                },
+                value: new IRSendExpr(":", $0, [{ tag: "value", value: ivar }]),
               },
-            ],
-          },
+            ]
+          ),
         },
       ],
     })

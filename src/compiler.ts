@@ -16,8 +16,17 @@ import {
   IRBlockClass,
   IRBlockHandler,
   IRParam,
-  unitClass,
   Value,
+  IRConstantExpr,
+  IRObjectExpr,
+  IRIvarExpr,
+  IRModuleExpr,
+  IRUseExpr,
+  IRSendExpr,
+  unit,
+  IRSelfExpr,
+  IRLocalExpr,
+  IRSendDirectExpr,
 } from "./interpreter"
 import { constObject } from "./optimize"
 import {
@@ -39,10 +48,10 @@ class Send {
     const args = astArgs.map((v) => this.arg(v))
     if (astTarget.tag === "self") {
       const handler = this.instance.getPlaceholderHandler(selector)
-      return { tag: "sendDirect", target: astTarget, handler, args }
+      return new IRSendDirectExpr(handler, new IRSelfExpr(), args)
     } else {
       const target = this.expr(astTarget)
-      return { tag: "send", target, selector, args }
+      return new IRSendExpr(selector, target, args)
     }
   }
   private arg(arg: ASTArg): IRArg {
@@ -121,7 +130,7 @@ class Handler {
             this.useLetArg(param.binding.value, offset)
             return []
           case "object": {
-            const local: IRExpr = { tag: "local", index: offset }
+            const local: IRExpr = new IRLocalExpr(offset)
             return this.let(param.binding, local)
           }
         }
@@ -137,7 +146,7 @@ class Handler {
     if (!selfBinding) return []
     return new Let(this.locals).compile(
       { tag: "identifier", value: selfBinding },
-      { tag: "self" }
+      new IRSelfExpr()
     )
   }
   private body(stmts: ASTStmt[]): IRStmt[] {
@@ -214,17 +223,11 @@ class Expr {
         return constObject(objectClass, instance.ivars)
       }
       case "unit":
-        return {
-          tag: "constant",
-          value: { tag: "object", class: unitClass, ivars: [] },
-        }
+        return new IRConstantExpr(unit)
     }
   }
   private literal(cls: IRClass, value: any): IRExpr {
-    return {
-      tag: "constant",
-      value: { tag: "primitive", class: cls, value },
-    }
+    return new IRConstantExpr({ tag: "primitive", class: cls, value })
   }
 }
 
@@ -241,12 +244,7 @@ class Let {
         return [
           { tag: "assign", index: record.index, value },
           ...binding.params.flatMap((param) =>
-            this.compile(param.value, {
-              tag: "send",
-              selector: param.key,
-              target: value,
-              args: [],
-            })
+            this.compile(param.value, new IRSendExpr(param.key, value, []))
           ),
         ]
     }
@@ -312,15 +310,12 @@ class Stmt {
             case "var":
               throw "todo: using do/var"
             case "binding":
-              return this.let(param.value.binding, {
-                tag: "using",
-                key: param.key,
-              })
+              return this.let(param.value.binding, new IRUseExpr(param.key))
           }
         })
       }
       case "import":
-        return this.let(stmt.binding, { tag: "module", key: stmt.source.value })
+        return this.let(stmt.binding, new IRModuleExpr(stmt.source.value))
       case "defer":
         return [{ tag: "defer", body: this.body(stmt.body) }]
       case "return":
@@ -361,13 +356,13 @@ class RootStmt extends Stmt {
       exportClass.add(key, {
         tag: "object",
         params: [],
-        body: [{ tag: "expr", value: { tag: "ivar", index: i } }],
+        body: [{ tag: "expr", value: new IRIvarExpr(i) }],
       })
     }
 
     body.push({
       tag: "expr",
-      value: { tag: "object", class: exportClass, ivars },
+      value: new IRObjectExpr(exportClass, ivars),
     })
     return body
   }
@@ -406,7 +401,7 @@ export function coreModule(stmts: ASTStmt[], nativeValue: Value): IRStmt[] {
     {
       tag: "assign",
       index: rec.index,
-      value: { tag: "constant", value: nativeValue },
+      value: new IRConstantExpr(nativeValue),
     },
     ...stmtScope.module(stmts),
   ]
