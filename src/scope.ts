@@ -80,11 +80,7 @@ export class ObjectInstance implements Instance {
   }
   compileSelfHandlers(cls: IRClass) {
     for (const placeholder of this.placeholderHandlers) {
-      const handler = cls.handlers.get(placeholder.selector)
-      if (!handler) {
-        // TODO: use elseHandler if available
-        throw new NoHandlerError(placeholder.selector)
-      }
+      const handler = cls.get(placeholder.selector)
       /* istanbul ignore next */
       if (
         placeholder.handler.tag === "primitive" ||

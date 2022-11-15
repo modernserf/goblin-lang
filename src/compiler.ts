@@ -199,18 +199,15 @@ class Expr {
         )
       case "object": {
         const instance = new ObjectInstance(this.scope)
-        const objectClass: IRClass = {
-          handlers: new Map(),
-          else: null,
-        }
+        const objectClass = new IRClass()
         if (value.else) {
           const h = new Handler(instance, new Locals(value.else.params.length))
-          objectClass.else = h.handler(value.else, selfBinding)
+          objectClass.addElse(h.handler(value.else, selfBinding))
         }
 
         for (const [selector, handler] of value.handlers) {
           const h = new Handler(instance, new Locals(handler.params.length))
-          objectClass.handlers.set(selector, h.handler(handler, selfBinding))
+          objectClass.add(selector, h.handler(handler, selfBinding))
         }
 
         instance.compileSelfHandlers(objectClass)
@@ -357,19 +354,17 @@ class RootStmt extends Stmt {
   private exports = new Map<string, IRExpr>()
   module(stmts: ASTStmt[]): IRStmt[] {
     const body = stmts.flatMap((stmt) => this.stmt(stmt))
-    const exportClass: IRClass = {
-      handlers: new Map(),
-      else: null,
-    }
+    const exportClass = new IRClass()
     const ivars: IRExpr[] = []
     for (const [i, [key, value]] of Array.from(this.exports).entries()) {
       ivars[i] = value
-      exportClass.handlers.set(key, {
+      exportClass.add(key, {
         tag: "object",
         params: [],
         body: [{ tag: "expr", value: { tag: "ivar", index: i } }],
       })
     }
+
     body.push({
       tag: "expr",
       value: { tag: "object", class: exportClass, ivars },

@@ -1,35 +1,8 @@
-import {
-  IRClass,
-  Value,
-  IRHandler,
-  IRExpr,
-  unit,
-  Interpreter,
-  send,
-} from "./interpreter"
+import { IRClass, Value, IRExpr, unit, send } from "./interpreter"
 
 export class PrimitiveTypeError {
   constructor(readonly expected: string) {}
 }
-
-export class IRClassBuilder {
-  private methods = new Map<string, IRHandler>()
-  addPrimitive(
-    key: string,
-    fn: (value: any, args: Value[], ctx: Interpreter) => Value
-  ): this {
-    /* istanbul ignore next */
-    if (this.methods.has(key)) throw new Error("duplicate method")
-    this.methods.set(key, { tag: "primitive", fn })
-    return this
-  }
-  build(): IRClass {
-    return { handlers: this.methods, else: null }
-  }
-}
-
-// locals (including method args)
-const $0: IRExpr = { tag: "local", index: 0 }
 
 export function boolValue(arg: Value): boolean {
   if (arg.tag !== "primitive" || arg.class !== boolClass) {
@@ -38,7 +11,7 @@ export function boolValue(arg: Value): boolean {
   return arg.value
 }
 
-export const boolClass: IRClass = new IRClassBuilder()
+export const boolClass: IRClass = new IRClass()
   .addPrimitive(":", (value, [arg], ctx) => {
     const selector = value ? "true" : "false"
     return send(ctx, selector, arg, [])
@@ -60,8 +33,6 @@ export const boolClass: IRClass = new IRClassBuilder()
     return boolValue(arg) || self ? trueVal : falseVal
   })
 
-  .build()
-
 export const trueVal: Value = {
   tag: "primitive",
   value: true,
@@ -80,7 +51,7 @@ export function strValue(arg: Value): string {
   return arg.value
 }
 
-export const stringClass: IRClass = new IRClassBuilder()
+export const stringClass: IRClass = new IRClass()
   .addPrimitive("=:", (self, [arg]) => {
     if (arg.tag === "primitive" && arg.class === stringClass) {
       return arg.value === self ? trueVal : falseVal
@@ -101,7 +72,6 @@ export const stringClass: IRClass = new IRClassBuilder()
       return unit
     }
   )
-  .build()
 
 export function intValue(arg: Value): number {
   if (arg.tag !== "primitive" || arg.class !== intClass) {
@@ -138,7 +108,7 @@ function numericCompare(
   throw new PrimitiveTypeError("integer")
 }
 
-export const intClass: IRClass = new IRClassBuilder()
+export const intClass: IRClass = new IRClass()
   .addPrimitive("+:", (self, [arg]) => {
     return numeric(self, arg, (a, b) => a + b)
   })
@@ -176,7 +146,6 @@ export const intClass: IRClass = new IRClassBuilder()
       return unit
     }
   )
-  .build()
 
 export function floatValue(arg: Value): number {
   if (
@@ -188,7 +157,7 @@ export function floatValue(arg: Value): number {
   throw new PrimitiveTypeError("float")
 }
 
-export const floatClass: IRClass = new IRClassBuilder()
+export const floatClass: IRClass = new IRClass()
   .addPrimitive("+:", (self, [arg]) => {
     return {
       tag: "primitive",
@@ -228,4 +197,3 @@ export const floatClass: IRClass = new IRClassBuilder()
   .addPrimitive(">=:", (self, [arg], ctx) => {
     return numericCompare(self, arg, (a, b) => a >= b)
   })
-  .build()

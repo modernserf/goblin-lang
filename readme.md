@@ -1,27 +1,5 @@
 # More pattern-matching / method-dispatch features
 
-## optional (as in Option type) / "nullable" handler args
-
-This one seems more 'clever' than useful
-
-```goblin
-let Foo := [
-	on {x: x y: ?y}
-		# ...
-]
-# becomes
-let Foo := [
-	on {x: x}
-		let y := Option{none}
-		# ...
-	on {x: x y: y}
-		let y := Option{some: y}
-		# ...
-	on {x: x y?: y}
-		# ...
-]
-```
-
 ## refutable patterns in bindings
 
 - Patterns with same selector must be grouped together

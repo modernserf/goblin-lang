@@ -30,10 +30,46 @@ export type IRArg =
   | { tag: "var"; index: number }
   | { tag: "do"; class: IRBlockClass }
 
-export type IRClass = {
-  handlers: Map<string, IRHandler>
-  else: IRHandler | null
+export class IRClass {
+  constructor(
+    private handlers: Map<string, IRHandler> = new Map(),
+    private elseHandler: IRHandler | null = null
+  ) {}
+  get(selector: string): IRHandler {
+    const handler = this.handlers.get(selector)
+    if (handler) return handler
+    if (this.elseHandler) return this.elseHandler
+    throw new NoHandlerError(selector)
+  }
+  add(selector: string, handler: IRHandler): this {
+    /* istanbul ignore next */
+    if (this.handlers.has(selector)) {
+      throw new Error(`duplicate selector: ${selector}`)
+    }
+    this.handlers.set(selector, handler)
+    return this
+  }
+  addElse(handler: IRHandler): this {
+    /* istanbul ignore next */
+    if (this.elseHandler) {
+      throw new Error(`duplicate else handler`)
+    }
+    this.elseHandler = handler
+    return this
+  }
+  addPrimitive(
+    selector: string,
+    fn: (value: any, args: Value[], ctx: Interpreter) => Value
+  ): this {
+    /* istanbul ignore next */
+    if (this.handlers.has(selector)) {
+      throw new Error(`duplicate selector: ${selector}`)
+    }
+    this.handlers.set(selector, { tag: "primitive", fn })
+    return this
+  }
 }
+
 export type IRHandler =
   | { tag: "object"; body: IRStmt[]; params: IRParam[] }
   | { tag: "primitive"; fn: IRPrimitiveHandler }
@@ -69,7 +105,7 @@ export class NoProviderError {
   constructor(readonly key: string) {}
 }
 
-export const unitClass: IRClass = { handlers: new Map(), else: null }
+export const unitClass: IRClass = new IRClass()
 export const unit: Value = { tag: "object", class: unitClass, ivars: [] }
 
 export class Modules {
@@ -154,6 +190,7 @@ function loadArgs(
 ) {
   args.forEach((arg, i) => {
     const param = params[i]
+    // TODO: is else sent with fewer params than args?
     /* istanbul ignore next */
     if (!param) throw new Error("missing param")
     switch (arg.tag) {
@@ -252,14 +289,7 @@ export function send(
     return result
   }
 
-  const handler = target.class.handlers.get(selector)
-  if (!handler) {
-    if (target.class.else) {
-      return sendHandler(sender, target, target.class.else, args)
-    }
-    throw new NoHandlerError(selector)
-  }
-
+  const handler = target.class.get(selector)
   return sendHandler(sender, target, handler, args)
 }
 

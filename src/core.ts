@@ -9,35 +9,31 @@ import { IRClass, IRStmt, unit, Value } from "./interpreter"
 import {
   intClass,
   intValue,
-  IRClassBuilder,
   strValue,
   trueVal,
   falseVal,
   boolValue,
 } from "./primitive"
 
-const cellInstance = new IRClassBuilder()
+const cellInstance = new IRClass()
   .addPrimitive("get", (self) => self.value)
   .addPrimitive("set:", (self, [arg]) => {
     self.value = arg
     return unit
   })
-  .build()
 
 const cellModule: Value = {
   tag: "object",
   ivars: [],
-  class: new IRClassBuilder()
-    .addPrimitive(":", (_, [arg]) => {
-      return { tag: "primitive", class: cellInstance, value: { value: arg } }
-    })
-    .build(),
+  class: new IRClass().addPrimitive(":", (_, [arg]) => {
+    return { tag: "primitive", class: cellInstance, value: { value: arg } }
+  }),
 }
 
 export class IndexOutOfRangeError {}
 export class EmptyArrayError {}
 
-const arrayInstance: IRClass = new IRClassBuilder()
+const arrayInstance: IRClass = new IRClass()
   .addPrimitive("length", (self) => {
     return { tag: "primitive", class: intClass, value: self.length }
   })
@@ -74,22 +70,19 @@ const arrayInstance: IRClass = new IRClassBuilder()
     const t = intValue(to)
     return { tag: "primitive", class: arrayInstance, value: self.slice(f, t) }
   })
-  .build()
 
 const arrayModule: Value = {
   tag: "object",
   ivars: [],
-  class: new IRClassBuilder()
-    .addPrimitive("", () => {
-      return { tag: "primitive", class: arrayInstance, value: [] }
-    })
-    .build(),
+  class: new IRClass().addPrimitive("", () => {
+    return { tag: "primitive", class: arrayInstance, value: [] }
+  }),
 }
 
 const assertModule: Value = {
   tag: "object",
   ivars: [],
-  class: new IRClassBuilder()
+  class: new IRClass()
     .addPrimitive("expected:received:", (_, [exp, recv]) => {
       assert.deepEqual(recv, exp)
       return unit
@@ -101,28 +94,24 @@ const assertModule: Value = {
     .addPrimitive("false:", (_, [arg]) => {
       assert(boolValue(arg) === false)
       return unit
-    })
-    .build(),
+    }),
 }
 
 const panicModule: Value = {
   tag: "object",
   ivars: [],
-  class: new IRClassBuilder()
-    .addPrimitive("message:", (_, [message]) => {
-      throw new Error(strValue(message))
-    })
-    .build(),
+  class: new IRClass().addPrimitive("message:", (_, [message]) => {
+    throw new Error(strValue(message))
+  }),
 }
 
-const nativeClass = new IRClassBuilder()
+const nativeClass = new IRClass()
   .addPrimitive("Cell", () => cellModule)
   .addPrimitive("Array", () => arrayModule)
   .addPrimitive("Assert", () => assertModule)
   .addPrimitive("Panic", () => panicModule)
   .addPrimitive("true", () => trueVal)
   .addPrimitive("false", () => falseVal)
-  .build()
 
 const native: Value = { tag: "primitive", class: nativeClass, value: null }
 
