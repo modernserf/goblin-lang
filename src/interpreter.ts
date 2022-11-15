@@ -80,10 +80,12 @@ export class Modules {
     const cached = this.cache.get(key)
     if (cached) return cached
 
+    /* istanbul ignore next */
     if (this.circularRefs.has(key)) throw "circular ref"
     this.circularRefs.add(key)
 
     const source = this.sources.get(key)
+    /* istanbul ignore next */
     if (!source) throw "no such module"
 
     const ctx = new Interpreter(unit, new Map(), this)
@@ -207,8 +209,9 @@ function sendHandler(
             return expr(sender, arg.value)
           case "do":
             return { tag: "do", class: arg.class, ctx: sender } as const
+          /* istanbul ignore next */
           default:
-            throw "todo: handle non-values in primitive fns"
+            throw "todo: handle var args in primitive fns"
         }
       })
       return handler.fn(targetValue, argValues, sender)

@@ -297,7 +297,7 @@ class Stmt {
           switch (arg.value.tag) {
             case "do":
             case "var":
-              throw "todo"
+              throw "todo: provide do/var"
             case "expr":
               return {
                 tag: "provide",
@@ -312,7 +312,7 @@ class Stmt {
           switch (param.value.tag) {
             case "do":
             case "var":
-              throw "todo"
+              throw "todo: using do/var"
             case "binding":
               return this.let(param.value.binding, {
                 tag: "using",

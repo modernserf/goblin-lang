@@ -37,10 +37,30 @@ let result := opt{:
 }
 ```
 
-But this can be leveraged as a shorthand syntax with frames:
+This can be also be leveraged as a shorthand syntax with frames:
 
 ```goblin
 let xs := Vec{}, 1, 2, 3
 xs{map: [-]} # => Vec{}, -1, -2, -3
 xs{map: [*: 2]} # => Vec{}, 2, 4, 6
 ```
+
+## `=` `!=` strict equality
+
+## `==` `!==` equality with conversion
+
+1 != 1.0, but 1 == 1.0
+
+## `{to String}`, `{to Option}` explicit conversion
+
+## `,` add an item to a collection
+
+```goblin
+Vec{}, 1, 2, 3
+```
+
+## `++` concatenate
+
+## `{hash: hasher}` get hash code
+
+## `{map: do f}` `{filter: do f}` `{chain: do f}`

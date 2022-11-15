@@ -108,10 +108,23 @@ test("invalid destructuring", () => {
   }, InvalidDestructuringError)
 })
 
-test("provide", () => {
+test("provide/using", () => {
+  assert.doesNotThrow(() => {
+    check(`
+      let x := 1
+      provide{_x_}
+      using{_x_}
+    `)
+  })
+
   assert.throws(() => {
     check(`
       provide{x}
+    `)
+  }, InvalidProvideBindingError)
+  assert.throws(() => {
+    check(`
+      using{x}
     `)
   }, InvalidProvideBindingError)
 })
@@ -148,4 +161,15 @@ test("frames", () => {
       [x: var 1] 
     `)
   }, InvalidFrameArgError)
+})
+
+test("todo: sub-pattern", () => {
+  assert.throws(() => {
+    check(`
+      let obj := [
+        on {foo: {bar: baz}}
+          baz
+      ]
+    `)
+  })
 })

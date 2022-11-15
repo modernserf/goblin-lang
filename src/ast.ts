@@ -99,6 +99,8 @@ function astParam(param: ParseParam): ASTParam {
     case "do":
       if (param.value.tag !== "identifier") throw new InvalidBlockParamError()
       return { tag: "do", binding: param.value }
+    case "on":
+      throw "todo: sub-pattern"
   }
 }
 

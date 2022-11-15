@@ -1,103 +1,215 @@
-# goblin update
+# More pattern-matching / method-dispatch features
 
-I've been working on actually implementing Goblin over the last couple of weeks, and in the process I've simplified the design a bit.
-
-# Philosophy
-
-## Type discipline
-
-Goblin uses dynamic types, but avoids automatic type conversion or coercion. Runtime errors are preferred over
-
-# Basics
+## destructuring `as`
 
 ```goblin
-# line comments
-let foo := "a string"
-let number := 2_000_000.123
-
-# simple identifiers
-foo bar123 x x' x''
-# identifiers 'quoted' with underscores
-_some words_ _a sentence, with punctuation even!_
+let [x: x y: y] as p := Foo{bar: baz}
 ```
 
-# Messages
+## multiple patterns for a handler
+
+Handlers can have multiple patterns for the same handler; they must have the same parameters
 
 ```goblin
-# sending a message with no arguments
-point{x}
-# messages can have whitespace, numbers, symbols in their names
-"Hello, world"{to uppercase}
-# messages with arguments are key: value pairs
-list{push: value}
-Range{from: min to: max}
-# message arguments can be sent in any order
-Range{to: max from: min}
-# messages can be blank, or have a blank key
-Map{}
-fn{: arg}
-
-# operators are syntactic sugar for sending messages
--10 # => 10{-}
-1 + 2 # => 1{+: 2}
-# simple precedence rules:
-# first sends, then unary operators, then binary operators
-# always left-to-right
--foo{x} + bar{y}  # => foo{x}{-}{+: bar{y}}
-```
-
-# Objects
-
-```goblin
-# objects are values that respond to messages
-let obj := [
-	# objects are written as a series of methods that match a message
-	# and run the following body of code
-	{a method}
-		# the last expression is returned implicitly
-		1; # methods are separated by semicolons
-	{key: value}
-		# the receiving object can be referenced with 'self'
-		value + self{a method}
+let Vec := [
+	on {,: value}
+		 {push: value}
+		# ...
 ]
+# becomes
+let Vec := [
+	on {,: value}
+		# ...
+	on {push: value}
+		# ...
+]
+```
 
-# there are no classes in Goblin; instead, objects create other objects
+## default handler args
+
+Be aware of accidental duplicate patterns
+
+```goblin
 let Point := [
-	# Point{x: 1 y: 2} to construct a Point
-	{x: x y: y} [
-		# "getters"
-		{x} x;
-		{y} y;
-		# objects are immutable by default; "setters" construct new objects
-		{x: x'} Point{x: x' y: y};
-		{y: y'} Point{x: x y: y'};
-		# "instance methods"
-		{manhattan distance: other}
-			(x - other{x}){abs} + (y - other{y}){abs};
-	];
-	# "static methods"
-	{origin}
-		Point{x: 0 y: 0};
+	on {x: x = 0 y: y = 0}
+		# ...
+]
+# becomes
+let Point := [
+	on {}
+		Point{x: 0 y: 0}
+	on {x: x}
+		Point{x: x y: 0}
+	on {y: y}
+		Point{x: 0 y: y}
+	on {x: x y: y}
+		# ...
 ]
 ```
 
-# enums, higher order functions, pattern matching
+## optional (as in Option type) / "nullable" handler args
+
+This one seems more 'clever' than useful
 
 ```goblin
-let Option := [
-	{some: value} [
-		# higher order functions: opt{map: [{: x} x + 1]}
-		{map: f}
-			Option{some: f{: value}};
-		# pattern matching: opt{: [{some: x} x; {none} 0]}
-		{: pattern}
-			pattern{some: value};
-	];
-	{none} [
-		{map: f}
-			self;
-		{: pattern}
-			pattern{none};
-	];
+let Foo := [
+	on {x: x y: ?y}
+		# ...
+]
+# becomes
+let Foo := [
+	on {x: x}
+		let y := Option{none}
+		# ...
+	on {x: x y: y}
+		let y := Option{some: y}
+		# ...
+	on {x: x y?: y}
+		# ...
+]
+```
+
+## refutable patterns in bindings
+
+- Patterns with same selector must be grouped together
+- checked in order using `=`
+- irrefutable binding should be last in sequence
+- use parens to distinguish between bindings & exprs when ambiguous
+
+```goblin
+value{:
+	do {count: 0}
+		"No items"
+	do {count: 1}
+		"1 item"
+	do {count: n}
+		n{to String} ++ " items"
+}
+# becomes
+value{
+	do {count: n}
+		if n = 0 then
+			"No items"
+		else if n = 1 then
+			"1 item"
+		else
+			n{to String} ++ " items"
+		end
+}
+```
+
+## fuzzy matching
+
+- Checked with `~=` instead of `=`
+
+```goblin
+value{:
+	do {item: Range{from: 1 to: 10} as x}
+		x
+	do {item: x}
+		"many items"
+}
+# becomes
+value{
+	do {item: x}
+		if Range{from: 1 to: 10} ~= x then
+			x
+		else
+		 	"many items"
+		end
+}
+```
+
+# nested patterns / exact destructuring
+
+basically matching in reverse
+
+If this is 'normal' destructuring...
+
+```goblin
+let [x: x y: y] := foo{bar}
+# becomes
+let _$1_ := foo{bar}
+let x := _$1_{x}
+let y := _$1_{y}
+```
+
+Then how about...
+
+```goblin
+let {x: x y: y} := foo{bar}
+# becomes (approximately)
+var _$1_ := []
+foo{bar}{:
+	on {x: x' y: y'}
+		set _$1_ := [x: x y: y]
+}
+let [x: x y: y] := _$1_
+```
+
+This, combined with pattern matching, gets you something like
+
+```goblin
+pair{:
+	on {0: {some: l} 1: {some: r}}
+		# ...
+	on {0: {some: l} 1: {none}}
+		# ...
+	on {0: {none} 	 1: {some: r}}
+		# ...
+	on {0: {none} 	 1: {none}}
+		# ...
+}
+```
+
+# reflection / oop features
+
+I am sort of philosophically opposed to these; part of the 'joke' of this language is that its a very pedantic functional language that is merely disguised as a loose OOP one
+
+`else` on its own gets you a surprising way there if you're willing to distinguish between direct & indirect sends
+
+```goblin
+let obj := [
+	do {: msg}
+		msg{:
+			do {known method}
+				# ...
+			else
+				delegate{: msg}
+		}
+]
+```
+
+## inheritance / mixins / traits
+
+I could probably come up with a weird take on this
+
+## conditional sends
+
+check if an object responds to a message before sending it
+
+One _specific, limited_ implementation of this that might be nice would be something like "optional params" for do-patterns
+
+```goblin
+let Vec := [
+	on {map: do f}
+		# ...
+		f{: val ?index: i}
+]
+```
+
+works with either `list{map: {: val} ...}` or `list{map: {: val index: i} ...}`
+seems not all that worthwhile, especially vs `list{map: {: val} ...}` & `list{map index: {: val index: i} ...}`
+
+## more else handlers
+
+```goblin
+let obj := [
+	on {foo}
+		#...
+	else {: msg}
+		# `msg` is frame of orignal message
+		msg{: delegate}
+		# ...
 ]
 ```

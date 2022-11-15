@@ -47,6 +47,7 @@ export type ParseParam =
   | { tag: "value"; value: ParseExpr }
   | { tag: "var"; value: ParseExpr }
   | { tag: "do"; value: ParseExpr }
+  | { tag: "on"; message: ParseMessage<ParseParam> }
 
 // TODO: multiple messages, decorators
 export type ParseHandler =
@@ -68,6 +69,12 @@ function param(lexer: Lexer): ParseParam {
     case "do":
       lexer.advance()
       return { tag: "do", value: must(lexer, "expr", parseExpr) }
+    case "openBrace": {
+      lexer.advance()
+      const message = parseMessage(lexer, param)
+      mustToken(lexer, "closeBrace")
+      return { tag: "on", message }
+    }
     default:
       return { tag: "value", value: must(lexer, "expr", parseExpr) }
   }

@@ -195,3 +195,27 @@ test("exports", () => {
     `)
   })
 })
+
+test("todo: provide/using var/do", () => {
+  assert.throws(() => {
+    compile(`
+      var y := 1
+      provide{y: var y}
+    `)
+  })
+  assert.throws(() => {
+    compile(`
+      provide{z: {foo} 1}
+    `)
+  })
+  assert.throws(() => {
+    compile(`
+      using{y: var y}
+    `)
+  })
+  assert.throws(() => {
+    compile(`
+      using{z: do z}
+    `)
+  })
+})
