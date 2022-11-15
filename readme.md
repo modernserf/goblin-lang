@@ -1,30 +1,5 @@
 # More pattern-matching / method-dispatch features
 
-## destructuring `as`
-
-```goblin
-let [x: x y: y] as p := Foo{bar: baz}
-```
-
-## multiple patterns for a handler
-
-Handlers can have multiple patterns for the same handler; they must have the same parameters
-
-```goblin
-let Vec := [
-	on {,: value}
-		 {push: value}
-		# ...
-]
-# becomes
-let Vec := [
-	on {,: value}
-		# ...
-	on {push: value}
-		# ...
-]
-```
-
 ## default handler args
 
 Be aware of accidental duplicate patterns

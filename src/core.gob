@@ -232,8 +232,7 @@ let VecImpl := [
           length: length
         }
       on {,: val}
-        self{push: val}
-      on {push: val}
+        {push: val}
         if array{length} = length then
           array{push: val}
           VecImpl{array: array length: length + 1}

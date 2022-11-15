@@ -140,12 +140,18 @@ function parseMessage<T>(lexer: Lexer, parser: Parser<T>): ParseMessage<T> {
   }
 }
 
+function parseHandlerMessage(lexer: Lexer): ParseMessage<ParseParam> | null {
+  if (!accept(lexer, "openBrace")) return null
+  const message = parseMessage(lexer, param)
+  mustToken(lexer, "closeBrace")
+  return message
+}
+
 function parseHandlers(lexer: Lexer): ParseHandler[] {
-  if (accept(lexer, "openBrace")) {
-    const message = parseMessage(lexer, param)
-    mustToken(lexer, "closeBrace")
+  if (lexer.peek().tag === "openBrace") {
+    const messages = repeat1(lexer, "handler", parseHandlerMessage)
     const body = repeat(lexer, parseStmt)
-    return [{ tag: "on", message, body }]
+    return messages.map((message) => ({ tag: "on", message, body }))
   }
   const out: ParseHandler[] = []
   while (true) {
@@ -153,11 +159,11 @@ function parseHandlers(lexer: Lexer): ParseHandler[] {
       const body = repeat(lexer, parseStmt)
       out.push({ tag: "else", body })
     } else if (accept(lexer, "on")) {
-      mustToken(lexer, "openBrace")
-      const message = parseMessage(lexer, param)
-      mustToken(lexer, "closeBrace")
+      const messages = repeat1(lexer, "handler", parseHandlerMessage)
       const body = repeat(lexer, parseStmt)
-      out.push({ tag: "on", message, body })
+      out.push(
+        ...messages.map((message) => ({ tag: "on", message, body } as const))
+      )
     } else {
       accept(lexer, "end")
       return out
@@ -364,6 +370,16 @@ function repeat<T>(lexer: Lexer, parser: (l: Lexer) => T | null): T[] {
     lastToken = lexer.peek()
   }
   return out
+}
+
+function repeat1<T>(
+  lexer: Lexer,
+  expected: string,
+  parser: (l: Lexer) => T | null
+): T[] {
+  const first = must(lexer, expected, parser)
+  const rest = repeat(lexer, parser)
+  return [first, ...rest]
 }
 
 function accept<Tag extends Token["tag"]>(
