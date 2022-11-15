@@ -31,6 +31,7 @@ import {
   IRDeferStmt,
   IRProvideStmt,
   IRObjectHandler,
+  PrimitiveValue,
 } from "./interpreter"
 import { constObject } from "./optimize"
 import {
@@ -228,7 +229,7 @@ class Expr {
     }
   }
   private literal(cls: IRClass, value: any): IRExpr {
-    return new IRConstantExpr({ tag: "primitive", class: cls, value })
+    return new IRConstantExpr(new PrimitiveValue(cls, value))
   }
 }
 

@@ -5,7 +5,14 @@ import { program as astWalk } from "./ast"
 import { coreModule } from "./compiler"
 
 import { readFileSync } from "fs"
-import { IRClass, IRStmt, unit, Value } from "./interpreter"
+import {
+  IRClass,
+  IRStmt,
+  ObjectValue,
+  PrimitiveValue,
+  unit,
+  Value,
+} from "./interpreter"
 import {
   intClass,
   intValue,
@@ -22,20 +29,19 @@ const cellInstance = new IRClass()
     return unit
   })
 
-const cellModule: Value = {
-  tag: "object",
-  ivars: [],
-  class: new IRClass().addPrimitive(":", (_, [arg]) => {
-    return { tag: "primitive", class: cellInstance, value: { value: arg } }
+const cellModule = new ObjectValue(
+  new IRClass().addPrimitive(":", (_, [arg]) => {
+    return new PrimitiveValue(cellInstance, { value: arg })
   }),
-}
+  []
+)
 
 export class IndexOutOfRangeError {}
 export class EmptyArrayError {}
 
 const arrayInstance: IRClass = new IRClass()
   .addPrimitive("length", (self) => {
-    return { tag: "primitive", class: intClass, value: self.length }
+    return new PrimitiveValue(intClass, self.length)
   })
   // todo: do we want `at` index to wrap around?
   .addPrimitive("at:", (self, [index]) => {
@@ -47,42 +53,39 @@ const arrayInstance: IRClass = new IRClass()
     const i = intValue(index)
     if (self.length <= i) throw new IndexOutOfRangeError()
     self[i] = value
-    return { tag: "primitive", class: arrayInstance, value: self }
+    return new PrimitiveValue(arrayInstance, self)
   })
   .addPrimitive(",:", (self, [value]) => {
     self.push(value)
-    return { tag: "primitive", class: arrayInstance, value: self }
+    return new PrimitiveValue(arrayInstance, self)
   })
   .addPrimitive("push:", (self, [value]) => {
     self.push(value)
-    return { tag: "primitive", class: arrayInstance, value: self }
+    return new PrimitiveValue(arrayInstance, self)
   })
   .addPrimitive("pop", (self, []) => {
     if (self.length === 0) throw new EmptyArrayError()
     return self.pop()
   })
   .addPrimitive("copy", (self) => {
-    return { tag: "primitive", class: arrayInstance, value: self.slice() }
+    return new PrimitiveValue(arrayInstance, self.slice())
   })
   // todo: error handling, `from:`, `to:`
   .addPrimitive("from:to:", (self, [from, to]) => {
     const f = intValue(from)
     const t = intValue(to)
-    return { tag: "primitive", class: arrayInstance, value: self.slice(f, t) }
+    return new PrimitiveValue(arrayInstance, self.slice(f, t))
   })
 
-const arrayModule: Value = {
-  tag: "object",
-  ivars: [],
-  class: new IRClass().addPrimitive("", () => {
-    return { tag: "primitive", class: arrayInstance, value: [] }
+const arrayModule = new ObjectValue(
+  new IRClass().addPrimitive("", () => {
+    return new PrimitiveValue(arrayInstance, [])
   }),
-}
+  []
+)
 
-const assertModule: Value = {
-  tag: "object",
-  ivars: [],
-  class: new IRClass()
+const assertModule = new ObjectValue(
+  new IRClass()
     .addPrimitive("expected:received:", (_, [exp, recv]) => {
       assert.deepEqual(recv, exp)
       return unit
@@ -95,16 +98,15 @@ const assertModule: Value = {
       assert(boolValue(arg) === false)
       return unit
     }),
-}
+  []
+)
 
-const panicModule: Value = {
-  tag: "object",
-  ivars: [],
-  class: new IRClass().addPrimitive("message:", (_, [message]) => {
+const panicModule = new ObjectValue(
+  new IRClass().addPrimitive("message:", (_, [message]) => {
     throw new Error(strValue(message))
   }),
-}
-
+  []
+)
 const nativeClass = new IRClass()
   .addPrimitive("Cell", () => cellModule)
   .addPrimitive("Array", () => arrayModule)
@@ -113,7 +115,7 @@ const nativeClass = new IRClass()
   .addPrimitive("true", () => trueVal)
   .addPrimitive("false", () => falseVal)
 
-const native: Value = { tag: "primitive", class: nativeClass, value: null }
+const native: Value = new PrimitiveValue(nativeClass, null)
 
 export function compileCore(): IRStmt[] {
   const source = readFileSync("./src/core.gob", { encoding: "utf-8" })

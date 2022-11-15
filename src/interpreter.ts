@@ -52,10 +52,59 @@ export class IRClass {
 
 export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "do" }
 
-export type Value =
-  | { tag: "object"; class: IRClass; ivars: Value[] }
-  | { tag: "do"; class: IRBlockClass; ctx: Interpreter }
-  | { tag: "primitive"; class: IRClass; value: any }
+export interface Value {
+  readonly primitiveValue: any
+  getIvar(index: number): Value
+  send(sender: Interpreter, selector: string, args: IRArg[]): Value
+  instanceof(cls: IRClass | IRBlockClass): boolean
+}
+
+export class ObjectValue implements Value {
+  readonly primitiveValue = null
+  constructor(private cls: IRClass, private ivars: Value[]) {}
+  getIvar(index: number): Value {
+    const value = this.ivars[index]
+    /* istanbul ignore next */
+    if (!value) throw new Error(`Missing ivar ${index}`)
+    return value
+  }
+  send(sender: Interpreter, selector: string, args: IRArg[]): Value {
+    const handler = this.cls.get(selector)
+    return handler.send(sender, this, args)
+  }
+  instanceof(cls: IRClass): boolean {
+    return this.cls === cls
+  }
+}
+
+export class PrimitiveValue implements Value {
+  constructor(private cls: IRClass, readonly primitiveValue: any) {}
+  getIvar(index: number): Value {
+    throw new Error("primitive value has no ivars")
+  }
+  send(sender: Interpreter, selector: string, args: IRArg[]): Value {
+    const handler = this.cls.get(selector)
+    return handler.send(sender, this, args)
+  }
+  instanceof(cls: IRClass): boolean {
+    return this.cls === cls
+  }
+}
+
+export class DoValue implements Value {
+  readonly primitiveValue = null
+  constructor(private cls: IRBlockClass, private ctx: Interpreter) {}
+  getIvar(index: number): Value {
+    throw new Error("do value has no ivars")
+  }
+  send(sender: Interpreter, selector: string, args: IRArg[]): Value {
+    const handler = this.cls.get(selector)
+    return handler.send(sender, this.ctx, args)
+  }
+  instanceof(cls: IRClass): boolean {
+    return false
+  }
+}
 
 // TODO: RuntimeError base class
 export class NoHandlerError {
@@ -66,7 +115,7 @@ export class NoProviderError {
 }
 
 export const unitClass: IRClass = new IRClass()
-export const unit: Value = { tag: "object", class: unitClass, ivars: [] }
+export const unit: Value = new ObjectValue(unitClass, [])
 
 export class Modules {
   private cache = new Map<string, Value>()
@@ -114,11 +163,7 @@ export class Interpreter {
     return result
   }
   getIvar(index: number): Value {
-    /* istanbul ignore next */
-    if (this.self.tag !== "object") {
-      throw new Error("getIvar should be unreachable")
-    }
-    return this.self.ivars[index]
+    return this.self.getIvar(index)
   }
   use(key: string): Value {
     const res = this.provideScope.get(key)
@@ -179,11 +224,7 @@ function loadArgs(
       }
       case "do": {
         if (param.tag !== "do") throw new ArgMismatchError(param.tag, arg.tag)
-        target.setLocal(offset + i, {
-          tag: "do",
-          class: arg.class,
-          ctx: sender,
-        })
+        target.setLocal(offset + i, new DoValue(arg.class, sender))
         return
       }
     }
@@ -217,6 +258,7 @@ export class IRLazyHandler implements IRHandler {
     return this.handler.send(sender, target, args)
   }
 }
+
 export class IRObjectHandler implements IRHandler {
   constructor(private params: IRParam[], private body: IRStmt[]) {}
   send(sender: Interpreter, target: Value, args: IRArg[]): Value {
@@ -236,19 +278,18 @@ export class IRPrimitiveHandler implements IRHandler {
     private fn: (value: any, args: Value[], ctx: Interpreter) => Value
   ) {}
   send(sender: Interpreter, target: Value, args: IRArg[]): Value {
-    const targetValue = target.tag === "primitive" ? target.value : null
     const argValues = args.map((arg) => {
       switch (arg.tag) {
         case "value":
           return arg.value.eval(sender)
         case "do":
-          return { tag: "do", class: arg.class, ctx: sender } as const
+          return new DoValue(arg.class, sender)
         /* istanbul ignore next */
         default:
           throw "todo: handle var args in primitive fns"
       }
     })
-    return this.fn(targetValue, argValues, sender)
+    return this.fn(target.primitiveValue, argValues, sender)
   }
 }
 
@@ -311,22 +352,6 @@ class IROnBlockHandler implements IRBlockHandler {
   }
 }
 
-export function send(
-  sender: Interpreter,
-  selector: string,
-  target: Value,
-  args: IRArg[]
-): Value {
-  if (target.tag === "do") {
-    const ctx = target.ctx
-    const handler = target.class.get(selector)
-    return handler.send(sender, ctx, args)
-  }
-
-  const handler = target.class.get(selector)
-  return handler.send(sender, target, args)
-}
-
 export interface IRExpr {
   eval(ctx: Interpreter): Value
 }
@@ -361,11 +386,10 @@ export class IRLocalExpr implements IRExpr, IRStmt {
 export class IRObjectExpr implements IRExpr, IRStmt {
   constructor(private cls: IRClass, private ivars: IRExpr[]) {}
   eval(ctx: Interpreter): Value {
-    return {
-      tag: "object",
-      class: this.cls,
-      ivars: this.ivars.map((ivar) => ivar.eval(ctx)),
-    }
+    return new ObjectValue(
+      this.cls,
+      this.ivars.map((ivar) => ivar.eval(ctx))
+    )
   }
 }
 
@@ -376,8 +400,8 @@ export class IRSendExpr implements IRExpr, IRStmt {
     private args: IRArg[]
   ) {}
   eval(ctx: Interpreter): Value {
-    // TODO: inline send
-    return send(ctx, this.selector, this.target.eval(ctx), this.args)
+    const target = this.target.eval(ctx)
+    return target.send(ctx, this.selector, this.args)
   }
 }
 

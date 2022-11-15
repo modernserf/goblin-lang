@@ -3,6 +3,7 @@ import {
   IRConstantExpr,
   IRExpr,
   IRObjectExpr,
+  ObjectValue,
   Value,
 } from "./interpreter"
 
@@ -15,5 +16,5 @@ export function constObject(cls: IRClass, ivars: IRExpr[]): IRExpr {
       return new IRObjectExpr(cls, ivars)
     }
   }
-  return new IRConstantExpr({ tag: "object", class: cls, ivars: constIvars })
+  return new IRConstantExpr(new ObjectValue(cls, constIvars))
 }
