@@ -7,8 +7,6 @@ import {
   DuplicateElseHandlerError,
   DuplicateKeyError,
   DuplicateHandlerError,
-  InvalidBlockArgError,
-  InvalidBlockParamError,
   InvalidDestructuringError,
   InvalidFrameArgError,
   InvalidImportBindingError,
@@ -18,9 +16,9 @@ import {
   InvalidSetTargetError,
   InvalidVarArgError,
   InvalidVarBindingError,
-  InvalidVarParamError,
   program as astWalk,
 } from "./ast"
+import { InvalidDoParamError, InvalidVarParamError } from "./ast-parser"
 
 export function check(source: string) {
   const parseTree = parse(new Lexer(source))
@@ -152,7 +150,7 @@ test("method params", () => {
     check(`
       [{arg: do [x: x]} x] 
     `)
-  }, InvalidBlockParamError)
+  }, InvalidDoParamError)
 })
 
 test("frames", () => {

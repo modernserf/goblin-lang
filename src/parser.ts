@@ -9,6 +9,11 @@ import {
   ParsePair,
   ParseStmt,
   ParseParam,
+  VarParam,
+  DoParam,
+  PatternParam,
+  ValueParam,
+  DefaultValueParam,
 } from "./ast-parser"
 
 export class ParseError {
@@ -22,23 +27,23 @@ function param(lexer: Lexer): ParseParam {
   switch (token.tag) {
     case "var":
       lexer.advance()
-      return { tag: "var", value: must(lexer, "expr", parseExpr) }
+      return new VarParam(must(lexer, "expr", parseExpr))
     case "do":
       lexer.advance()
-      return { tag: "do", value: must(lexer, "expr", parseExpr) }
+      return new DoParam(must(lexer, "expr", parseExpr))
     case "openBrace": {
       lexer.advance()
       const message = parseMessage(lexer, param)
       mustToken(lexer, "closeBrace")
-      return { tag: "on", message }
+      return new PatternParam(message)
     }
     default:
       const value = must(lexer, "binding", parseExpr)
       if (accept(lexer, "colonEquals")) {
         const defaultValue = must(lexer, "expr", parseExpr)
-        return { tag: "value", value, defaultValue }
+        return new DefaultValueParam(value, defaultValue)
       }
-      return { tag: "value", value, defaultValue: null }
+      return new ValueParam(value)
   }
 }
 

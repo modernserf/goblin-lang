@@ -39,16 +39,64 @@ export type ParseArg =
   | { tag: "value"; value: ParseExpr }
   | { tag: "var"; value: ParseExpr }
   | { tag: "handlers"; handlers: ParseHandler[] }
-export type ParseParam =
-  | { tag: "value"; value: ParseExpr; defaultValue: ParseExpr | null }
-  | { tag: "var"; value: ParseExpr }
-  | { tag: "do"; value: ParseExpr }
-  | { tag: "on"; message: ParseMessage<ParseParam> }
 
 // TODO: multiple messages, decorators
 export type ParseHandler =
   | { tag: "on"; message: ParseMessage<ParseParam>; body: ParseStmt[] }
   | { tag: "else"; body: ParseStmt[] }
+
+export class InvalidVarParamError {}
+export class InvalidDoParamError {}
+
+// TODO: eliminate toAST step, compile directly
+export interface ParseParam {
+  toAST(ast: any): ASTParam
+  defaultPair?(): { binding: ParseExpr; value: ParseExpr }
+}
+
+export class DefaultValueParam implements ParseParam {
+  constructor(private binding: ParseExpr, private defaultValue: ParseExpr) {}
+  toAST(ast: any): ASTParam {
+    return { tag: "binding", binding: ast.letBinding(this.binding) }
+  }
+  defaultPair(): { binding: ParseExpr; value: ParseExpr } {
+    return { binding: this.binding, value: this.defaultValue }
+  }
+}
+
+export class ValueParam implements ParseParam {
+  constructor(private value: ParseExpr) {}
+  toAST(ast: any): ASTParam {
+    // TODO: is anything done with defaultValue here?
+    return { tag: "binding", binding: ast.letBinding(this.value) }
+  }
+}
+
+export class VarParam implements ParseParam {
+  readonly defaultValue = null
+  constructor(private value: ParseExpr) {}
+  toAST(ast: any): ASTParam {
+    if (this.value.tag !== "identifier") throw new InvalidVarParamError()
+    return { tag: "var", binding: this.value }
+  }
+}
+
+export class DoParam implements ParseParam {
+  readonly defaultValue = null
+  constructor(private value: ParseExpr) {}
+  toAST(ast: any): ASTParam {
+    if (this.value.tag !== "identifier") throw new InvalidDoParamError()
+    return { tag: "do", binding: this.value }
+  }
+}
+
+export class PatternParam implements ParseParam {
+  readonly defaultValue = null
+  constructor(private message: ParseMessage<ParseParam>) {}
+  toAST(ast: any): ASTParam {
+    throw "todo: pattern param"
+  }
+}
 
 export type ASTStmt =
   | { tag: "let"; binding: ASTLetBinding; value: ASTExpr; export: boolean }

@@ -25,8 +25,6 @@ import {
   ASTParam,
 } from "./ast-parser"
 
-export class InvalidVarParamError {}
-export class InvalidBlockParamError {}
 export class InvalidFrameArgError {}
 export class InvalidVarArgError {}
 export class InvalidBlockArgError {}
@@ -45,26 +43,13 @@ export class DuplicateHandlerError {
 }
 export class DuplicateElseHandlerError {}
 
-function astParam(param: ParseParam): ASTParam {
-  switch (param.tag) {
-    case "value":
-      if (param.defaultValue) {
-      }
-      return { tag: "binding", binding: letBinding(param.value) }
-    case "var":
-      if (param.value.tag !== "identifier") throw new InvalidVarParamError()
-      return { tag: "var", binding: param.value }
-    case "do":
-      if (param.value.tag !== "identifier") throw new InvalidBlockParamError()
-      return { tag: "do", binding: param.value }
-    case "on":
-      throw "todo: sub-pattern"
-  }
-}
-
 type ParamWithBindings = {
   pairs: ParsePair<ParseParam>[]
   bindings: { binding: ParseExpr; value: ParseExpr }[]
+}
+
+function astParam(param: ParseParam): ASTParam {
+  return param.toAST({ letBinding })
 }
 
 function expandDefaultParams(
@@ -72,11 +57,7 @@ function expandDefaultParams(
 ): ParamWithBindings[] {
   const out: ParamWithBindings[] = [{ pairs: [], bindings: [] }]
   for (const pair of pairs) {
-    if (
-      pair.tag === "pair" &&
-      pair.value.tag === "value" &&
-      pair.value.defaultValue
-    ) {
+    if (pair.tag === "pair" && pair.value.defaultPair) {
       const copy = out.map((x) => ({
         pairs: x.pairs.slice(),
         bindings: x.bindings.slice(),
@@ -85,10 +66,7 @@ function expandDefaultParams(
         item.pairs.push(pair)
       }
       for (const item of copy) {
-        item.bindings.push({
-          binding: pair.value.value,
-          value: pair.value.defaultValue,
-        })
+        item.bindings.push(pair.value.defaultPair())
       }
       out.push(...copy)
     } else {
