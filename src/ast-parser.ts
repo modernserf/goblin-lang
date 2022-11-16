@@ -4,7 +4,7 @@ export type ParseStmt =
   | { tag: "setInPlace"; binding: ParseExpr }
   | { tag: "var"; binding: ParseExpr; value: ParseExpr }
   | { tag: "import"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "provide"; message: ParseMessage<ParseArg> }
+  | { tag: "provide"; message: ParseArgs }
   | { tag: "using"; message: ParseParams }
   | { tag: "return"; value: ParseExpr }
   | { tag: "defer"; body: ParseStmt[] }
@@ -20,8 +20,8 @@ export type ParseExpr =
   | { tag: "identifier"; value: string }
   | { tag: "parens"; value: ParseExpr }
   | { tag: "object"; handlers: ParseHandler[] }
-  | { tag: "frame"; message: ParseMessage<ParseArg>; as: ParseExpr | null }
-  | { tag: "send"; target: ParseExpr; message: ParseMessage<ParseArg> }
+  | { tag: "frame"; message: ParseArgs; as: ParseExpr | null }
+  | { tag: "send"; target: ParseExpr; message: ParseArgs }
   | { tag: "do"; body: ParseStmt[] }
   | { tag: "if"; conds: ParseCond[]; else: ParseStmt[] }
   | { tag: "unaryOp"; target: ParseExpr; operator: string }
@@ -29,13 +29,12 @@ export type ParseExpr =
 
 type ParseCond = { value: ParseExpr; body: ParseStmt[] }
 
-export type ParseMessage<T> =
-  | { tag: "key"; key: string }
-  | { tag: "pairs"; pairs: ParsePair<T>[] }
 export type ParsePair<T> =
   | { tag: "pair"; key: string; value: T }
   | { tag: "punPair"; key: string }
 
+export class InvalidDestructuringError {}
+export class InvalidFrameArgError {}
 export class InvalidProvideBindingError {}
 export class InvalidVarParamError {}
 export class InvalidDoParamError {}
@@ -81,6 +80,93 @@ function expandDefaultParams(
     }
   }
   return out
+}
+
+export interface ParseArgs {
+  provide(ast: any): ASTStmt
+  send(ast: any, target: ASTExpr): ASTExpr
+  frame(ast: any): ASTExpr
+  destructure(ast: any): ASTBindPair[]
+}
+
+export class KeyArgs implements ParseArgs {
+  constructor(private key: string) {}
+  provide(ast: any): ASTStmt {
+    throw new InvalidProvideBindingError()
+  }
+  send(ast: any, target: ASTExpr): ASTExpr {
+    return { tag: "send", target, selector: this.key, args: [] }
+  }
+  frame(ast: any): ASTExpr {
+    return { tag: "frame", selector: this.key, args: [] }
+  }
+  destructure(ast: any): ASTBindPair[] {
+    throw new InvalidDestructuringError()
+  }
+}
+
+export class PairArgs implements ParseArgs {
+  constructor(private pairs: ParsePair<ParseArg>[]) {}
+  provide(ast: any): ASTStmt {
+    return build<ParseArg, ASTProvidePair, ASTStmt>(this.pairs, {
+      punValue(key) {
+        return {
+          key,
+          value: { tag: "expr", value: { tag: "identifier", value: key } },
+        }
+      },
+      pair(key, arg) {
+        return { key, value: arg.toAst(ast) }
+      },
+      build(_, args) {
+        return { tag: "provide", args }
+      },
+    })
+  }
+  send(ast: any, target: ASTExpr): ASTExpr {
+    return build<ParseArg, ASTArg, ASTExpr>(this.pairs, {
+      punValue(value) {
+        return { tag: "expr", value: { tag: "identifier", value } }
+      },
+      pair(_, arg) {
+        return arg.toAst(ast)
+      },
+      build(selector, args) {
+        return { tag: "send", target, selector, args }
+      },
+    })
+  }
+  frame(ast: any): ASTExpr {
+    return build<ParseArg, ASTFrameArg, ASTExpr>(this.pairs, {
+      punValue(key) {
+        return { key, value: { tag: "identifier", value: key } }
+      },
+      pair(key, arg) {
+        if (!arg.frameArg) throw new InvalidFrameArgError()
+        return { key, value: arg.frameArg(ast) }
+      },
+      build(selector, args) {
+        return { tag: "frame", selector, args }
+      },
+    })
+  }
+  destructure(ast: any): ASTBindPair[] {
+    return this.pairs.map((item) => {
+      switch (item.tag) {
+        case "punPair":
+          return {
+            key: item.key,
+            value: { tag: "identifier", value: item.key },
+          }
+        case "pair":
+          if (!item.value.destructureArg) throw new InvalidDestructuringError()
+          return {
+            key: item.key,
+            value: item.value.destructureArg(ast),
+          }
+      }
+    })
+  }
 }
 
 export interface ParseParams {

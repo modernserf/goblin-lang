@@ -4,7 +4,6 @@ import { keywords, Lexer, Token } from "./lexer"
 import {
   ParseArg,
   ParseExpr,
-  ParseMessage,
   ParseHandler,
   ParsePair,
   ParseStmt,
@@ -22,6 +21,9 @@ import {
   KeyParams,
   PairParams,
   ParseParams,
+  KeyArgs,
+  PairArgs,
+  ParseArgs,
 } from "./ast-parser"
 
 export class ParseError {
@@ -92,6 +94,10 @@ function parseKey(lexer: Lexer): string {
   return repeat(lexer, keyPart).join(" ")
 }
 
+type ParseMessage<T> =
+  | { tag: "key"; key: string }
+  | { tag: "pairs"; pairs: ParsePair<T>[] }
+
 function parseMessage<T>(lexer: Lexer, parser: Parser<T>): ParseMessage<T> {
   const pairs: ParsePair<T>[] = []
   while (true) {
@@ -123,6 +129,16 @@ function parseParams(lexer: Lexer): ParseParams | null {
       return new KeyParams(message.key)
     case "pairs":
       return new PairParams(message.pairs)
+  }
+}
+
+function parseArgs(lexer: Lexer): ParseArgs {
+  const message = parseMessage(lexer, arg)
+  switch (message.tag) {
+    case "key":
+      return new KeyArgs(message.key)
+    case "pairs":
+      return new PairArgs(message.pairs)
   }
 }
 
@@ -184,7 +200,7 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
         mustToken(lexer, "closeBracket")
         return { tag: "object", handlers }
       }
-      const message = parseMessage(lexer, arg)
+      const message = parseArgs(lexer)
       mustToken(lexer, "closeBracket")
       if (accept(lexer, "as")) {
         const as = must(lexer, "binding", parseExpr)
@@ -231,7 +247,7 @@ function callExpr(lexer: Lexer): ParseExpr | null {
   if (!target) return null
   while (true) {
     if (!accept(lexer, "openBrace")) return target
-    const message = parseMessage(lexer, arg)
+    const message = parseArgs(lexer)
     mustToken(lexer, "closeBrace")
     target = { tag: "send", target, message }
   }
@@ -295,7 +311,7 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
     case "provide": {
       lexer.advance()
       mustToken(lexer, "openBrace")
-      const message = parseMessage(lexer, arg)
+      const message = parseArgs(lexer)
       mustToken(lexer, "closeBrace")
       return { tag: "provide", message }
     }

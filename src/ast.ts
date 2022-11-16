@@ -1,21 +1,12 @@
 import {
-  ParseArg,
   ParseExpr,
-  ParseMessage,
   ParseHandler,
-  ParsePair,
   ParseStmt,
-  ParseParam,
   HandlerSet,
-  ASTFrameArg,
-  ASTBindPair,
   ASTSetBinding,
   ASTVarBinding,
   ASTImportBinding,
   ASTImportSource,
-  ASTProvidePair,
-  ASTUsingPair,
-  InvalidProvideBindingError,
 } from "./ast-parser"
 import {
   ASTStmt,
@@ -23,20 +14,15 @@ import {
   ASTArg,
   ASTLetBinding,
   ASTHandler,
-  ASTParam,
+  InvalidFrameArgError,
 } from "./ast-parser"
 
-export class InvalidFrameArgError {}
 export class InvalidBlockArgError {}
 export class InvalidLetBindingError {}
 export class InvalidSetTargetError {}
 export class InvalidVarBindingError {}
 export class InvalidImportBindingError {}
 export class InvalidImportSourceError {}
-export class InvalidDestructuringError {}
-export class DuplicateKeyError {
-  constructor(readonly key: string) {}
-}
 
 function handlerSet(ins: ParseHandler[]): HandlerSet {
   const out: HandlerSet = {
@@ -49,10 +35,6 @@ function handlerSet(ins: ParseHandler[]): HandlerSet {
   }
 
   return out
-}
-
-function astArg(arg: ParseArg): ASTArg {
-  return arg.toAst({ expr, handlerSet })
 }
 
 function expr(value: ParseExpr): ASTExpr {
@@ -107,7 +89,7 @@ function expr(value: ParseExpr): ASTExpr {
       }
     case "if": {
       const res = value.conds.reduceRight((falseBlock, cond) => {
-        const trueBlock = cond.body.map(stmt)
+        const trueBlock: ASTStmt[] = cond.body.map(stmt)
         const send: ASTExpr = {
           tag: "send",
           selector: ":",
@@ -150,62 +132,9 @@ function expr(value: ParseExpr): ASTExpr {
       return handlerSet(value.handlers)
     case "frame":
       if (value.as) throw new InvalidFrameArgError()
-      return build<ParseArg, ASTFrameArg, ASTExpr>(value.message, {
-        key(selector) {
-          return { tag: "frame", selector, args: [] }
-        },
-        punValue(key) {
-          return { key, value: { tag: "identifier", value: key } }
-        },
-        pair(key, arg) {
-          if (!arg.frameArg) throw new InvalidFrameArgError()
-          return { key, value: arg.frameArg({ expr }) }
-        },
-        build(selector, args) {
-          return { tag: "frame", selector, args }
-        },
-      })
+      return value.message.frame({ expr })
     case "send":
-      const target = expr(value.target)
-      return build<ParseArg, ASTArg, ASTExpr>(value.message, {
-        key(selector) {
-          return { tag: "send", target, selector, args: [] }
-        },
-        punValue(value) {
-          return { tag: "expr", value: { tag: "identifier", value } }
-        },
-        pair(_, arg) {
-          return astArg(arg)
-        },
-        build(selector, args) {
-          return { tag: "send", target, selector, args }
-        },
-      })
-  }
-}
-
-function destructureItem(item: ParsePair<ParseArg>): ASTBindPair {
-  switch (item.tag) {
-    case "punPair":
-      return {
-        key: item.key,
-        value: { tag: "identifier", value: item.key },
-      }
-    case "pair":
-      if (!item.value.destructureArg) throw new InvalidDestructuringError()
-      return {
-        key: item.key,
-        value: item.value.destructureArg({ letBinding }),
-      }
-  }
-}
-
-function destructureMessage(message: ParseMessage<ParseArg>): ASTBindPair[] {
-  switch (message.tag) {
-    case "key":
-      throw new InvalidDestructuringError()
-    case "pairs":
-      return message.pairs.map(destructureItem)
+      return value.message.send({ expr, handlerSet }, expr(value.target))
   }
 }
 
@@ -219,7 +148,11 @@ function letBinding(value: ParseExpr): ASTLetBinding {
         if (value.as.tag !== "identifier") throw new InvalidLetBindingError()
         as = value.as.value
       }
-      return { tag: "object", params: destructureMessage(value.message), as }
+      return {
+        tag: "object",
+        params: value.message.destructure({ letBinding }),
+        as,
+      }
     default:
       throw new InvalidLetBindingError()
   }
@@ -256,7 +189,7 @@ function importBinding(value: ParseExpr): ASTImportBinding {
       if (value.as) throw new InvalidImportBindingError()
       return {
         tag: "object",
-        params: destructureMessage(value.message),
+        params: value.message.destructure({ letBinding }),
         as: null,
       }
     default:
@@ -293,23 +226,7 @@ function stmt(value: ParseStmt): ASTStmt {
         value: expr(value.value),
       }
     case "provide":
-      return build<ParseArg, ASTProvidePair, ASTStmt>(value.message, {
-        key() {
-          throw new InvalidProvideBindingError()
-        },
-        punValue(key) {
-          return {
-            key,
-            value: { tag: "expr", value: { tag: "identifier", value: key } },
-          }
-        },
-        pair(key, arg) {
-          return { key, value: astArg(arg) }
-        },
-        build(_, args) {
-          return { tag: "provide", args }
-        },
-      })
+      return value.message.provide({ expr, handlerSet })
     case "using":
       return value.message.using({ letBinding })
     case "import":
@@ -329,40 +246,4 @@ function stmt(value: ParseStmt): ASTStmt {
 
 export function program(items: ParseStmt[]): ASTStmt[] {
   return items.map(stmt)
-}
-
-// utils
-
-interface Builder<In, Item, Container> {
-  key(key: string): Container
-  punValue(key: string): Item
-  pair(key: string, value: In): Item
-  build(selector: string, values: Item[]): Container
-}
-
-function build<In, Item, Container>(
-  message: ParseMessage<In>,
-  builder: Builder<In, Item, Container>
-): Container {
-  if (message.tag === "key") {
-    return builder.key(message.key)
-  }
-  const map = new Map<string, Item>()
-
-  for (const param of message.pairs) {
-    if (map.has(param.key)) throw new DuplicateKeyError(param.key)
-    switch (param.tag) {
-      case "punPair":
-        map.set(param.key, builder.punValue(param.key))
-        continue
-      case "pair":
-        map.set(param.key, builder.pair(param.key, param.value))
-        continue
-    }
-  }
-
-  const sortedKeys = Array.from(map.keys()).sort()
-  const selector = sortedKeys.map((k) => `${k}:`).join("")
-  const values = sortedKeys.map((k) => map.get(k)!)
-  return builder.build(selector, values)
 }
