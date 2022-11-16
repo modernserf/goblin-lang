@@ -24,6 +24,20 @@ import {
   KeyArgs,
   PairArgs,
   ParseArgs,
+  Self,
+  ParseInt,
+  ParseFloat,
+  ParseString,
+  ParseIdent,
+  ParseParens,
+  Unit,
+  ParseObject,
+  ParseFrame,
+  ParseDoBlock,
+  ParseIf,
+  ParseSend,
+  ParseUnaryOp,
+  ParseBinaryOp,
 } from "./ast-parser"
 
 export class ParseError {
@@ -169,28 +183,28 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
   switch (token.tag) {
     case "self":
       lexer.advance()
-      return { tag: "self" }
+      return Self
     case "integer":
       lexer.advance()
-      return { tag: "integer", value: token.value }
+      return new ParseInt(token.value)
     case "float":
       lexer.advance()
-      return { tag: "float", value: token.value }
+      return new ParseFloat(token.value)
     case "string":
       lexer.advance()
-      return { tag: "string", value: token.value }
+      return new ParseString(token.value)
     case "identifier":
     case "quotedIdent":
       lexer.advance()
-      return { tag: "identifier", value: token.value }
+      return new ParseIdent(token.value)
     case "openParen": {
       lexer.advance()
       const value = parseExpr(lexer)
       mustToken(lexer, "closeParen")
       if (value) {
-        return { tag: "parens", value }
+        return new ParseParens(value)
       } else {
-        return { tag: "unit" }
+        return Unit
       }
     }
     case "openBracket": {
@@ -198,21 +212,21 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
       const handlers = parseHandlers(lexer)
       if (handlers.length) {
         mustToken(lexer, "closeBracket")
-        return { tag: "object", handlers }
+        return new ParseObject(handlers)
       }
       const message = parseArgs(lexer)
       mustToken(lexer, "closeBracket")
       if (accept(lexer, "as")) {
         const as = must(lexer, "binding", parseExpr)
-        return { tag: "frame", message, as }
+        return new ParseFrame(message, as)
       }
-      return { tag: "frame", message, as: null }
+      return new ParseFrame(message, null)
     }
     case "do": {
       lexer.advance()
       const body = repeat(lexer, parseStmt)
       mustToken(lexer, "end")
-      return { tag: "do", body }
+      return new ParseDoBlock(body)
     }
     case "if": {
       lexer.advance()
@@ -222,7 +236,7 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
       const conds = [{ value, body }]
       while (true) {
         if (accept(lexer, "end")) {
-          return { tag: "if", conds, else: [] }
+          return new ParseIf(conds, [])
         }
         mustToken(lexer, "else")
         if (accept(lexer, "if")) {
@@ -233,7 +247,7 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
         } else {
           const body = repeat(lexer, parseStmt)
           mustToken(lexer, "end")
-          return { tag: "if", conds, else: body }
+          return new ParseIf(conds, body)
         }
       }
     }
@@ -249,7 +263,7 @@ function callExpr(lexer: Lexer): ParseExpr | null {
     if (!accept(lexer, "openBrace")) return target
     const message = parseArgs(lexer)
     mustToken(lexer, "closeBrace")
-    target = { tag: "send", target, message }
+    target = new ParseSend(target, message)
   }
 }
 
@@ -257,7 +271,7 @@ function unaryOpExpr(lexer: Lexer): ParseExpr | null {
   const op = accept(lexer, "operator")
   if (!op) return callExpr(lexer)
   const target = must(lexer, "expr", unaryOpExpr)
-  return { tag: "unaryOp", operator: op.value, target }
+  return new ParseUnaryOp(target, op.value)
 }
 
 function binaryOpExpr(lexer: Lexer): ParseExpr | null {
@@ -267,7 +281,7 @@ function binaryOpExpr(lexer: Lexer): ParseExpr | null {
     const op = accept(lexer, "operator")
     if (!op) return target
     const arg = must(lexer, "expr", unaryOpExpr)
-    target = { tag: "binaryOp", target, operator: op.value, arg }
+    target = new ParseBinaryOp(target, op.value, arg)
   }
 }
 
@@ -324,7 +338,7 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
       lexer.advance()
       const value = parseExpr(lexer)
       if (value) return { tag: "return", value }
-      return { tag: "return", value: { tag: "unit" } }
+      return { tag: "return", value: Unit }
     }
     case "defer": {
       lexer.advance()

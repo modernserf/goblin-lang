@@ -8,14 +8,7 @@ import {
   ASTImportBinding,
   ASTImportSource,
 } from "./ast-parser"
-import {
-  ASTStmt,
-  ASTExpr,
-  ASTArg,
-  ASTLetBinding,
-  ASTHandler,
-  InvalidFrameArgError,
-} from "./ast-parser"
+import { ASTStmt, ASTLetBinding, ASTHandler } from "./ast-parser"
 
 export class InvalidBlockArgError {}
 export class InvalidLetBindingError {}
@@ -37,169 +30,34 @@ function handlerSet(ins: ParseHandler[]): HandlerSet {
   return out
 }
 
-function expr(value: ParseExpr): ASTExpr {
-  switch (value.tag) {
-    case "self":
-    case "integer":
-    case "float":
-    case "string":
-    case "identifier":
-    case "unit":
-      return value
-    case "parens":
-      return expr(value.value)
-    case "unaryOp":
-      return {
-        tag: "send",
-        target: expr(value.target),
-        selector: value.operator,
-        args: [],
-      }
-    case "binaryOp":
-      return {
-        tag: "send",
-        target: expr(value.target),
-        selector: `${value.operator}:`,
-        args: [{ tag: "expr", value: expr(value.arg) }],
-      }
-    case "do":
-      return {
-        tag: "send",
-        target: { tag: "frame", selector: "", args: [] },
-        selector: ":",
-        args: [
-          {
-            tag: "do",
-            value: {
-              tag: "object",
-              else: null,
-              handlers: new Map<string, ASTHandler>([
-                [
-                  "",
-                  {
-                    selector: "",
-                    params: [],
-                    body: value.body.map(stmt),
-                  },
-                ],
-              ]),
-            },
-          },
-        ],
-      }
-    case "if": {
-      const res = value.conds.reduceRight((falseBlock, cond) => {
-        const trueBlock: ASTStmt[] = cond.body.map(stmt)
-        const send: ASTExpr = {
-          tag: "send",
-          selector: ":",
-          target: expr(cond.value),
-          args: [
-            {
-              tag: "do",
-              value: {
-                tag: "object",
-                else: null,
-                handlers: new Map<string, ASTHandler>([
-                  [
-                    "true",
-                    {
-                      selector: "true",
-                      params: [],
-                      body: trueBlock,
-                    },
-                  ],
-                  [
-                    "false",
-                    {
-                      selector: "false",
-                      params: [],
-                      body: falseBlock,
-                    },
-                  ],
-                ]),
-              },
-            },
-          ],
-        }
-        return [{ tag: "expr", value: send } as ASTStmt]
-      }, value.else.map(stmt))
-      /* istanbul ignore next */
-      if (!res.length || res[0].tag !== "expr") throw new Error("unreachable")
-      return res[0].value
-    }
-    case "object":
-      return handlerSet(value.handlers)
-    case "frame":
-      if (value.as) throw new InvalidFrameArgError()
-      return value.message.frame({ expr })
-    case "send":
-      return value.message.send({ expr, handlerSet }, expr(value.target))
-  }
-}
-
 function letBinding(value: ParseExpr): ASTLetBinding {
-  switch (value.tag) {
-    case "identifier":
-      return value
-    case "frame":
-      let as: string | null = null
-      if (value.as) {
-        if (value.as.tag !== "identifier") throw new InvalidLetBindingError()
-        as = value.as.value
-      }
-      return {
-        tag: "object",
-        params: value.message.destructure({ letBinding }),
-        as,
-      }
-    default:
-      throw new InvalidLetBindingError()
-  }
+  if (!value.letBinding) throw new InvalidLetBindingError()
+  return value.letBinding(ast)
 }
 
 function setBinding(value: ParseExpr): ASTSetBinding {
-  if (value.tag === "identifier") return value
-  throw new InvalidSetTargetError()
+  if (!value.simpleBinding) throw new InvalidSetTargetError()
+  return value.simpleBinding(ast)
 }
 
 function setInPlace(value: ParseExpr): ASTStmt {
-  let root = value
-  while (true) {
-    switch (root.tag) {
-      case "identifier":
-        return { tag: "set", binding: root, value: expr(value) }
-      case "send":
-        root = root.target
-        continue
-      default:
-        throw new InvalidSetTargetError()
-    }
-  }
+  if (!value.setInPlace) throw new InvalidSetTargetError()
+  return value.setInPlace(ast, value.toAST(ast))
 }
 
 function varBinding(value: ParseExpr): ASTVarBinding {
-  if (value.tag === "identifier") return value
-  throw new InvalidVarBindingError()
+  if (!value.simpleBinding) throw new InvalidVarBindingError()
+  return value.simpleBinding(ast)
 }
 
 function importBinding(value: ParseExpr): ASTImportBinding {
-  switch (value.tag) {
-    case "frame":
-      if (value.as) throw new InvalidImportBindingError()
-      return {
-        tag: "object",
-        params: value.message.destructure({ letBinding }),
-        as: null,
-      }
-    default:
-      throw new InvalidImportBindingError()
-  }
+  if (!value.importBinding) throw new InvalidImportBindingError()
+  return value.importBinding(ast)
 }
 
 function importSource(value: ParseExpr): ASTImportSource {
-  if (value.tag === "string") return value
-  throw new InvalidImportSourceError()
+  if (!value.importSource) throw new InvalidImportSourceError()
+  return value.importSource()
 }
 
 function stmt(value: ParseStmt): ASTStmt {
@@ -208,14 +66,14 @@ function stmt(value: ParseStmt): ASTStmt {
       return {
         tag: "let",
         binding: letBinding(value.binding),
-        value: expr(value.value),
+        value: value.value.toAST(ast),
         export: value.export,
       }
     case "set":
       return {
         tag: "set",
         binding: setBinding(value.binding),
-        value: expr(value.value),
+        value: value.value.toAST(ast),
       }
     case "setInPlace":
       return setInPlace(value.binding)
@@ -223,12 +81,12 @@ function stmt(value: ParseStmt): ASTStmt {
       return {
         tag: "var",
         binding: varBinding(value.binding),
-        value: expr(value.value),
+        value: value.value.toAST(ast),
       }
     case "provide":
-      return value.message.provide({ expr, handlerSet })
+      return value.message.provide(ast)
     case "using":
-      return value.message.using({ letBinding })
+      return value.message.using(ast)
     case "import":
       return {
         tag: "import",
@@ -238,12 +96,14 @@ function stmt(value: ParseStmt): ASTStmt {
     case "defer":
       return { tag: "defer", body: value.body.map(stmt) }
     case "return":
-      return { tag: "return", value: expr(value.value) }
+      return { tag: "return", value: value.value.toAST(ast) }
     case "expr":
-      return { tag: "expr", value: expr(value.value) }
+      return { tag: "expr", value: value.value.toAST(ast) }
   }
 }
 
 export function program(items: ParseStmt[]): ASTStmt[] {
   return items.map(stmt)
 }
+
+const ast = { handlerSet, letBinding, stmt }
