@@ -10,12 +10,12 @@ import {
   InvalidImportBindingError,
   InvalidImportSourceError,
   InvalidLetBindingError,
-  InvalidProvideBindingError,
   InvalidSetTargetError,
   InvalidVarBindingError,
   program as astWalk,
 } from "./ast"
 import {
+  InvalidProvideBindingError,
   DuplicateElseHandlerError,
   DuplicateHandlerError,
   InvalidDoParamError,

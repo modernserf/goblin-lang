@@ -15,6 +15,7 @@ import {
   ASTImportSource,
   ASTProvidePair,
   ASTUsingPair,
+  InvalidProvideBindingError,
 } from "./ast-parser"
 import {
   ASTStmt,
@@ -30,16 +31,11 @@ export class InvalidBlockArgError {}
 export class InvalidLetBindingError {}
 export class InvalidSetTargetError {}
 export class InvalidVarBindingError {}
-export class InvalidProvideBindingError {}
 export class InvalidImportBindingError {}
 export class InvalidImportSourceError {}
 export class InvalidDestructuringError {}
 export class DuplicateKeyError {
   constructor(readonly key: string) {}
-}
-
-function astParam(param: ParseParam): ASTParam {
-  return param.toAST({ letBinding })
 }
 
 function handlerSet(ins: ParseHandler[]): HandlerSet {
@@ -315,26 +311,7 @@ function stmt(value: ParseStmt): ASTStmt {
         },
       })
     case "using":
-      return build<ParseParam, ASTUsingPair, ASTStmt>(value.message, {
-        key() {
-          throw new InvalidProvideBindingError()
-        },
-        punValue(key) {
-          return {
-            key,
-            value: {
-              tag: "binding",
-              binding: { tag: "identifier", value: key },
-            },
-          }
-        },
-        pair(key, param) {
-          return { key, value: astParam(param) }
-        },
-        build(_, params) {
-          return { tag: "using", params }
-        },
-      })
+      return value.message.using({ letBinding })
     case "import":
       return {
         tag: "import",

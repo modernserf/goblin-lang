@@ -5,7 +5,7 @@ export type ParseStmt =
   | { tag: "var"; binding: ParseExpr; value: ParseExpr }
   | { tag: "import"; binding: ParseExpr; value: ParseExpr }
   | { tag: "provide"; message: ParseMessage<ParseArg> }
-  | { tag: "using"; message: ParseMessage<ParseParam> }
+  | { tag: "using"; message: ParseParams }
   | { tag: "return"; value: ParseExpr }
   | { tag: "defer"; body: ParseStmt[] }
   | { tag: "expr"; value: ParseExpr }
@@ -36,6 +36,7 @@ export type ParsePair<T> =
   | { tag: "pair"; key: string; value: T }
   | { tag: "punPair"; key: string }
 
+export class InvalidProvideBindingError {}
 export class InvalidVarParamError {}
 export class InvalidDoParamError {}
 export class InvalidVarArgError {}
@@ -82,29 +83,46 @@ function expandDefaultParams(
   return out
 }
 
-export class OnHandler implements ParseHandler {
-  constructor(
-    private message: ParseMessage<ParseParam>,
-    private body: ParseStmt[]
-  ) {}
-  expand(): ParseHandler[] {
-    if (this.message.tag === "key") return [this]
+export interface ParseParams {
+  expand(body: ParseStmt[]): ParseHandler[]
+  addToSet(ast: any, out: HandlerSet, body: ASTStmt[]): void
+  using(ast: any): ASTStmt
+}
+
+export class KeyParams implements ParseParams {
+  constructor(private key: string) {}
+  expand(body: ParseStmt[]): ParseHandler[] {
+    return [new OnHandler(this, body)]
+  }
+  addToSet(ast: any, out: HandlerSet, body: ASTStmt[]): void {
+    if (out.handlers.has(this.key)) {
+      throw new DuplicateHandlerError(this.key)
+    }
+    out.handlers.set(this.key, { selector: this.key, params: [], body })
+  }
+  using(ast: any): ASTStmt {
+    throw new InvalidProvideBindingError()
+  }
+}
+
+export class PairParams implements ParseParams {
+  constructor(private pairs: ParsePair<ParseParam>[]) {}
+  expand(body: ParseStmt[]): ParseHandler[] {
     const out: ParseHandler[] = []
-    for (const { pairs, bindings } of expandDefaultParams(this.message.pairs)) {
-      const body: ParseStmt[] = bindings.map(({ binding, value }) => {
-        return { tag: "let", binding, value, export: false }
-      })
-      body.push(...this.body)
-      out.push(new OnHandler({ tag: "pairs", pairs }, body))
+    for (const { pairs, bindings } of expandDefaultParams(this.pairs)) {
+      out.push(
+        new OnHandler(new PairParams(pairs), [
+          ...bindings.map(({ binding, value }) => {
+            return { tag: "let", binding, value, export: false } as const
+          }),
+          ...body,
+        ])
+      )
     }
     return out
   }
-  addToSet(ast: any, out: HandlerSet): void {
-    const body = this.body.map((s) => ast.stmt(s))
-    const m = build<ParseParam, ASTParam, ASTHandler>(this.message, {
-      key(selector) {
-        return { selector, params: [], body }
-      },
+  addToSet(ast: any, out: HandlerSet, body: ASTStmt[]): void {
+    const m = build<ParseParam, ASTParam, ASTHandler>(this.pairs, {
       punValue(value) {
         return { tag: "binding", binding: { tag: "identifier", value } }
       },
@@ -119,6 +137,36 @@ export class OnHandler implements ParseHandler {
       throw new DuplicateHandlerError(m.selector)
     }
     out.handlers.set(m.selector, m)
+  }
+  using(ast: any): ASTStmt {
+    return build<ParseParam, ASTUsingPair, ASTStmt>(this.pairs, {
+      punValue(key) {
+        return {
+          key,
+          value: {
+            tag: "binding",
+            binding: { tag: "identifier", value: key },
+          },
+        }
+      },
+      pair(key, param) {
+        return { key, value: param.toAST(ast) }
+      },
+      build(_, params) {
+        return { tag: "using", params }
+      },
+    })
+  }
+}
+
+export class OnHandler implements ParseHandler {
+  constructor(private message: ParseParams, private body: ParseStmt[]) {}
+  expand(): ParseHandler[] {
+    return this.message.expand(this.body)
+  }
+  addToSet(ast: any, out: HandlerSet): void {
+    const body = this.body.map((s) => ast.stmt(s))
+    this.message.addToSet(ast, out, body)
   }
 }
 export class ElseHandler implements ParseHandler {
@@ -180,7 +228,7 @@ export class DoParam implements ParseParam {
 
 export class PatternParam implements ParseParam {
   readonly defaultValue = null
-  constructor(private message: ParseMessage<ParseParam>) {}
+  constructor(private message: ParseParams) {}
   toAST(ast: any): ASTParam {
     throw "todo: pattern param"
   }
@@ -286,22 +334,18 @@ export type ASTVarParam = { tag: "identifier"; value: string }
 export type ASTBlockParam = { tag: "identifier"; value: string }
 
 interface Builder<In, Item, Container> {
-  key(key: string): Container
   punValue(key: string): Item
   pair(key: string, value: In): Item
   build(selector: string, values: Item[]): Container
 }
 
 function build<In, Item, Container>(
-  message: ParseMessage<In>,
+  pairs: ParsePair<In>[],
   builder: Builder<In, Item, Container>
 ): Container {
-  if (message.tag === "key") {
-    return builder.key(message.key)
-  }
   const map = new Map<string, Item>()
 
-  for (const param of message.pairs) {
+  for (const param of pairs) {
     if (map.has(param.key)) throw new DuplicateKeyError(param.key)
     switch (param.tag) {
       case "punPair":

@@ -19,6 +19,9 @@ import {
   ValueArg,
   OnHandler,
   ElseHandler,
+  KeyParams,
+  PairParams,
+  ParseParams,
 } from "./ast-parser"
 
 export class ParseError {
@@ -37,8 +40,7 @@ function param(lexer: Lexer): ParseParam {
       lexer.advance()
       return new DoParam(must(lexer, "expr", parseExpr))
     case "openBrace": {
-      lexer.advance()
-      const message = parseMessage(lexer, param)
+      const message = must(lexer, "params", parseParams)
       mustToken(lexer, "closeBrace")
       return new PatternParam(message)
     }
@@ -112,16 +114,21 @@ function parseMessage<T>(lexer: Lexer, parser: Parser<T>): ParseMessage<T> {
   }
 }
 
-function parseHandlerMessage(lexer: Lexer): ParseMessage<ParseParam> | null {
+function parseParams(lexer: Lexer): ParseParams | null {
   if (!accept(lexer, "openBrace")) return null
   const message = parseMessage(lexer, param)
   mustToken(lexer, "closeBrace")
-  return message
+  switch (message.tag) {
+    case "key":
+      return new KeyParams(message.key)
+    case "pairs":
+      return new PairParams(message.pairs)
+  }
 }
 
 function parseHandlers(lexer: Lexer): ParseHandler[] {
   if (lexer.peek().tag === "openBrace") {
-    const messages = repeat1(lexer, "handler", parseHandlerMessage)
+    const messages = repeat1(lexer, "handler", parseParams)
     const body = repeat(lexer, parseStmt)
     return messages.map((message) => new OnHandler(message, body))
   }
@@ -131,7 +138,7 @@ function parseHandlers(lexer: Lexer): ParseHandler[] {
       const body = repeat(lexer, parseStmt)
       out.push(new ElseHandler(body))
     } else if (accept(lexer, "on")) {
-      const messages = repeat1(lexer, "handler", parseHandlerMessage)
+      const messages = repeat1(lexer, "handler", parseParams)
       const body = repeat(lexer, parseStmt)
       out.push(...messages.map((message) => new OnHandler(message, body)))
     } else {
@@ -294,9 +301,7 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
     }
     case "using": {
       lexer.advance()
-      mustToken(lexer, "openBrace")
-      const message = parseMessage(lexer, param)
-      mustToken(lexer, "closeBrace")
+      const message = must(lexer, "params", parseParams)
       return { tag: "using", message }
     }
     case "return": {
