@@ -3,14 +3,7 @@ import assert from "node:assert/strict"
 
 import { Lexer } from "./lexer"
 import { program as parse } from "./parser"
-import {
-  InvalidImportBindingError,
-  InvalidImportSourceError,
-  InvalidLetBindingError,
-  InvalidSetTargetError,
-  InvalidVarBindingError,
-  program as astWalk,
-} from "./ast"
+import { program as astWalk } from "./ast"
 import {
   DuplicateKeyError,
   InvalidDestructuringError,
@@ -21,6 +14,11 @@ import {
   InvalidDoParamError,
   InvalidVarArgError,
   InvalidVarParamError,
+  InvalidImportBindingError,
+  InvalidImportSourceError,
+  InvalidLetBindingError,
+  InvalidSetTargetError,
+  InvalidVarBindingError,
 } from "./ast-parser"
 
 export function check(source: string) {

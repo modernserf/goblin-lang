@@ -38,6 +38,16 @@ import {
   ParseSend,
   ParseUnaryOp,
   ParseBinaryOp,
+  LetStmt,
+  VarStmt,
+  ImportStmt,
+  SetStmt,
+  SetInPlaceStmt,
+  ProvideStmt,
+  UsingStmt,
+  ReturnStmt,
+  DeferStmt,
+  ExprStmt,
 } from "./ast-parser"
 
 export class ParseError {
@@ -292,34 +302,45 @@ function parseExpr(lexer: Lexer): ParseExpr | null {
   return value
 }
 
+function assign(lexer: Lexer): { binding: ParseExpr; expr: ParseExpr } {
+  const binding = must(lexer, "binding", parseExpr)
+  mustToken(lexer, "colonEquals")
+  const expr = must(lexer, "expr", parseExpr)
+  return { binding, expr }
+}
+
 function parseStmt(lexer: Lexer): ParseStmt | null {
   const token = lexer.peek()
   switch (token.tag) {
     case "export": {
       lexer.advance()
       mustToken(lexer, "let")
-      const binding = must(lexer, "binding", parseExpr)
-      mustToken(lexer, "colonEquals")
-      const value = must(lexer, "expr", parseExpr)
-      return { tag: "let", binding, value, export: true }
+      const { binding, expr } = assign(lexer)
+      return new LetStmt(binding, expr, true)
     }
-    case "let":
-    case "var":
+    case "let": {
+      lexer.advance()
+      const { binding, expr } = assign(lexer)
+      return new LetStmt(binding, expr, false)
+    }
+    case "var": {
+      lexer.advance()
+      const { binding, expr } = assign(lexer)
+      return new VarStmt(binding, expr)
+    }
     case "import": {
       lexer.advance()
-      const binding = must(lexer, "binding", parseExpr)
-      mustToken(lexer, "colonEquals")
-      const value = must(lexer, "expr", parseExpr)
-      return { tag: token.tag, binding, value, export: false }
+      const { binding, expr } = assign(lexer)
+      return new ImportStmt(binding, expr)
     }
     case "set": {
       lexer.advance()
       const binding = must(lexer, "binding", parseExpr)
       if (accept(lexer, "colonEquals")) {
-        const value = must(lexer, "expr", parseExpr)
-        return { tag: token.tag, binding, value }
+        const expr = must(lexer, "expr", parseExpr)
+        return new SetStmt(binding, expr)
       } else {
-        return { tag: "setInPlace", binding }
+        return new SetInPlaceStmt(binding)
       }
     }
     case "provide": {
@@ -327,29 +348,28 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
       mustToken(lexer, "openBrace")
       const message = parseArgs(lexer)
       mustToken(lexer, "closeBrace")
-      return { tag: "provide", message }
+      return new ProvideStmt(message)
     }
     case "using": {
       lexer.advance()
       const message = must(lexer, "params", parseParams)
-      return { tag: "using", message }
+      return new UsingStmt(message)
     }
     case "return": {
       lexer.advance()
       const value = parseExpr(lexer)
-      if (value) return { tag: "return", value }
-      return { tag: "return", value: Unit }
+      return new ReturnStmt(value || Unit)
     }
     case "defer": {
       lexer.advance()
       const body = repeat(lexer, parseStmt)
       mustToken(lexer, "end")
-      return { tag: "defer", body }
+      return new DeferStmt(body)
     }
     default: {
-      const value = parseExpr(lexer)
-      if (!value) return null
-      return { tag: "expr", value }
+      const expr = parseExpr(lexer)
+      if (!expr) return null
+      return new ExprStmt(expr)
     }
   }
 }
