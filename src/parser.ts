@@ -17,6 +17,8 @@ import {
   VarArg,
   HandlersArg,
   ValueArg,
+  OnHandler,
+  ElseHandler,
 } from "./ast-parser"
 
 export class ParseError {
@@ -121,19 +123,17 @@ function parseHandlers(lexer: Lexer): ParseHandler[] {
   if (lexer.peek().tag === "openBrace") {
     const messages = repeat1(lexer, "handler", parseHandlerMessage)
     const body = repeat(lexer, parseStmt)
-    return messages.map((message) => ({ tag: "on", message, body }))
+    return messages.map((message) => new OnHandler(message, body))
   }
   const out: ParseHandler[] = []
   while (true) {
     if (accept(lexer, "else")) {
       const body = repeat(lexer, parseStmt)
-      out.push({ tag: "else", body })
+      out.push(new ElseHandler(body))
     } else if (accept(lexer, "on")) {
       const messages = repeat1(lexer, "handler", parseHandlerMessage)
       const body = repeat(lexer, parseStmt)
-      out.push(
-        ...messages.map((message) => ({ tag: "on", message, body } as const))
-      )
+      out.push(...messages.map((message) => new OnHandler(message, body)))
     } else {
       accept(lexer, "end")
       return out

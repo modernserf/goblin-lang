@@ -37,60 +37,9 @@ export class InvalidDestructuringError {}
 export class DuplicateKeyError {
   constructor(readonly key: string) {}
 }
-export class DuplicateHandlerError {
-  constructor(readonly selector: string) {}
-}
-export class DuplicateElseHandlerError {}
-
-type ParamWithBindings = {
-  pairs: ParsePair<ParseParam>[]
-  bindings: { binding: ParseExpr; value: ParseExpr }[]
-}
 
 function astParam(param: ParseParam): ASTParam {
   return param.toAST({ letBinding })
-}
-
-function expandDefaultParams(
-  pairs: ParsePair<ParseParam>[]
-): ParamWithBindings[] {
-  const out: ParamWithBindings[] = [{ pairs: [], bindings: [] }]
-  for (const pair of pairs) {
-    if (pair.tag === "pair" && pair.value.defaultPair) {
-      const copy = out.map((x) => ({
-        pairs: x.pairs.slice(),
-        bindings: x.bindings.slice(),
-      }))
-      for (const item of out) {
-        item.pairs.push(pair)
-      }
-      for (const item of copy) {
-        item.bindings.push(pair.value.defaultPair())
-      }
-      out.push(...copy)
-    } else {
-      for (const item of out) {
-        item.pairs.push(pair)
-      }
-    }
-  }
-  return out
-}
-
-function expandHandler(handler: ParseHandler): ParseHandler[] {
-  if (handler.tag === "else") return [handler]
-  if (handler.message.tag === "key") return [handler]
-  const out: ParseHandler[] = []
-  for (const { pairs, bindings } of expandDefaultParams(
-    handler.message.pairs
-  )) {
-    const body: ParseStmt[] = bindings.map(({ binding, value }) => {
-      return { tag: "let", binding, value, export: false }
-    })
-    body.push(...handler.body)
-    out.push({ tag: "on", message: { tag: "pairs", pairs }, body })
-  }
-  return out
 }
 
 function handlerSet(ins: ParseHandler[]): HandlerSet {
@@ -99,36 +48,8 @@ function handlerSet(ins: ParseHandler[]): HandlerSet {
     handlers: new Map<string, ASTHandler>(),
     else: null,
   }
-  for (const handler of ins.flatMap(expandHandler)) {
-    if (handler.tag === "else") {
-      if (out.else) throw new DuplicateElseHandlerError()
-      out.else = {
-        selector: "",
-        params: [],
-        body: handler.body.map((s) => stmt(s)),
-      }
-      continue
-    }
-
-    const body = handler.body.map((s) => stmt(s))
-    const m = build<ParseParam, ASTParam, ASTHandler>(handler.message, {
-      key(selector) {
-        return { selector, params: [], body }
-      },
-      punValue(value) {
-        return { tag: "binding", binding: { tag: "identifier", value } }
-      },
-      pair(_, param) {
-        return astParam(param)
-      },
-      build(selector, params) {
-        return { selector, params, body }
-      },
-    })
-    if (out.handlers.has(m.selector)) {
-      throw new DuplicateHandlerError(m.selector)
-    }
-    out.handlers.set(m.selector, m)
+  for (const handler of ins.flatMap((x) => x.expand())) {
+    handler.addToSet({ letBinding, stmt }, out)
   }
 
   return out

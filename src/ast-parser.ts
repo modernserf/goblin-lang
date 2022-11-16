@@ -36,14 +36,105 @@ export type ParsePair<T> =
   | { tag: "pair"; key: string; value: T }
   | { tag: "punPair"; key: string }
 
-// TODO: multiple messages, decorators
-export type ParseHandler =
-  | { tag: "on"; message: ParseMessage<ParseParam>; body: ParseStmt[] }
-  | { tag: "else"; body: ParseStmt[] }
-
 export class InvalidVarParamError {}
 export class InvalidDoParamError {}
 export class InvalidVarArgError {}
+export class DuplicateHandlerError {
+  constructor(readonly selector: string) {}
+}
+export class DuplicateElseHandlerError {}
+export class DuplicateKeyError {
+  constructor(readonly key: string) {}
+}
+
+export interface ParseHandler {
+  expand(): ParseHandler[]
+  addToSet(ast: any, handlerSet: HandlerSet): void
+}
+
+type ParamWithBindings = {
+  pairs: ParsePair<ParseParam>[]
+  bindings: { binding: ParseExpr; value: ParseExpr }[]
+}
+function expandDefaultParams(
+  pairs: ParsePair<ParseParam>[]
+): ParamWithBindings[] {
+  const out: ParamWithBindings[] = [{ pairs: [], bindings: [] }]
+  for (const pair of pairs) {
+    if (pair.tag === "pair" && pair.value.defaultPair) {
+      const copy = out.map((x) => ({
+        pairs: x.pairs.slice(),
+        bindings: x.bindings.slice(),
+      }))
+      for (const item of out) {
+        item.pairs.push(pair)
+      }
+      for (const item of copy) {
+        item.bindings.push(pair.value.defaultPair())
+      }
+      out.push(...copy)
+    } else {
+      for (const item of out) {
+        item.pairs.push(pair)
+      }
+    }
+  }
+  return out
+}
+
+export class OnHandler implements ParseHandler {
+  constructor(
+    private message: ParseMessage<ParseParam>,
+    private body: ParseStmt[]
+  ) {}
+  expand(): ParseHandler[] {
+    if (this.message.tag === "key") return [this]
+    const out: ParseHandler[] = []
+    for (const { pairs, bindings } of expandDefaultParams(this.message.pairs)) {
+      const body: ParseStmt[] = bindings.map(({ binding, value }) => {
+        return { tag: "let", binding, value, export: false }
+      })
+      body.push(...this.body)
+      out.push(new OnHandler({ tag: "pairs", pairs }, body))
+    }
+    return out
+  }
+  addToSet(ast: any, out: HandlerSet): void {
+    const body = this.body.map((s) => ast.stmt(s))
+    const m = build<ParseParam, ASTParam, ASTHandler>(this.message, {
+      key(selector) {
+        return { selector, params: [], body }
+      },
+      punValue(value) {
+        return { tag: "binding", binding: { tag: "identifier", value } }
+      },
+      pair(_, param) {
+        return param.toAST(ast)
+      },
+      build(selector, params) {
+        return { selector, params, body }
+      },
+    })
+    if (out.handlers.has(m.selector)) {
+      throw new DuplicateHandlerError(m.selector)
+    }
+    out.handlers.set(m.selector, m)
+  }
+}
+export class ElseHandler implements ParseHandler {
+  constructor(private body: ParseStmt[]) {}
+  expand(): ParseHandler[] {
+    return [this]
+  }
+  addToSet(ast: any, handlerSet: HandlerSet): void {
+    if (handlerSet.else) throw new DuplicateElseHandlerError()
+    handlerSet.else = {
+      selector: "",
+      params: [],
+      body: this.body.map((s) => ast.stmt(s)),
+    }
+  }
+}
 
 // TODO: eliminate toAST step, compile directly
 export interface ParseParam {
@@ -193,3 +284,37 @@ export type ASTParam =
   | { tag: "do"; binding: ASTBlockParam }
 export type ASTVarParam = { tag: "identifier"; value: string }
 export type ASTBlockParam = { tag: "identifier"; value: string }
+
+interface Builder<In, Item, Container> {
+  key(key: string): Container
+  punValue(key: string): Item
+  pair(key: string, value: In): Item
+  build(selector: string, values: Item[]): Container
+}
+
+function build<In, Item, Container>(
+  message: ParseMessage<In>,
+  builder: Builder<In, Item, Container>
+): Container {
+  if (message.tag === "key") {
+    return builder.key(message.key)
+  }
+  const map = new Map<string, Item>()
+
+  for (const param of message.pairs) {
+    if (map.has(param.key)) throw new DuplicateKeyError(param.key)
+    switch (param.tag) {
+      case "punPair":
+        map.set(param.key, builder.punValue(param.key))
+        continue
+      case "pair":
+        map.set(param.key, builder.pair(param.key, param.value))
+        continue
+    }
+  }
+
+  const sortedKeys = Array.from(map.keys()).sort()
+  const selector = sortedKeys.map((k) => `${k}:`).join("")
+  const values = sortedKeys.map((k) => map.get(k)!)
+  return builder.build(selector, values)
+}

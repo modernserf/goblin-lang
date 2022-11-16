@@ -4,9 +4,7 @@ import assert from "node:assert/strict"
 import { Lexer } from "./lexer"
 import { program as parse } from "./parser"
 import {
-  DuplicateElseHandlerError,
   DuplicateKeyError,
-  DuplicateHandlerError,
   InvalidDestructuringError,
   InvalidFrameArgError,
   InvalidImportBindingError,
@@ -18,6 +16,8 @@ import {
   program as astWalk,
 } from "./ast"
 import {
+  DuplicateElseHandlerError,
+  DuplicateHandlerError,
   InvalidDoParamError,
   InvalidVarArgError,
   InvalidVarParamError,
