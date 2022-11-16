@@ -4,14 +4,7 @@ import { program as parse } from "./parser"
 import { coreModule } from "./compiler"
 
 import { readFileSync } from "fs"
-import {
-  IRClass,
-  IRStmt,
-  ObjectValue,
-  PrimitiveValue,
-  unit,
-  Value,
-} from "./interpreter"
+import { IRClass, ObjectValue, PrimitiveValue, unit } from "./interpreter"
 import {
   intClass,
   intValue,
@@ -20,6 +13,7 @@ import {
   falseVal,
   boolValue,
 } from "./primitive"
+import { IRStmt, Value } from "./interface"
 
 const cellInstance = new IRClass()
   .addPrimitive("get", (self) => self.value)
@@ -114,7 +108,7 @@ const nativeClass = new IRClass()
   .addPrimitive("true", () => trueVal)
   .addPrimitive("false", () => falseVal)
 
-const native: Value = new PrimitiveValue(nativeClass, null)
+const native = new PrimitiveValue(nativeClass, null)
 
 export function compileCore(): IRStmt[] {
   const source = readFileSync("./src/core.gob", { encoding: "utf-8" })

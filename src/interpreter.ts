@@ -1,3 +1,14 @@
+import {
+  Interpreter,
+  IRArg,
+  IRBlockHandler,
+  IRExpr,
+  IRHandler,
+  IRParam,
+  IRStmt,
+  Value,
+} from "./interface"
+
 export type IRModules = Map<string, IRStmt[]>
 
 export class IRClass {
@@ -45,16 +56,6 @@ export class IRClass {
   }
 }
 
-export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "do" }
-
-export interface Value {
-  readonly primitiveValue: any
-  getIvar(index: number): Value
-  send(sender: Interpreter, selector: string, args: IRArgs): Value
-  instanceof(cls: IRClass | IRBlockClass): boolean
-  eval(ctx: Interpreter): Value
-}
-
 export class ObjectValue implements Value, IRExpr, IRStmt {
   readonly primitiveValue = null
   constructor(private cls: IRClass, private ivars: Value[]) {}
@@ -64,7 +65,7 @@ export class ObjectValue implements Value, IRExpr, IRStmt {
     if (!value) throw new Error(`Missing ivar ${index}`)
     return value
   }
-  send(sender: Interpreter, selector: string, args: IRArgs): Value {
+  send(sender: Interpreter, selector: string, args: IRArg[]): Value {
     const handler = this.cls.get(selector)
     return handler.send(sender, this, args)
   }
@@ -82,7 +83,7 @@ export class PrimitiveValue implements Value, IRExpr, IRStmt {
   getIvar(index: number): Value {
     throw new Error("primitive value has no ivars")
   }
-  send(sender: Interpreter, selector: string, args: IRArgs): Value {
+  send(sender: Interpreter, selector: string, args: IRArg[]): Value {
     const handler = this.cls.get(selector)
     return handler.send(sender, this, args)
   }
@@ -101,7 +102,7 @@ export class DoValue implements Value, IRExpr, IRStmt {
   getIvar(index: number): Value {
     throw new Error("do value has no ivars")
   }
-  send(sender: Interpreter, selector: string, args: IRArgs): Value {
+  send(sender: Interpreter, selector: string, args: IRArg[]): Value {
     const handler = this.cls.get(selector)
     return handler.send(sender, this.ctx, args)
   }
@@ -141,16 +142,16 @@ export class Modules {
     /* istanbul ignore next */
     if (!source) throw "no such module"
 
-    const ctx = new Interpreter(unit, new Map(), this)
+    const ctx = new InterpreterImpl(unit, new Map(), this)
     const result: Value = body(ctx, source)
     this.cache.set(key, result)
     return result
   }
 }
 
-export class Interpreter {
+export class InterpreterImpl implements Interpreter {
   static root(moduleSources: Map<string, IRStmt[]>): Interpreter {
-    return new Interpreter(unit, new Map(), new Modules(moduleSources))
+    return new InterpreterImpl(unit, new Map(), new Modules(moduleSources))
   }
   private locals: Value[] = []
   private defers: IRStmt[][] = []
@@ -184,7 +185,7 @@ export class Interpreter {
     this.provideScope = next
   }
   createChild(self: Value): Interpreter {
-    return new Interpreter(self, this.provideScope, this.modules)
+    return new InterpreterImpl(self, this.provideScope, this.modules)
   }
   getModule(key: string) {
     return this.modules.get(key)
@@ -207,26 +208,62 @@ export class ArgMismatchError {
   constructor(readonly paramType: string, readonly argType: string) {}
 }
 
-export type IRArg =
-  | { tag: "value"; value: IRExpr }
-  | { tag: "var"; index: number }
-  | { tag: "do"; class: IRBlockClass }
+// export type IRArg =
+//   | { tag: "value"; value: IRExpr }
+//   | { tag: "var"; index: number }
+//   | { tag: "do"; class: IRBlockClass }
+export class IRValueArg implements IRArg {
+  constructor(private expr: IRExpr) {}
+  value(ctx: Interpreter): Value {
+    return this.expr.eval(ctx)
+  }
+  load(
+    sender: Interpreter,
+    target: Interpreter,
+    offset: number,
+    param: IRParam
+  ): void {
+    if (param.tag === "var") throw new ArgMismatchError(param.tag, "value")
+    target.setLocal(offset, this.expr.eval(sender))
+  }
+  unload() {} // noop
+}
 
-type IRArgs = IRArg[]
-// type IRArgs = {}
+export class IRVarArg implements IRArg {
+  constructor(private index: number) {}
+  value(ctx: Interpreter): Value {
+    throw "todo: handle var args in primitive fns"
+  }
+  load(
+    sender: Interpreter,
+    target: Interpreter,
+    offset: number,
+    param: IRParam
+  ): void {
+    if (param.tag !== "var") throw new ArgMismatchError(param.tag, "var")
+    target.setLocal(offset, sender.getLocal(this.index))
+  }
+  unload(sender: Interpreter, target: Interpreter, offset: number): void {
+    const result = target.getLocal(offset)
+    sender.setLocal(this.index, result)
+  }
+}
 
-function argValues(sender: Interpreter, args: IRArgs) {
-  return args.map((arg) => {
-    switch (arg.tag) {
-      case "value":
-        return arg.value.eval(sender)
-      case "do":
-        return new DoValue(arg.class, sender)
-      /* istanbul ignore next */
-      default:
-        throw "todo: handle var args in primitive fns"
-    }
-  })
+export class IRDoArg implements IRArg {
+  constructor(private cls: IRBlockClass) {}
+  value(ctx: Interpreter): Value {
+    return new DoValue(this.cls, ctx)
+  }
+  load(
+    sender: Interpreter,
+    target: Interpreter,
+    offset: number,
+    param: IRParam
+  ): void {
+    if (param.tag !== "do") throw new ArgMismatchError(param.tag, "do")
+    target.setLocal(offset, new DoValue(this.cls, sender))
+  }
+  unload() {} // noop
 }
 
 function loadArgs(
@@ -234,30 +271,14 @@ function loadArgs(
   target: Interpreter,
   offset: number,
   params: IRParam[],
-  args: IRArgs
+  args: IRArg[]
 ) {
   args.forEach((arg, i) => {
     const param = params[i]
     // TODO: is else sent with fewer params than args?
     /* istanbul ignore next */
     if (!param) throw new Error("missing param")
-    switch (arg.tag) {
-      case "value": {
-        if (param.tag === "var") throw new ArgMismatchError(param.tag, arg.tag)
-        target.setLocal(offset + i, arg.value.eval(sender))
-        return
-      }
-      case "var": {
-        if (param.tag !== "var") throw new ArgMismatchError(param.tag, arg.tag)
-        target.setLocal(offset + i, sender.getLocal(arg.index))
-        return
-      }
-      case "do": {
-        if (param.tag !== "do") throw new ArgMismatchError(param.tag, arg.tag)
-        target.setLocal(offset + i, new DoValue(arg.class, sender))
-        return
-      }
-    }
+    arg.load(sender, target, offset + i, param)
   })
 }
 
@@ -265,25 +286,19 @@ function unloadArgs(
   sender: Interpreter,
   target: Interpreter,
   offset: number,
-  args: IRArgs
+  args: IRArg[]
 ) {
   args.forEach((arg, i) => {
-    if (arg.tag === "var") {
-      const result = target.getLocal(offset + i)
-      sender.setLocal(arg.index, result)
-    }
+    arg.unload(sender, target, offset + i)
   })
 }
 
-export interface IRHandler {
-  send(sender: Interpreter, target: Value, args: IRArgs): Value
-}
 export class IRLazyHandler implements IRHandler {
   private handler: IRHandler | null = null
   replace(handler: IRHandler) {
     this.handler = handler
   }
-  send(sender: Interpreter, target: Value, args: IRArgs): Value {
+  send(sender: Interpreter, target: Value, args: IRArg[]): Value {
     if (!this.handler) throw new Error("missing lazy handler")
     return this.handler.send(sender, target, args)
   }
@@ -291,7 +306,7 @@ export class IRLazyHandler implements IRHandler {
 
 export class IRObjectHandler implements IRHandler {
   constructor(private params: IRParam[], private body: IRStmt[]) {}
-  send(sender: Interpreter, target: Value, args: IRArgs): Value {
+  send(sender: Interpreter, target: Value, args: IRArg[]): Value {
     const child = sender.createChild(target)
     loadArgs(sender, child, 0, this.params, args)
     try {
@@ -307,8 +322,12 @@ export class IRPrimitiveHandler implements IRHandler {
   constructor(
     private fn: (value: any, args: Value[], ctx: Interpreter) => Value
   ) {}
-  send(sender: Interpreter, target: Value, args: IRArgs): Value {
-    return this.fn(target.primitiveValue, argValues(sender, args), sender)
+  send(sender: Interpreter, target: Value, args: IRArg[]): Value {
+    return this.fn(
+      target.primitiveValue,
+      args.map((arg) => arg.value(sender)),
+      sender
+    )
   }
 }
 
@@ -346,13 +365,9 @@ export class IRBlockClass {
   }
 }
 
-export interface IRBlockHandler {
-  send(sender: Interpreter, ctx: Interpreter, args: IRArgs): Value
-}
-
 class IRElseBlockHandler implements IRBlockHandler {
   constructor(private body: IRStmt[]) {}
-  send(sender: Interpreter, ctx: Interpreter, args: IRArgs): Value {
+  send(sender: Interpreter, ctx: Interpreter, args: IRArg[]): Value {
     return body(ctx, this.body)
   }
 }
@@ -363,16 +378,12 @@ class IROnBlockHandler implements IRBlockHandler {
     private params: IRParam[],
     private body: IRStmt[]
   ) {}
-  send(sender: Interpreter, ctx: Interpreter, args: IRArgs): Value {
+  send(sender: Interpreter, ctx: Interpreter, args: IRArg[]): Value {
     loadArgs(sender, ctx, this.offset, this.params, args)
     const result = body(ctx, this.body)
     unloadArgs(sender, ctx, this.offset, args)
     return result
   }
-}
-
-export interface IRExpr {
-  eval(ctx: Interpreter): Value
 }
 
 export class IRSelfExpr implements IRExpr, IRStmt {
@@ -409,7 +420,7 @@ export class IRSendExpr implements IRExpr, IRStmt {
   constructor(
     private selector: string,
     private target: IRExpr,
-    private args: IRArgs
+    private args: IRArg[]
   ) {}
   eval(ctx: Interpreter): Value {
     const target = this.target.eval(ctx)
@@ -421,7 +432,7 @@ export class IRSendDirectExpr implements IRExpr, IRStmt {
   constructor(
     private handler: IRHandler,
     private target: IRExpr,
-    private args: IRArgs
+    private args: IRArg[]
   ) {}
   eval(ctx: Interpreter): Value {
     return this.handler.send(ctx, this.target.eval(ctx), this.args)
@@ -455,10 +466,6 @@ class Return {
       }
     }
   }
-}
-
-export interface IRStmt {
-  eval(ctx: Interpreter): void | Value
 }
 
 export class IRAssignStmt implements IRStmt {
@@ -502,6 +509,6 @@ function body(ctx: Interpreter, stmts: IRStmt[]): Value {
 }
 
 export function program(stmts: IRStmt[], modules: IRModules): Value {
-  const ctx = Interpreter.root(modules)
+  const ctx = InterpreterImpl.root(modules)
   return body(ctx, stmts)
 }

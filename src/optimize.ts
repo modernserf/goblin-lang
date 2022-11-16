@@ -1,10 +1,9 @@
+import { IRExpr, Value } from "./interface"
 import {
   IRClass,
-  IRExpr,
   IRObjectExpr,
   ObjectValue,
   PrimitiveValue,
-  Value,
 } from "./interpreter"
 
 export function constObject(cls: IRClass, ivars: IRExpr[]): IRExpr {

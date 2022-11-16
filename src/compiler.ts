@@ -9,14 +9,8 @@ import {
 } from "./interface"
 import { frame } from "./frame"
 import {
-  IRStmt,
-  IRExpr,
-  IRArg,
   IRClass,
-  IRHandler,
   IRBlockClass,
-  IRParam,
-  Value,
   IRObjectExpr,
   IRIvarExpr,
   IRModuleExpr,
@@ -32,6 +26,9 @@ import {
   IRProvideStmt,
   IRObjectHandler,
   PrimitiveValue,
+  IRVarArg,
+  IRValueArg,
+  IRDoArg,
 } from "./interpreter"
 import { constObject } from "./optimize"
 import {
@@ -45,6 +42,7 @@ import {
   RootScope,
 } from "./scope"
 import { floatClass, intClass, stringClass } from "./primitive"
+import { IRArg, IRExpr, IRHandler, IRParam, IRStmt, Value } from "./interface"
 
 class Send {
   private scope = new SendScope(this.instance, this.locals)
@@ -62,18 +60,11 @@ class Send {
   private arg(arg: ASTArg): IRArg {
     switch (arg.tag) {
       case "var":
-        return { tag: "var", index: this.scope.lookupVarIndex(arg.value.value) }
+        return new IRVarArg(this.scope.lookupVarIndex(arg.value.value))
       case "expr":
-        const value = this.expr(arg.value)
-        return { tag: "value", value }
+        return new IRValueArg(this.expr(arg.value))
       case "do":
-        switch (arg.value.tag) {
-          case "object":
-            return {
-              tag: "do",
-              class: this.block(arg.value.handlers, arg.value.else),
-            }
-        }
+        return new IRDoArg(this.block(arg.value.handlers, arg.value.else))
     }
   }
   private block(
@@ -226,6 +217,8 @@ class Expr {
       }
       case "unit":
         return unit
+      default:
+        throw new Error("here")
     }
   }
 }

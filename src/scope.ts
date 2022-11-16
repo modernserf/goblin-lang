@@ -1,11 +1,9 @@
+import { IRExpr, IRHandler } from "./interface"
 import {
   IRClass,
-  IRExpr,
-  IRHandler,
   IRIvarExpr,
   IRLazyHandler,
   IRLocalExpr,
-  IRObjectHandler,
   IRSelfExpr,
 } from "./interpreter"
 

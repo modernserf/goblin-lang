@@ -1,12 +1,13 @@
+import { IRExpr } from "./interface"
 import {
   IRClass,
-  IRExpr,
   IRIvarExpr,
   IRLocalExpr,
   IRObjectExpr,
   IRSelfExpr,
   IRSendDirectExpr,
   IRSendExpr,
+  IRValueArg,
 } from "./interpreter"
 import { constObject } from "./optimize"
 
@@ -41,10 +42,7 @@ export function frame(
       new IRSendExpr(
         selector,
         $0,
-        args.map((_, index) => ({
-          tag: "value",
-          value: new IRIvarExpr(index),
-        }))
+        args.map((_, index) => new IRValueArg(new IRIvarExpr(index)))
       ),
     ]
   )
@@ -76,10 +74,7 @@ export function frame(
       [{ tag: "do" }],
       [
         new IRSendDirectExpr(frameClass.get(`${key}:`), new IRSelfExpr(), [
-          {
-            tag: "value",
-            value: new IRSendExpr(":", $0, [{ tag: "value", value: ivar }]),
-          },
+          new IRValueArg(new IRSendExpr(":", $0, [new IRValueArg(ivar)])),
         ]),
       ]
     )

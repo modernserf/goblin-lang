@@ -1,3 +1,4 @@
+// parse
 export interface ParseStmt {
   stmt(): ASTStmt
 }
@@ -40,6 +41,8 @@ export interface ParseArg {
   destructureArg?(): ASTLetBinding
 }
 
+// compile
+
 // TODO
 export type ASTStmt =
   | { tag: "let"; binding: ASTLetBinding; value: ASTExpr; export: boolean }
@@ -67,6 +70,7 @@ export type ASTImportBinding = {
 export type ASTImportSource = { tag: "string"; value: string }
 
 export type ASTExpr =
+  | { tag: "value" }
   | { tag: "self" }
   | { tag: "unit" }
   | { tag: "integer"; value: number }
@@ -103,3 +107,51 @@ export type ASTParam =
   | { tag: "do"; binding: ASTBlockParam }
 export type ASTVarParam = { tag: "identifier"; value: string }
 export type ASTBlockParam = { tag: "identifier"; value: string }
+
+// interpret
+
+export interface Interpreter {
+  readonly self: Value
+  setLocal(index: number, value: Value): void
+  getLocal(index: number): Value
+  getIvar(index: number): Value
+  use(key: string): Value
+  provide(key: string, value: Value): void
+  createChild(self: Value): Interpreter
+  getModule(key: string): Value
+  defer(value: IRStmt[]): void
+  resolveDefers(): void
+}
+
+export interface Value {
+  readonly primitiveValue: any
+  getIvar(index: number): Value
+  send(sender: Interpreter, selector: string, args: IRArg[]): Value
+  instanceof(cls: unknown): boolean
+  eval(ctx: Interpreter): Value
+}
+export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "do" }
+
+export interface IRStmt {
+  eval(ctx: Interpreter): void | Value
+}
+export interface IRHandler {
+  send(sender: Interpreter, target: Value, args: IRArg[]): Value
+}
+export interface IRBlockHandler {
+  send(sender: Interpreter, ctx: Interpreter, args: IRArg[]): Value
+}
+export interface IRExpr {
+  eval(ctx: Interpreter): Value
+}
+
+export interface IRArg {
+  value(ctx: Interpreter): Value
+  load(
+    sender: Interpreter,
+    target: Interpreter,
+    offset: number,
+    param: IRParam
+  ): void
+  unload(sender: Interpreter, target: Interpreter, offset: number): void
+}
