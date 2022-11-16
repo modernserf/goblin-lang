@@ -26,7 +26,6 @@ import {
 } from "./ast-parser"
 
 export class InvalidFrameArgError {}
-export class InvalidVarArgError {}
 export class InvalidBlockArgError {}
 export class InvalidLetBindingError {}
 export class InvalidSetTargetError {}
@@ -136,19 +135,7 @@ function handlerSet(ins: ParseHandler[]): HandlerSet {
 }
 
 function astArg(arg: ParseArg): ASTArg {
-  switch (arg.tag) {
-    case "value":
-      return { tag: "expr", value: expr(arg.value) }
-    case "var":
-      switch (arg.value.tag) {
-        case "identifier":
-          return { tag: "var", value: arg.value }
-        default:
-          throw new InvalidVarArgError()
-      }
-    case "handlers":
-      return { tag: "do", value: handlerSet(arg.handlers) }
-  }
+  return arg.toAst({ expr, handlerSet })
 }
 
 function expr(value: ParseExpr): ASTExpr {
@@ -236,7 +223,7 @@ function expr(value: ParseExpr): ASTExpr {
             },
           ],
         }
-        return [{ tag: "expr", value: send } as const]
+        return [{ tag: "expr", value: send } as ASTStmt]
       }, value.else.map(stmt))
       /* istanbul ignore next */
       if (!res.length || res[0].tag !== "expr") throw new Error("unreachable")
@@ -254,8 +241,8 @@ function expr(value: ParseExpr): ASTExpr {
           return { key, value: { tag: "identifier", value: key } }
         },
         pair(key, arg) {
-          if (arg.tag !== "value") throw new InvalidFrameArgError()
-          return { key, value: expr(arg.value) }
+          if (!arg.frameArg) throw new InvalidFrameArgError()
+          return { key, value: arg.frameArg({ expr }) }
         },
         build(selector, args) {
           return { tag: "frame", selector, args }
@@ -288,12 +275,10 @@ function destructureItem(item: ParsePair<ParseArg>): ASTBindPair {
         value: { tag: "identifier", value: item.key },
       }
     case "pair":
-      switch (item.value.tag) {
-        case "handlers":
-        case "var":
-          throw new InvalidDestructuringError()
-        case "value":
-          return { key: item.key, value: letBinding(item.value.value) }
+      if (!item.value.destructureArg) throw new InvalidDestructuringError()
+      return {
+        key: item.key,
+        value: item.value.destructureArg({ letBinding }),
       }
   }
 }

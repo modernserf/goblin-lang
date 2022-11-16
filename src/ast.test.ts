@@ -14,11 +14,14 @@ import {
   InvalidLetBindingError,
   InvalidProvideBindingError,
   InvalidSetTargetError,
-  InvalidVarArgError,
   InvalidVarBindingError,
   program as astWalk,
 } from "./ast"
-import { InvalidDoParamError, InvalidVarParamError } from "./ast-parser"
+import {
+  InvalidDoParamError,
+  InvalidVarArgError,
+  InvalidVarParamError,
+} from "./ast-parser"
 
 export function check(source: string) {
   const parseTree = parse(new Lexer(source))

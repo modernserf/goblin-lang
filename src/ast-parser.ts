@@ -35,10 +35,6 @@ export type ParseMessage<T> =
 export type ParsePair<T> =
   | { tag: "pair"; key: string; value: T }
   | { tag: "punPair"; key: string }
-export type ParseArg =
-  | { tag: "value"; value: ParseExpr }
-  | { tag: "var"; value: ParseExpr }
-  | { tag: "handlers"; handlers: ParseHandler[] }
 
 // TODO: multiple messages, decorators
 export type ParseHandler =
@@ -47,6 +43,7 @@ export type ParseHandler =
 
 export class InvalidVarParamError {}
 export class InvalidDoParamError {}
+export class InvalidVarArgError {}
 
 // TODO: eliminate toAST step, compile directly
 export interface ParseParam {
@@ -95,6 +92,40 @@ export class PatternParam implements ParseParam {
   constructor(private message: ParseMessage<ParseParam>) {}
   toAST(ast: any): ASTParam {
     throw "todo: pattern param"
+  }
+}
+
+export interface ParseArg {
+  toAst(ast: any): ASTArg
+  frameArg?(ast: any): ASTExpr
+  destructureArg?(ast: any): ASTLetBinding
+}
+
+export class ValueArg implements ParseArg {
+  constructor(private expr: ParseExpr) {}
+  toAst(ast: any): ASTArg {
+    return { tag: "expr", value: ast.expr(this.expr) }
+  }
+  frameArg(ast: any): ASTExpr {
+    return ast.expr(this.expr)
+  }
+  destructureArg(ast: any): ASTLetBinding {
+    return ast.letBinding(this.expr)
+  }
+}
+
+export class VarArg implements ParseArg {
+  constructor(private binding: ParseExpr) {}
+  toAst(ast: any): ASTArg {
+    if (this.binding.tag !== "identifier") throw new InvalidVarArgError()
+    return { tag: "var", value: this.binding }
+  }
+}
+
+export class HandlersArg implements ParseArg {
+  constructor(private handlers: ParseHandler[]) {}
+  toAst(ast: any): ASTArg {
+    return { tag: "do", value: ast.handlerSet(this.handlers) }
   }
 }
 

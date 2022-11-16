@@ -14,6 +14,9 @@ import {
   PatternParam,
   ValueParam,
   DefaultValueParam,
+  VarArg,
+  HandlersArg,
+  ValueArg,
 } from "./ast-parser"
 
 export class ParseError {
@@ -52,13 +55,13 @@ function arg(lexer: Lexer): ParseArg {
   switch (token.tag) {
     case "var":
       lexer.advance()
-      return { tag: "var", value: must(lexer, "expr", parseExpr) }
+      return new VarArg(must(lexer, "expr", parseExpr))
     case "on":
     case "else":
     case "openBrace":
-      return { tag: "handlers", handlers: parseHandlers(lexer) }
+      return new HandlersArg(parseHandlers(lexer))
     default:
-      return { tag: "value", value: must(lexer, "expr", parseExpr) }
+      return new ValueArg(must(lexer, "expr", parseExpr))
   }
 }
 
