@@ -6,72 +6,24 @@ import {
   ParsePair,
   ParseStmt,
   ParseParam,
-} from "./parser"
-
-export type ASTStmt =
-  | { tag: "let"; binding: ASTLetBinding; value: ASTExpr; export: boolean }
-  | { tag: "set"; binding: ASTSetBinding; value: ASTExpr }
-  | { tag: "var"; binding: ASTVarBinding; value: ASTExpr }
-  | { tag: "provide"; args: ASTProvidePair[] }
-  | { tag: "using"; params: ASTUsingPair[] }
-  | { tag: "import"; binding: ASTImportBinding; source: ASTImportSource }
-  | { tag: "return"; value: ASTExpr }
-  | { tag: "defer"; body: ASTStmt[] }
-  | { tag: "expr"; value: ASTExpr }
-
-export type ASTProvidePair = { key: string; value: ASTArg }
-export type ASTUsingPair = { key: string; value: ASTParam }
-export type ASTBindPair = { key: string; value: ASTLetBinding }
-export type ASTLetBinding =
-  | { tag: "identifier"; value: string }
-  | { tag: "object"; params: ASTBindPair[]; as: string | null }
-export type ASTSetBinding = { tag: "identifier"; value: string } // TODO: `set` paths
-export type ASTVarBinding = { tag: "identifier"; value: string }
-export type ASTProvideBinding = { tag: "identifier"; value: string }
-export type ASTImportBinding = {
-  tag: "object"
-  params: ASTBindPair[]
-  as: null
-}
-export type ASTImportSource = { tag: "string"; value: string }
-
-export type ASTExpr =
-  | { tag: "self" }
-  | { tag: "unit" }
-  | { tag: "integer"; value: number }
-  | { tag: "float"; value: number }
-  | { tag: "string"; value: string }
-  | { tag: "identifier"; value: string }
-  | { tag: "send"; target: ASTExpr; selector: string; args: ASTArg[] }
-  | { tag: "frame"; selector: string; args: ASTFrameArg[] }
-  | HandlerSet
-
-export type ASTFrameArg = { key: string; value: ASTExpr }
-export type ASTArg =
-  | { tag: "expr"; value: ASTExpr }
-  | { tag: "var"; value: ASTVarArg }
-  | { tag: "do"; value: ASTBlockArg }
-export type ASTVarArg = { tag: "identifier"; value: string }
-export type ASTBlockArg = HandlerSet
-
-type HandlerSet = {
-  tag: "object"
-  handlers: Map<string, ASTHandler>
-  else: ASTHandler | null
-}
-
-export type ASTHandler = {
-  selector: string
-  params: ASTParam[]
-  body: ASTStmt[]
-}
-
-export type ASTParam =
-  | { tag: "binding"; binding: ASTLetBinding }
-  | { tag: "var"; binding: ASTVarParam }
-  | { tag: "do"; binding: ASTBlockParam }
-export type ASTVarParam = { tag: "identifier"; value: string }
-export type ASTBlockParam = { tag: "identifier"; value: string }
+  HandlerSet,
+  ASTFrameArg,
+  ASTBindPair,
+  ASTSetBinding,
+  ASTVarBinding,
+  ASTImportBinding,
+  ASTImportSource,
+  ASTProvidePair,
+  ASTUsingPair,
+} from "./ast-parser"
+import {
+  ASTStmt,
+  ASTExpr,
+  ASTArg,
+  ASTLetBinding,
+  ASTHandler,
+  ASTParam,
+} from "./ast-parser"
 
 export class InvalidVarParamError {}
 export class InvalidBlockParamError {}

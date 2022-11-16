@@ -5,7 +5,7 @@ import {
   ASTLetBinding,
   ASTHandler,
   ASTParam,
-} from "./ast"
+} from "./ast-parser"
 import { frame } from "./frame"
 import {
   IRStmt,

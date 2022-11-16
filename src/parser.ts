@@ -1,58 +1,15 @@
 // Parse tree -- a loose grammar that covers the basic shape of the language
 
 import { keywords, Lexer, Token } from "./lexer"
-
-export type ParseStmt =
-  | { tag: "let"; binding: ParseExpr; value: ParseExpr; export: boolean }
-  | { tag: "set"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "setInPlace"; binding: ParseExpr }
-  | { tag: "var"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "import"; binding: ParseExpr; value: ParseExpr }
-  | { tag: "provide"; message: ParseMessage<ParseArg> }
-  | { tag: "using"; message: ParseMessage<ParseParam> }
-  | { tag: "return"; value: ParseExpr }
-  | { tag: "defer"; body: ParseStmt[] }
-  | { tag: "expr"; value: ParseExpr }
-
-// used for both ast exprs and bindings
-export type ParseExpr =
-  | { tag: "self" }
-  | { tag: "unit" }
-  | { tag: "integer"; value: number }
-  | { tag: "float"; value: number }
-  | { tag: "string"; value: string }
-  | { tag: "identifier"; value: string }
-  | { tag: "parens"; value: ParseExpr }
-  | { tag: "object"; handlers: ParseHandler[] }
-  | { tag: "frame"; message: ParseMessage<ParseArg>; as: ParseExpr | null }
-  | { tag: "send"; target: ParseExpr; message: ParseMessage<ParseArg> }
-  | { tag: "do"; body: ParseStmt[] }
-  | { tag: "if"; conds: ParseCond[]; else: ParseStmt[] }
-  | { tag: "unaryOp"; target: ParseExpr; operator: string }
-  | { tag: "binaryOp"; target: ParseExpr; arg: ParseExpr; operator: string }
-
-type ParseCond = { value: ParseExpr; body: ParseStmt[] }
-
-export type ParseMessage<T> =
-  | { tag: "key"; key: string }
-  | { tag: "pairs"; pairs: ParsePair<T>[] }
-export type ParsePair<T> =
-  | { tag: "pair"; key: string; value: T }
-  | { tag: "punPair"; key: string }
-export type ParseArg =
-  | { tag: "value"; value: ParseExpr }
-  | { tag: "var"; value: ParseExpr }
-  | { tag: "handlers"; handlers: ParseHandler[] }
-export type ParseParam =
-  | { tag: "value"; value: ParseExpr; defaultValue: ParseExpr | null }
-  | { tag: "var"; value: ParseExpr }
-  | { tag: "do"; value: ParseExpr }
-  | { tag: "on"; message: ParseMessage<ParseParam> }
-
-// TODO: multiple messages, decorators
-export type ParseHandler =
-  | { tag: "on"; message: ParseMessage<ParseParam>; body: ParseStmt[] }
-  | { tag: "else"; body: ParseStmt[] }
+import {
+  ParseArg,
+  ParseExpr,
+  ParseMessage,
+  ParseHandler,
+  ParsePair,
+  ParseStmt,
+  ParseParam,
+} from "./ast-parser"
 
 export class ParseError {
   constructor(readonly expected: string, readonly received: string) {}
