@@ -21,6 +21,8 @@ import {
   ParseParams,
   ParseStmt,
 } from "./interface"
+import { PrimitiveValue, unit } from "./interpreter"
+import { floatClass, intClass, stringClass } from "./primitive"
 
 export type ParsePair<T> =
   | { tag: "pair"; key: string; value: T }
@@ -168,28 +170,28 @@ export const Self: ParseExpr = {
 
 export const Unit: ParseExpr = {
   toAST(): ASTExpr {
-    return { tag: "unit" }
+    return { tag: "expr", value: unit }
   },
 }
 
 export class ParseInt implements ParseExpr {
   constructor(private value: number) {}
   toAST(): ASTExpr {
-    return { tag: "integer", value: this.value }
+    return { tag: "expr", value: new PrimitiveValue(intClass, this.value) }
   }
 }
 
 export class ParseFloat implements ParseExpr {
   constructor(private value: number) {}
   toAST(): ASTExpr {
-    return { tag: "float", value: this.value }
+    return { tag: "expr", value: new PrimitiveValue(floatClass, this.value) }
   }
 }
 
 export class ParseString implements ParseExpr {
   constructor(private value: string) {}
   toAST(): ASTExpr {
-    return { tag: "string", value: this.value }
+    return { tag: "expr", value: new PrimitiveValue(stringClass, this.value) }
   }
   importSource(): ASTImportSource {
     return { tag: "string", value: this.value }

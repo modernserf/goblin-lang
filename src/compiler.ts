@@ -17,7 +17,6 @@ import {
   IRModuleExpr,
   IRUseExpr,
   IRSendExpr,
-  unit,
   IRSelfExpr,
   IRLocalExpr,
   IRSendDirectExpr,
@@ -26,7 +25,6 @@ import {
   IRDeferStmt,
   IRProvideStmt,
   IRObjectHandler,
-  PrimitiveValue,
   IRVarArg,
   IRValueArg,
   IRDoArg,
@@ -39,7 +37,6 @@ import {
   RootScope,
   LocalsImpl,
 } from "./scope"
-import { floatClass, intClass, stringClass } from "./primitive"
 import {
   IRArg,
   IRExpr,
@@ -183,14 +180,10 @@ class Expr {
   constructor(private scope: Scope) {}
   expr(value: ASTExpr, selfBinding: string | null = null): IRExpr {
     switch (value.tag) {
+      case "expr":
+        return value.value
       case "self":
         return this.scope.instance.self()
-      case "integer":
-        return new PrimitiveValue(intClass, value.value)
-      case "float":
-        return new PrimitiveValue(floatClass, value.value)
-      case "string":
-        return new PrimitiveValue(stringClass, value.value)
       case "identifier":
         return this.scope.lookup(value.value)
       case "send":
@@ -226,10 +219,6 @@ class Expr {
         instance.compileSelfHandlers(objectClass)
         return constObject(objectClass, instance.ivars)
       }
-      case "unit":
-        return unit
-      default:
-        throw new Error("here")
     }
   }
 }

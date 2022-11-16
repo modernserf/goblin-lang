@@ -92,12 +92,8 @@ export type ASTImportBinding = {
 export type ASTImportSource = { tag: "string"; value: string }
 
 export type ASTExpr =
-  | { tag: "value" }
+  | { tag: "expr"; value: IRExpr }
   | { tag: "self" }
-  | { tag: "unit" }
-  | { tag: "integer"; value: number }
-  | { tag: "float"; value: number }
-  | { tag: "string"; value: string }
   | { tag: "identifier"; value: string }
   | { tag: "send"; target: ASTExpr; selector: string; args: ASTArg[] }
   | { tag: "frame"; selector: string; args: ASTFrameArg[] }
