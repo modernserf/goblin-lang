@@ -1,4 +1,12 @@
-import { IRExpr, IRHandler } from "./interface"
+import {
+  Instance,
+  IRExpr,
+  IRHandler,
+  Locals,
+  Scope,
+  ScopeRecord,
+  ScopeType,
+} from "./interface"
 import {
   IRClass,
   IRIvarExpr,
@@ -6,9 +14,6 @@ import {
   IRLocalExpr,
   IRSelfExpr,
 } from "./interpreter"
-
-export type ScopeType = "let" | "var" | "do"
-export type ScopeRecord = { index: number; type: ScopeType }
 
 export class ReferenceError {
   constructor(readonly key: string) {}
@@ -25,7 +30,7 @@ export class BlockReferenceError {
 }
 export class VarDoubleBorrowError {}
 
-export class Locals {
+export class LocalsImpl implements Locals {
   private locals = new Map<string, ScopeRecord>()
   constructor(private localsIndex = 0) {}
   get(key: string): ScopeRecord | undefined {
@@ -35,7 +40,7 @@ export class Locals {
     this.locals.set(key, value)
     return value
   }
-  new(type: ScopeType): ScopeRecord {
+  create(type: ScopeType): ScopeRecord {
     return { index: this.localsIndex++, type }
   }
   allocate(count: number): number {
@@ -43,12 +48,6 @@ export class Locals {
     this.localsIndex += count
     return prev
   }
-}
-
-export interface Instance {
-  lookup(key: string): IRExpr
-  self(): IRExpr
-  getPlaceholderHandler(selector: string): IRHandler
 }
 
 export class NilInstance implements Instance {
@@ -94,7 +93,7 @@ export class ObjectInstance implements Instance {
   }
 }
 
-export class Scope {
+class ScopeImpl implements Scope {
   constructor(readonly instance: Instance, readonly locals: Locals) {}
   lookup(key: string): IRExpr {
     const res = this.locals.get(key)
@@ -132,17 +131,17 @@ export class Scope {
   }
 }
 
-export class RootScope extends Scope {
+export class RootScope extends ScopeImpl {
   constructor() {
-    super(new NilInstance(), new Locals())
+    super(new NilInstance(), new LocalsImpl())
   }
 }
 
-export class BasicScope extends Scope {}
+export class BasicScope extends ScopeImpl {}
 
 // - allow do-blocks to be message args & targets
 // - track var borrows
-export class SendScope extends Scope {
+export class SendScope extends ScopeImpl {
   private borrows = new Set<string>()
   lookup(key: string): IRExpr {
     const res = this.locals.get(key)

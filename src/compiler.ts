@@ -6,6 +6,7 @@ import {
   ASTHandler,
   ASTParam,
   ParseStmt,
+  Instance,
 } from "./interface"
 import { frame } from "./frame"
 import {
@@ -33,16 +34,23 @@ import {
 import { constObject } from "./optimize"
 import {
   BasicScope,
-  Instance,
   ObjectInstance,
+  SendScope,
+  RootScope,
+  LocalsImpl,
+} from "./scope"
+import { floatClass, intClass, stringClass } from "./primitive"
+import {
+  IRArg,
+  IRExpr,
+  IRHandler,
+  IRParam,
+  IRStmt,
+  Value,
   Locals,
   Scope,
   ScopeRecord,
-  SendScope,
-  RootScope,
-} from "./scope"
-import { floatClass, intClass, stringClass } from "./primitive"
-import { IRArg, IRExpr, IRHandler, IRParam, IRStmt, Value } from "./interface"
+} from "./interface"
 
 class Send {
   private scope = new SendScope(this.instance, this.locals)
@@ -203,12 +211,15 @@ class Expr {
         const instance = new ObjectInstance(this.scope)
         const objectClass = new IRClass()
         if (value.else) {
-          const h = new Handler(instance, new Locals(value.else.params.length))
+          const h = new Handler(
+            instance,
+            new LocalsImpl(value.else.params.length)
+          )
           objectClass.addElse(h.handler(value.else, selfBinding))
         }
 
         for (const [selector, handler] of value.handlers) {
-          const h = new Handler(instance, new Locals(handler.params.length))
+          const h = new Handler(instance, new LocalsImpl(handler.params.length))
           objectClass.add(selector, h.handler(handler, selfBinding))
         }
 
@@ -242,11 +253,11 @@ class Let {
     }
   }
   private useAs(as: string | null): ScopeRecord {
-    if (as === null) return this.locals.new("let")
+    if (as === null) return this.locals.create("let")
     return this.useLet(as)
   }
   private useLet(key: string): ScopeRecord {
-    return this.locals.set(key, this.locals.new("let"))
+    return this.locals.set(key, this.locals.create("let"))
   }
 }
 
@@ -325,7 +336,7 @@ class Stmt {
     return stmts.flatMap((s) => this.stmt(s))
   }
   private useVar(key: string): ScopeRecord {
-    return this.locals.set(key, this.locals.new("var"))
+    return this.locals.set(key, this.locals.create("var"))
   }
   protected let(binding: ASTLetBinding, value: IRExpr): IRStmt[] {
     return new Let(this.locals).compile(binding, value)
@@ -375,7 +386,7 @@ class RootStmt extends Stmt {
 
 export function coreModule(stmts: ParseStmt[], nativeValue: Value): IRStmt[] {
   const scope = new RootScope()
-  const rec = scope.locals.set("native", scope.locals.new("let"))
+  const rec = scope.locals.set("native", scope.locals.create("let"))
   const stmtScope = new RootStmt(scope)
   return [
     new IRAssignStmt(rec.index, nativeValue),

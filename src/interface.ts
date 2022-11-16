@@ -42,6 +42,28 @@ export interface ParseArg {
 }
 
 // compile
+export interface Instance {
+  lookup(key: string): IRExpr
+  self(): IRExpr
+  getPlaceholderHandler(selector: string): IRHandler
+}
+export type ScopeType = "let" | "var" | "do"
+export type ScopeRecord = { index: number; type: ScopeType }
+
+export interface Locals {
+  get(key: string): ScopeRecord | undefined
+  set(key: string, value: ScopeRecord): ScopeRecord
+  create(type: ScopeType): ScopeRecord
+  allocate(count: number): number
+}
+
+export interface Scope {
+  readonly instance: Instance
+  readonly locals: Locals
+  lookup(key: string): IRExpr
+  lookupOuterLet(key: string): IRExpr
+  lookupVarIndex(key: string): number
+}
 
 // TODO
 export type ASTStmt =
