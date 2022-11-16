@@ -3,7 +3,6 @@ import assert from "node:assert/strict"
 
 import { Lexer } from "./lexer"
 import { program as parse } from "./parser"
-import { program as astWalk } from "./ast"
 import {
   BlockReferenceError,
   NoModuleSelfError,
@@ -16,8 +15,7 @@ import { DuplicateExportError, program, ScopedExportError } from "./compiler"
 import { NoHandlerError } from "./interpreter"
 
 export function compile(source: string) {
-  const parseTree = parse(new Lexer(source))
-  const ast = astWalk(parseTree)
+  const ast = parse(new Lexer(source))
   return program(ast)
 }
 

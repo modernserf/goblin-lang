@@ -1,7 +1,6 @@
 import assert from "node:assert/strict"
 import { Lexer } from "./lexer"
 import { program as parse } from "./parser"
-import { program as astWalk } from "./ast"
 import { coreModule } from "./compiler"
 
 import { readFileSync } from "fs"
@@ -121,5 +120,5 @@ export function compileCore(): IRStmt[] {
   const source = readFileSync("./src/core.gob", { encoding: "utf-8" })
 
   // TODO: compile injects a `native` object that's referenced by all the native methods
-  return coreModule(astWalk(parse(new Lexer(source))), native)
+  return coreModule(parse(new Lexer(source)), native)
 }

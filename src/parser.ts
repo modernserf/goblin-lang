@@ -2,12 +2,7 @@
 
 import { keywords, Lexer, Token } from "./lexer"
 import {
-  ParseArg,
-  ParseExpr,
-  ParseHandler,
   ParsePair,
-  ParseStmt,
-  ParseParam,
   VarParam,
   DoParam,
   PatternParam,
@@ -20,10 +15,8 @@ import {
   ElseHandler,
   KeyParams,
   PairParams,
-  ParseParams,
   KeyArgs,
   PairArgs,
-  ParseArgs,
   Self,
   ParseInt,
   ParseFloat,
@@ -48,7 +41,16 @@ import {
   ReturnStmt,
   DeferStmt,
   ExprStmt,
-} from "./ast-parser"
+} from "./ast"
+import {
+  ParseArg,
+  ParseExpr,
+  ParseHandler,
+  ParseStmt,
+  ParseParam,
+  ParseArgs,
+  ParseParams,
+} from "./interface"
 
 export class ParseError {
   constructor(readonly expected: string, readonly received: string) {}

@@ -3,7 +3,7 @@ import assert from "node:assert/strict"
 
 import { Lexer } from "./lexer"
 import { program as parse } from "./parser"
-import { program as astWalk } from "./ast"
+import { program as compile } from "./compiler"
 import {
   DuplicateKeyError,
   InvalidDestructuringError,
@@ -19,11 +19,11 @@ import {
   InvalidLetBindingError,
   InvalidSetTargetError,
   InvalidVarBindingError,
-} from "./ast-parser"
+} from "./ast"
 
 export function check(source: string) {
   const parseTree = parse(new Lexer(source))
-  return astWalk(parseTree)
+  return compile(parseTree)
 }
 
 test("duplicate keys", () => {
@@ -52,11 +52,13 @@ test("invalid bindings", () => {
   }, InvalidSetTargetError)
   assert.throws(() => {
     check(`
+      var x := 0
       set x + 1
     `)
   }, InvalidSetTargetError)
   assert.doesNotThrow(() => {
     check(`
+      var x := 0
       set x{+: 1}
     `)
   })

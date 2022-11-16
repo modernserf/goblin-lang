@@ -5,7 +5,8 @@ import {
   ASTLetBinding,
   ASTHandler,
   ASTParam,
-} from "./ast-parser"
+  ParseStmt,
+} from "./interface"
 import { frame } from "./frame"
 import {
   IRStmt,
@@ -379,14 +380,17 @@ class RootStmt extends Stmt {
   }
 }
 
-export function coreModule(stmts: ASTStmt[], nativeValue: Value): IRStmt[] {
+export function coreModule(stmts: ParseStmt[], nativeValue: Value): IRStmt[] {
   const scope = new RootScope()
   const rec = scope.locals.set("native", scope.locals.new("let"))
   const stmtScope = new RootStmt(scope)
-  return [new IRAssignStmt(rec.index, nativeValue), ...stmtScope.module(stmts)]
+  return [
+    new IRAssignStmt(rec.index, nativeValue),
+    ...stmtScope.module(stmts.map((s) => s.stmt())),
+  ]
 }
 
-export function program(stmts: ASTStmt[]): IRStmt[] {
+export function program(stmts: ParseStmt[]): IRStmt[] {
   const stmtScope = new RootStmt(new RootScope())
-  return stmts.flatMap((s) => stmtScope.stmt(s))
+  return stmts.flatMap((s) => stmtScope.stmt(s.stmt()))
 }
