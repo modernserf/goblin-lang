@@ -1,7 +1,6 @@
 const test = require("node:test")
 import { readFile } from "node:fs/promises"
 import "./parser.test"
-import "./ast.test"
 import "./compiler.test"
 import "./interpreter.test"
 import "./primitive.test"

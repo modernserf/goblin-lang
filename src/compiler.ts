@@ -35,7 +35,7 @@ import {
   Scope,
   ScopeRecord,
 } from "./interface"
-import { Self } from "./ast"
+import { Self } from "./expr"
 
 class Send {
   private scope = new SendScope(this.instance, this.locals)
@@ -82,32 +82,6 @@ export function compileSend(
     args,
     orElse
   )
-}
-
-export function compileBlock(
-  scope: Scope,
-  handlers: Map<string, ASTHandler>,
-  elseHandler: ASTHandler | null
-) {
-  const objectClass = new IRBlockClass()
-  if (elseHandler) {
-    objectClass.addElse(elseHandler.body.flatMap((s) => s.compile(scope)))
-  }
-  for (const [selector, handler] of handlers) {
-    const paramScope = new BasicScope(scope.instance, scope.locals)
-    // block params use parent scope, and do not start at zero
-    const offset = scope.locals.allocate(handler.params.length)
-    const body: IRStmt[] = []
-    const params: IRParam[] = []
-    for (const [argIndex, p] of handler.params.entries()) {
-      params.push(p.toIR())
-      body.push(...p.handler(paramScope, offset + argIndex))
-    }
-
-    body.push(...handler.body.flatMap((s) => s.compile(scope)))
-    objectClass.add(selector, offset, params, body)
-  }
-  return objectClass
 }
 
 class Handler {

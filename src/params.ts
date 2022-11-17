@@ -1,4 +1,4 @@
-import { OnHandler, ParseIdent } from "./ast"
+import { OnHandler, ParseIdent } from "./expr"
 import { compileLet } from "./compiler"
 import {
   DuplicateHandlerError,
@@ -21,9 +21,10 @@ import {
   ParseStmt,
   Scope,
 } from "./interface"
-import { IRLocalExpr, IRUseExpr } from "./interpreter"
+import { IRBlockClass, IRLocalExpr, IRUseExpr } from "./interpreter"
 import { build } from "./message-builder"
 import { LetStmt } from "./stmt"
+import { BasicScope } from "./scope"
 
 type ParamWithBindings = {
   pairs: ParsePair<ParseParam>[]
@@ -69,6 +70,14 @@ export class KeyParams implements ParseParams {
   using(): IRStmt[] {
     throw new InvalidProvideBindingError()
   }
+  addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void {
+    cls.add(
+      this.key,
+      0,
+      [],
+      body.flatMap((stmt) => stmt.compile(scope))
+    )
+  }
 }
 
 export class PairParams implements ParseParams {
@@ -103,6 +112,30 @@ export class PairParams implements ParseParams {
       throw new DuplicateHandlerError(m.selector)
     }
     out.handlers.set(m.selector, m)
+  }
+  addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void {
+    // block params use parent scope, and do not start at zero
+    const offset = scope.locals.allocate(this.pairs.length)
+    build<ParseParam, ParseParam, void>(this.pairs, {
+      punValue(value) {
+        return new ValueParam(new ParseIdent(value))
+      },
+      pair(_, param) {
+        return param
+      },
+      build(selector, params) {
+        const paramScope = new BasicScope(scope.instance, scope.locals)
+        cls.add(
+          selector,
+          offset,
+          params.map((p) => p.toIR()),
+          [
+            ...params.flatMap((p, i) => p.handler(paramScope, offset + i)),
+            ...body.flatMap((stmt) => stmt.compile(scope)),
+          ]
+        )
+      },
+    })
   }
   using(scope: Scope): IRStmt[] {
     return build<ParseParam, { key: string; value: ParseParam }, IRStmt[]>(
@@ -140,6 +173,7 @@ export class DefaultValueParam implements ParseParam {
   defaultPair(): { binding: ParseExpr; value: ParseExpr } {
     return { binding: this.binding, value: this.defaultValue }
   }
+  /* istanbul ignore next */
   using(scope: Scope): IRStmt[] {
     throw "todo: using default values"
   }
@@ -151,9 +185,11 @@ export class DefaultValueParam implements ParseParam {
 export class PatternParam implements ParseParam {
   readonly defaultValue = null
   constructor(private message: ParseParams) {}
+  /* istanbul ignore next */
   handler(scope: Scope, offset: number): IRStmt[] {
     throw "todo: handler pattern param"
   }
+  /* istanbul ignore next */
   using(scope: Scope): IRStmt[] {
     throw "todo: using pattern param"
   }
@@ -194,6 +230,7 @@ export class VarParam implements ParseParam {
     })
     return []
   }
+  /* istanbul ignore next */
   using(scope: Scope): IRStmt[] {
     throw "todo: using var param"
   }
@@ -213,6 +250,7 @@ export class DoParam implements ParseParam {
     })
     return []
   }
+  /* istanbul ignore next */
   using(scope: Scope): IRStmt[] {
     throw "todo: using do param"
   }

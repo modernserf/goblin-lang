@@ -21,9 +21,10 @@ import {
   ParseStmt,
   Scope,
 } from "./interface"
-import { IRModuleExpr, PrimitiveValue, unit } from "./interpreter"
+import { IRBlockClass, IRModuleExpr, PrimitiveValue, unit } from "./interpreter"
 import { KeyParams } from "./params"
 import { floatClass, intClass, stringClass } from "./primitive"
+import { BasicScope } from "./scope"
 import { ExprStmt } from "./stmt"
 
 function handlerSet(ins: ParseHandler[]): HandlerSet {
@@ -231,14 +232,18 @@ export class ParseIf implements ParseExpr {
 }
 
 export class OnHandler implements ParseHandler {
-  constructor(private message: ParseParams, private body: ParseStmt[]) {}
+  constructor(private params: ParseParams, private body: ParseStmt[]) {}
   expand(): ParseHandler[] {
-    return this.message.expand(this.body)
+    return this.params.expand(this.body)
   }
   addToSet(out: HandlerSet): void {
-    this.message.addToSet(out, this.body)
+    this.params.addToSet(out, this.body)
+  }
+  addToBlockClass(scope: Scope, cls: IRBlockClass): void {
+    return this.params.addToBlockClass(scope, cls, this.body)
   }
 }
+
 export class ElseHandler implements ParseHandler {
   constructor(private body: ParseStmt[]) {}
   expand(): ParseHandler[] {
@@ -251,5 +256,8 @@ export class ElseHandler implements ParseHandler {
       params: [],
       body: this.body,
     }
+  }
+  addToBlockClass(scope: Scope, cls: IRBlockClass): void {
+    cls.addElse(this.body.flatMap((s) => s.compile(scope)))
   }
 }

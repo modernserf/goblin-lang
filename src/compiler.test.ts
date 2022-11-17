@@ -15,11 +15,188 @@ import {
 } from "./scope"
 import { program } from "./compiler"
 import { NoHandlerError } from "./interpreter"
+import {
+  DuplicateElseHandlerError,
+  DuplicateHandlerError,
+  DuplicateKeyError,
+  InvalidDestructuringError,
+  InvalidDoParamError,
+  InvalidFrameArgError,
+  InvalidImportBindingError,
+  InvalidImportSourceError,
+  InvalidLetBindingError,
+  InvalidProvideBindingError,
+  InvalidSetTargetError,
+  InvalidVarArgError,
+  InvalidVarBindingError,
+  InvalidVarParamError,
+} from "./error"
 
 export function compile(source: string) {
   const ast = parse(new Lexer(source))
   return program(ast)
 }
+
+test("duplicate keys", () => {
+  assert.throws(() => {
+    compile(`[x: 1 x: 2]`)
+  }, DuplicateKeyError)
+})
+
+test("invalid bindings", () => {
+  assert.throws(() => {
+    compile(`
+      let 1 := foo
+    `)
+  }, InvalidLetBindingError)
+  assert.throws(() => {
+    compile(`
+      var [x: a y: b] := [x: 1 y: 2]
+    `)
+  }, InvalidVarBindingError)
+
+  assert.throws(() => {
+    compile(`
+      var p := 1
+      set [x: p] := [x: 2]
+    `)
+  }, InvalidSetTargetError)
+  assert.throws(() => {
+    compile(`
+      var x := 0
+      set x + 1
+    `)
+  }, InvalidSetTargetError)
+  assert.doesNotThrow(() => {
+    compile(`
+      var x := 0
+      set x{+: 1}
+    `)
+  })
+})
+
+test("duplicate methods", () => {
+  assert.throws(() => {
+    compile(`
+      [
+        on {x: arg} arg
+        on {x: arg} arg
+      ]
+    `)
+  }, DuplicateHandlerError)
+  assert.throws(() => {
+    compile(`
+      [
+        else 1
+        else 2
+      ]
+    `)
+  }, DuplicateElseHandlerError)
+})
+
+test("invalid calls", () => {
+  assert.throws(() => {
+    compile(`
+      val{arg: var 1} 
+    `)
+  }, InvalidVarArgError)
+})
+
+test("invalid destructuring", () => {
+  assert.throws(() => {
+    compile(`
+      let [x] := foo
+    `)
+  }, InvalidDestructuringError)
+  assert.throws(() => {
+    compile(`
+      let [x: var x] := foo
+    `)
+  }, InvalidDestructuringError)
+  assert.throws(() => {
+    compile(`
+      let [x: else 1] := foo
+    `)
+  }, InvalidDestructuringError)
+})
+
+test("provide/using", () => {
+  assert.doesNotThrow(() => {
+    compile(`
+      let x := 1
+      provide{_x_}
+      using{_x_}
+    `)
+  })
+
+  assert.throws(() => {
+    compile(`
+      provide{x}
+    `)
+  }, InvalidProvideBindingError)
+  assert.throws(() => {
+    compile(`
+      using{x}
+    `)
+  }, InvalidProvideBindingError)
+})
+
+test("imports", () => {
+  assert.throws(() => {
+    compile(`
+      import foo := "bar" 
+    `)
+  }, InvalidImportBindingError)
+  assert.throws(() => {
+    compile(`
+      import [_foo_] := 123
+    `)
+  }, InvalidImportSourceError)
+})
+
+test("method params", () => {
+  assert.throws(() => {
+    compile(`
+      [{arg: var 1} 1]
+    `)
+  }, InvalidVarParamError)
+  assert.throws(() => {
+    compile(`
+      [{arg: do [x: x]} x] 
+    `)
+  }, InvalidDoParamError)
+})
+
+test("frames", () => {
+  assert.throws(() => {
+    compile(`
+      [x: var 1] 
+    `)
+  }, InvalidFrameArgError)
+})
+
+test("todo: sub-pattern", () => {
+  assert.throws(() => {
+    compile(`
+      let obj := [
+        on {foo: {bar: baz}}
+          baz
+      ]
+    `)
+  })
+})
+
+test("default values", () => {
+  assert.throws(() => {
+    compile(`
+      let obj := [
+        on {} 1
+        on {x: x := 0 y: y := 0}
+          x + y
+      ]
+    `)
+  }, DuplicateHandlerError)
+})
 
 test("reference error", () => {
   assert.throws(() => {

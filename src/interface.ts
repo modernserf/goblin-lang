@@ -1,3 +1,5 @@
+import { IRBlockClass } from "./interpreter"
+
 // parse
 export interface ParseStmt {
   compile(scope: Scope): IRStmt[]
@@ -16,6 +18,7 @@ export interface ParseExpr {
 export interface ParseHandler {
   expand(): ParseHandler[]
   addToSet(handlerSet: HandlerSet): void
+  addToBlockClass(scope: Scope, cls: IRBlockClass): void
 }
 
 export type ParsePair<T> =
@@ -40,6 +43,7 @@ export interface ParseParams {
   expand(body: ParseStmt[]): ParseHandler[]
   addToSet(out: HandlerSet, body: ParseStmt[]): void
   using(scope: Scope): IRStmt[]
+  addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void
 }
 
 export interface ParseParam {
@@ -80,7 +84,6 @@ export type ASTSimpleBinding = { tag: "identifier"; value: string }
 export type ASTLetBinding =
   | { tag: "identifier"; value: string }
   | { tag: "object"; params: ASTBindPair[]; as: string | null }
-export type ASTBlockArg = HandlerSet
 
 export type HandlerSet = {
   tag: "object"

@@ -1,5 +1,5 @@
-import { ParseIdent } from "./ast"
-import { compileBlock, compileSend } from "./compiler"
+import { ParseIdent } from "./expr"
+import { compileSend } from "./compiler"
 import {
   InvalidDestructuringError,
   InvalidFrameArgError,
@@ -23,7 +23,13 @@ import {
   ParsePair,
   Scope,
 } from "./interface"
-import { IRDoArg, IRProvideStmt, IRValueArg, IRVarArg } from "./interpreter"
+import {
+  IRBlockClass,
+  IRDoArg,
+  IRProvideStmt,
+  IRValueArg,
+  IRVarArg,
+} from "./interpreter"
 import { build } from "./message-builder"
 
 export class KeyArgs implements ParseArgs {
@@ -152,25 +158,15 @@ export class VarArg implements ParseArg {
 export class HandlersArg implements ParseArg {
   constructor(private handlers: ParseHandler[]) {}
   sendArg(scope: Scope): IRArg {
-    const h = handlerSet(this.handlers)
-    return new IRDoArg(compileBlock(scope, h.handlers, h.else))
+    const cls = new IRBlockClass()
+    for (const handler of this.handlers.flatMap((h) => h.expand())) {
+      handler.addToBlockClass(scope, cls)
+    }
+    return new IRDoArg(cls)
   }
   provide(scope: Scope, key: string): IRStmt {
     throw "todo: provide handler"
   }
-}
-
-function handlerSet(ins: ParseHandler[]): HandlerSet {
-  const out: HandlerSet = {
-    tag: "object",
-    handlers: new Map<string, ASTHandler>(),
-    else: null,
-  }
-  for (const handler of ins.flatMap((x) => x.expand())) {
-    handler.addToSet(out)
-  }
-
-  return out
 }
 
 function letBinding(value: ParseExpr): ASTLetBinding {

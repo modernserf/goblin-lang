@@ -19,7 +19,7 @@ import {
   ParseUnaryOp,
   ParseBinaryOp,
   ParseTrySend,
-} from "./ast"
+} from "./expr"
 import {
   VarParam,
   DoParam,
