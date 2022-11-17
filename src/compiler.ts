@@ -5,7 +5,6 @@ import {
   Instance,
   ParseExpr,
   HandlerSet,
-  ParseParam,
   ParseArg,
 } from "./interface"
 import {
@@ -13,13 +12,9 @@ import {
   IRBlockClass,
   IRSendExpr,
   IRSelfExpr,
-  IRLocalExpr,
   IRSendDirectExpr,
   IRAssignStmt,
   IRObjectHandler,
-  IRVarArg,
-  IRValueArg,
-  IRDoArg,
   IRTrySendExpr,
 } from "./interpreter"
 import { constObject } from "./optimize"
@@ -145,18 +140,6 @@ class Handler {
   }
   private body(stmts: ParseStmt[]): IRStmt[] {
     return stmts.flatMap((s) => s.compile(this.scope))
-  }
-  private useLetArg(key: string, index: number) {
-    return this.locals.set(key, { index, type: "let" })
-  }
-  private useVarArg(key: string, index: number) {
-    return this.locals.set(key, { index, type: "var" })
-  }
-  private useBlockArg(key: string, index: number) {
-    return this.locals.set(key, { index, type: "do" })
-  }
-  private let(binding: ASTLetBinding, value: IRExpr): IRStmt[] {
-    return new Let(this.locals).compile(binding, value)
   }
 }
 
