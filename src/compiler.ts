@@ -28,6 +28,7 @@ import {
   IRVarArg,
   IRValueArg,
   IRDoArg,
+  IRTrySendExpr,
 } from "./interpreter"
 import { constObject } from "./optimize"
 import {
@@ -61,6 +62,25 @@ export class Send {
     } else {
       const target = this.expr(astTarget)
       return new IRSendExpr(selector, target, args)
+    }
+  }
+  trySend(
+    selector: string,
+    astTarget: ParseExpr,
+    astArgs: ASTArg[],
+    orElse: ParseExpr
+  ): IRExpr {
+    const args = astArgs.map((v) => this.arg(v))
+    if (astTarget === Self) {
+      this.instance.getPlaceholderHandler(selector)
+      throw new Error("trySend must be unneccessary on self")
+    } else {
+      return new IRTrySendExpr(
+        selector,
+        this.expr(astTarget),
+        args,
+        this.expr(orElse)
+      )
     }
   }
   private arg(arg: ASTArg): IRArg {

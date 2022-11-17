@@ -16,6 +16,12 @@ export class IRClass {
     private handlers: Map<string, IRHandler> = new Map(),
     private elseHandler: IRHandler | null = null
   ) {}
+  try(selector: string): IRHandler | null {
+    const handler = this.handlers.get(selector)
+    if (handler) return handler
+    if (this.elseHandler) return this.elseHandler
+    return null
+  }
   get(selector: string): IRHandler {
     const handler = this.handlers.get(selector)
     if (handler) return handler
@@ -69,6 +75,16 @@ export class ObjectValue implements Value, IRExpr, IRStmt {
     const handler = this.cls.get(selector)
     return handler.send(sender, this, args)
   }
+  trySend(
+    sender: Interpreter,
+    selector: string,
+    args: IRArg[],
+    orElse: IRExpr
+  ): Value {
+    const handler = this.cls.try(selector)
+    if (handler) return handler.send(sender, this, args)
+    return orElse.eval(sender)
+  }
   instanceof(cls: IRClass): boolean {
     return this.cls === cls
   }
@@ -86,6 +102,16 @@ export class PrimitiveValue implements Value, IRExpr, IRStmt {
   send(sender: Interpreter, selector: string, args: IRArg[]): Value {
     const handler = this.cls.get(selector)
     return handler.send(sender, this, args)
+  }
+  trySend(
+    sender: Interpreter,
+    selector: string,
+    args: IRArg[],
+    orElse: IRExpr
+  ): Value {
+    const handler = this.cls.try(selector)
+    if (handler) return handler.send(sender, this, args)
+    return orElse.eval(sender)
   }
   instanceof(cls: IRClass): boolean {
     return this.cls === cls
@@ -105,6 +131,16 @@ export class DoValue implements Value, IRExpr, IRStmt {
   send(sender: Interpreter, selector: string, args: IRArg[]): Value {
     const handler = this.cls.get(selector)
     return handler.send(sender, this.ctx, args)
+  }
+  trySend(
+    sender: Interpreter,
+    selector: string,
+    args: IRArg[],
+    orElse: IRExpr
+  ): Value {
+    const handler = this.cls.try(selector)
+    if (handler) return handler.send(sender, this.ctx, args)
+    return orElse.eval(sender)
   }
   /* istanbul ignore next */
   instanceof(cls: IRClass): boolean {
@@ -357,11 +393,17 @@ export class IRBlockClass {
     this.elseHandler = new IRElseBlockHandler(body)
     return this
   }
-  get(selector: string) {
+  get(selector: string): IRBlockHandler {
     const handler = this.handlers.get(selector)
     if (handler) return handler
     if (this.elseHandler) return this.elseHandler
     throw new NoHandlerError(selector)
+  }
+  try(selector: string): IRBlockHandler | null {
+    const handler = this.handlers.get(selector)
+    if (handler) return handler
+    if (this.elseHandler) return this.elseHandler
+    return null
   }
 }
 
@@ -425,6 +467,19 @@ export class IRSendExpr implements IRExpr, IRStmt {
   eval(ctx: Interpreter): Value {
     const target = this.target.eval(ctx)
     return target.send(ctx, this.selector, this.args)
+  }
+}
+
+export class IRTrySendExpr implements IRExpr, IRStmt {
+  constructor(
+    private selector: string,
+    private target: IRExpr,
+    private args: IRArg[],
+    private orElse: IRExpr
+  ) {}
+  eval(ctx: Interpreter): Value {
+    const target = this.target.eval(ctx)
+    return target.trySend(ctx, this.selector, this.args, this.orElse)
   }
 }
 

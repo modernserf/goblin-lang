@@ -291,6 +291,23 @@ export class ParseSend implements ParseExpr {
   }
 }
 
+export class ParseTrySend implements ParseExpr {
+  constructor(
+    private target: ParseExpr,
+    private args: ParseArgs,
+    private orElse: ParseExpr
+  ) {}
+  compile(scope: Scope, selfBinding?: string | undefined): IRExpr {
+    const { selector, args } = this.args.send()
+    return new Send(scope.instance, scope.locals).trySend(
+      selector,
+      this.target,
+      args,
+      this.orElse
+    )
+  }
+}
+
 export class ParseUnaryOp implements ParseExpr {
   constructor(private target: ParseExpr, private operator: string) {}
   compile(scope: Scope): IRExpr {

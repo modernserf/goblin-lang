@@ -468,3 +468,18 @@ else
   789 
 end
 Assert{received: b expected: 456}
+
+# try send
+
+let defaults := [x: 1 y: 2]
+let params := [x: 3]
+
+Assert{
+  received: params{x} ? defaults{x}
+  expected: 3
+}
+
+Assert{
+  received: params{y} ? defaults{y}
+  expected: 2
+}

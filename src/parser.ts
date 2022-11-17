@@ -41,6 +41,7 @@ import {
   ReturnStmt,
   DeferStmt,
   ExprStmt,
+  ParseTrySend,
 } from "./ast"
 import {
   ParseArg,
@@ -273,9 +274,14 @@ function callExpr(lexer: Lexer): ParseExpr | null {
   if (!target) return null
   while (true) {
     if (!accept(lexer, "openBrace")) return target
-    const message = parseArgs(lexer)
+    const args = parseArgs(lexer)
     mustToken(lexer, "closeBrace")
-    target = new ParseSend(target, message)
+    if (accept(lexer, "questionMark")) {
+      const orElse = must(lexer, "expr", parseExpr)
+      return new ParseTrySend(target, args, orElse)
+    } else {
+      target = new ParseSend(target, args)
+    }
   }
 }
 

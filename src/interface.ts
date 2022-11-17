@@ -140,6 +140,12 @@ export interface Value {
   readonly primitiveValue: any
   getIvar(index: number): Value
   send(sender: Interpreter, selector: string, args: IRArg[]): Value
+  trySend(
+    sender: Interpreter,
+    selector: string,
+    args: IRArg[],
+    orElse: IRExpr
+  ): Value
   instanceof(cls: unknown): boolean
   eval(ctx: Interpreter): Value
 }

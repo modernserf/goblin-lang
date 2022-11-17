@@ -31,6 +31,7 @@ export type Token =
   | { tag: "semicolon" }
   | { tag: "colon" }
   | { tag: "colonEquals" }
+  | { tag: "questionMark" }
   | { tag: "eof" }
 
 const re = {
@@ -40,8 +41,8 @@ const re = {
   string: /"(?:\\"|[^"])*"/y,
   identKw: /[a-zA-Z][a-zA-Z0-9']*/y,
   identUnderscore: /_(?:\\_|[^_])*_/y,
-  operator: /[-~!@$%^&*+|<>,?/=]+/y,
-  punctuation: /:=|[\[\]\(\)\{\}:;]/y,
+  operator: /[-~!@$%^&*+|<>,/=]+/y,
+  punctuation: /:=|[\[\]\(\)\{\}:;?]/y,
 }
 
 export const keywords: Set<Token["tag"]> = new Set([
@@ -74,6 +75,7 @@ const matcherTable = {
   ")": "closeParen",
   "{": "openBrace",
   "}": "closeBrace",
+  "?": "questionMark",
 } as const
 type MatcherTable = typeof matcherTable
 
