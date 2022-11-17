@@ -23,7 +23,6 @@ import {
   ASTBindPair,
   ASTHandler,
   ASTLetBinding,
-  ASTParam,
   ASTSimpleBinding,
   HandlerSet,
   IRArg,
@@ -41,6 +40,7 @@ import {
 } from "./interface"
 import {
   IRDoArg,
+  IRLocalExpr,
   IRModuleExpr,
   IRProvideStmt,
   IRUseExpr,
@@ -484,8 +484,16 @@ export class ElseHandler implements ParseHandler {
 // ie ParseParams.expand() => ParseExpandedParams
 export class DefaultValueParam implements ParseParam {
   constructor(private binding: ParseExpr, private defaultValue: ParseExpr) {}
-  toAST(): ASTParam {
-    return { tag: "binding", binding: letBinding(this.binding) }
+  handler(scope: Scope, offset: number): IRStmt[] {
+    const binding = letBinding(this.binding)
+    switch (binding.tag) {
+      case "identifier":
+        scope.locals.set(binding.value, { index: offset, type: "let" })
+        return []
+      case "object": {
+        return compileLet(scope, binding, new IRLocalExpr(offset))
+      }
+    }
   }
   defaultPair(): { binding: ParseExpr; value: ParseExpr } {
     return { binding: this.binding, value: this.defaultValue }
@@ -501,8 +509,8 @@ export class DefaultValueParam implements ParseParam {
 export class PatternParam implements ParseParam {
   readonly defaultValue = null
   constructor(private message: ParseParams) {}
-  toAST(): ASTParam {
-    throw "todo: pattern param"
+  handler(scope: Scope, offset: number): IRStmt[] {
+    throw "todo: handler pattern param"
   }
   using(scope: Scope): IRStmt[] {
     throw "todo: using pattern param"
@@ -513,12 +521,20 @@ export class PatternParam implements ParseParam {
 }
 
 export class ValueParam implements ParseParam {
-  constructor(private value: ParseExpr) {}
-  toAST(): ASTParam {
-    return { tag: "binding", binding: letBinding(this.value) }
+  constructor(private binding: ParseExpr) {}
+  handler(scope: Scope, offset: number): IRStmt[] {
+    const binding = letBinding(this.binding)
+    switch (binding.tag) {
+      case "identifier":
+        scope.locals.set(binding.value, { index: offset, type: "let" })
+        return []
+      case "object": {
+        return compileLet(scope, binding, new IRLocalExpr(offset))
+      }
+    }
   }
   using(scope: Scope, key: string): IRStmt[] {
-    return compileLet(scope, letBinding(this.value), new IRUseExpr(key))
+    return compileLet(scope, letBinding(this.binding), new IRUseExpr(key))
   }
   toIR(): IRParam {
     return { tag: "value" }
@@ -528,9 +544,13 @@ export class ValueParam implements ParseParam {
 export class VarParam implements ParseParam {
   readonly defaultValue = null
   constructor(private value: ParseExpr) {}
-  toAST(): ASTParam {
+  handler(scope: Scope, offset: number): IRStmt[] {
     if (!this.value.simpleBinding) throw new InvalidVarParamError()
-    return { tag: "var", binding: this.value.simpleBinding() }
+    scope.locals.set(this.value.simpleBinding().value, {
+      index: offset,
+      type: "var",
+    })
+    return []
   }
   using(scope: Scope): IRStmt[] {
     throw "todo: using var param"
@@ -543,9 +563,13 @@ export class VarParam implements ParseParam {
 export class DoParam implements ParseParam {
   readonly defaultValue = null
   constructor(private value: ParseExpr) {}
-  toAST(): ASTParam {
+  handler(scope: Scope, offset: number): IRStmt[] {
     if (!this.value.simpleBinding) throw new InvalidDoParamError()
-    return { tag: "do", binding: this.value.simpleBinding() }
+    scope.locals.set(this.value.simpleBinding().value, {
+      index: offset,
+      type: "do",
+    })
+    return []
   }
   using(scope: Scope): IRStmt[] {
     throw "todo: using do param"

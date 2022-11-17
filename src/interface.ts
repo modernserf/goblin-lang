@@ -39,8 +39,8 @@ export interface ParseParams {
 }
 
 export interface ParseParam {
-  toAST(): ASTParam
   toIR(): IRParam
+  handler(scope: Scope, offset: number): IRStmt[]
   defaultPair?(): { binding: ParseExpr; value: ParseExpr }
   using(scope: Scope, key: string): IRStmt[]
 }
@@ -89,11 +89,6 @@ export type ASTHandler = {
   params: ParseParam[]
   body: ParseStmt[]
 }
-
-export type ASTParam =
-  | { tag: "binding"; binding: ASTLetBinding }
-  | { tag: "var"; binding: ASTSimpleBinding }
-  | { tag: "do"; binding: ASTSimpleBinding }
 
 // interpret
 

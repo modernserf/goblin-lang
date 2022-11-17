@@ -99,14 +99,14 @@ export function compileBlock(
     objectClass.addElse(elseHandler.body.flatMap((s) => s.compile(scope)))
   }
   for (const [selector, handler] of handlers) {
-    const paramScope = new Handler(scope.instance, scope.locals)
+    const paramScope = new BasicScope(scope.instance, scope.locals)
     // block params use parent scope, and do not start at zero
     const offset = scope.locals.allocate(handler.params.length)
     const body: IRStmt[] = []
     const params: IRParam[] = []
     for (const [argIndex, p] of handler.params.entries()) {
       params.push(p.toIR())
-      body.push(...paramScope.param(offset + argIndex, p))
+      body.push(...p.handler(paramScope, offset + argIndex))
     }
 
     body.push(...handler.body.flatMap((s) => s.compile(scope)))
@@ -123,7 +123,7 @@ class Handler {
     const params: IRParam[] = []
     for (const [argIndex, p] of handler.params.entries()) {
       params.push(p.toIR())
-      body.push(...this.param(argIndex, p))
+      body.push(...p.handler(this.scope, argIndex))
     }
 
     body.push(...this.selfBinding(selfBinding))
@@ -135,27 +135,6 @@ class Handler {
     body.push(...this.selfBinding(selfBinding))
     body.push(...this.body(handler.body))
     return body
-  }
-  param(offset: number, p: ParseParam): IRStmt[] {
-    const param = p.toAST()
-    switch (param.tag) {
-      case "binding":
-        switch (param.binding.tag) {
-          case "identifier":
-            this.useLetArg(param.binding.value, offset)
-            return []
-          case "object": {
-            const local: IRExpr = new IRLocalExpr(offset)
-            return this.let(param.binding, local)
-          }
-        }
-      case "var":
-        this.useVarArg(param.binding.value, offset)
-        return []
-      case "do":
-        this.useBlockArg(param.binding.value, offset)
-        return []
-    }
   }
   selfBinding(selfBinding: string | undefined): IRStmt[] {
     if (!selfBinding) return []
