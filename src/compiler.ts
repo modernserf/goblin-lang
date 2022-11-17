@@ -29,6 +29,7 @@ import {
   IRValueArg,
   IRDoArg,
   IRTrySendExpr,
+  IRElseHandler,
 } from "./interpreter"
 import { constObject } from "./optimize"
 import {
@@ -49,7 +50,7 @@ import {
   Scope,
   ScopeRecord,
 } from "./interface"
-import { Self } from "./ast"
+import { ElseHandler, Self } from "./ast"
 
 export class Send {
   private scope = new SendScope(this.instance, this.locals)
@@ -141,6 +142,12 @@ class Handler {
     body.push(...this.body(handler.body))
     return new IRObjectHandler(params, body)
   }
+  elseHandler(handler: ASTHandler, selfBinding?: string | undefined): IRStmt[] {
+    const body: IRStmt[] = []
+    body.push(...this.selfBinding(selfBinding))
+    body.push(...this.body(handler.body))
+    return body
+  }
   param(offset: number, param: ASTParam): IRStmt[] {
     switch (param.tag) {
       case "binding":
@@ -213,7 +220,7 @@ export function compileObject(
   const objectClass = new IRClass()
   if (value.else) {
     const h = new Handler(instance, new LocalsImpl(value.else.params.length))
-    objectClass.addElse(h.handler(value.else, selfBinding))
+    objectClass.addElse(h.elseHandler(value.else, selfBinding))
   }
 
   for (const [selector, handler] of value.handlers) {

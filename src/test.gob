@@ -483,3 +483,12 @@ Assert{
   received: params{y} ? defaults{y}
   expected: 2
 }
+
+# egocentric nil
+
+let ego := [else self]
+
+Assert{
+  received: ego{sent: "any"}{sequence}{of: [message]}
+  expected: ego
+}

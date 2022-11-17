@@ -36,12 +36,12 @@ export class IRClass {
     this.handlers.set(selector, handler)
     return this
   }
-  addElse(handler: IRHandler): this {
+  addElse(body: IRStmt[]): this {
     /* istanbul ignore next */
     if (this.elseHandler) {
       throw new Error(`duplicate else handler`)
     }
-    this.elseHandler = handler
+    this.elseHandler = new IRElseHandler(body)
     return this
   }
   addFrame(selector: string, params: IRParam[], body: IRStmt[]): this {
@@ -244,10 +244,6 @@ export class ArgMismatchError {
   constructor(readonly paramType: string, readonly argType: string) {}
 }
 
-// export type IRArg =
-//   | { tag: "value"; value: IRExpr }
-//   | { tag: "var"; index: number }
-//   | { tag: "do"; class: IRBlockClass }
 export class IRValueArg implements IRArg {
   constructor(private expr: IRExpr) {}
   value(ctx: Interpreter): Value {
@@ -311,7 +307,6 @@ function loadArgs(
 ) {
   args.forEach((arg, i) => {
     const param = params[i]
-    // TODO: is else sent with fewer params than args?
     /* istanbul ignore next */
     if (!param) throw new Error("missing param")
     arg.load(sender, target, offset + i, param)
@@ -337,6 +332,14 @@ export class IRLazyHandler implements IRHandler {
   send(sender: Interpreter, target: Value, args: IRArg[]): Value {
     if (!this.handler) throw new Error("missing lazy handler")
     return this.handler.send(sender, target, args)
+  }
+}
+
+export class IRElseHandler implements IRHandler {
+  constructor(private body: IRStmt[]) {}
+  send(sender: Interpreter, target: Value, args: IRArg[]): Value {
+    const child = sender.createChild(target)
+    return Return.handleReturn(child, () => body(child, this.body))
   }
 }
 
