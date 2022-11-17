@@ -55,11 +55,10 @@ export class ReturnStmt implements ParseStmt {
 export class ImportStmt implements ParseStmt {
   constructor(private binding: ParseExpr, private source: ParseExpr) {}
   compile(scope: Scope): IRStmt[] {
-    if (!this.binding.importBinding) throw new InvalidImportBindingError()
-    const binding = this.binding.importBinding()
     if (!this.source.importSource) throw new InvalidImportSourceError()
-    const source = this.source.importSource()
-    return compileLet(scope, binding, new IRModuleExpr(source.value))
+    const source = this.source.importSource(scope)
+    if (!this.binding.importBinding) throw new InvalidImportBindingError()
+    return this.binding.importBinding(scope, source)
   }
 }
 

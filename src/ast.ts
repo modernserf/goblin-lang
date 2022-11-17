@@ -19,7 +19,6 @@ import {
   ASTBindPair,
   ASTHandler,
   ASTImportBinding,
-  ASTImportSource,
   ASTLetBinding,
   ASTParam,
   ASTProvidePair,
@@ -39,8 +38,6 @@ import {
   SendResult,
 } from "./interface"
 import {
-  IRAssignStmt,
-  IRDeferStmt,
   IRModuleExpr,
   IRProvideStmt,
   IRReturnStmt,
@@ -104,8 +101,8 @@ export class ParseString implements ParseExpr {
   compile(): IRExpr {
     return new PrimitiveValue(stringClass, this.value)
   }
-  importSource(): ASTImportSource {
-    return { tag: "string", value: this.value }
+  importSource(scope: Scope): IRExpr {
+    return new IRModuleExpr(this.value)
   }
 }
 
@@ -161,13 +158,17 @@ export class ParseFrame implements ParseExpr {
       as: null,
     }
   }
-  importBinding(): ASTImportBinding {
+  importBinding(scope: Scope, source: IRExpr): IRStmt[] {
     if (this.as) throw new InvalidImportBindingError()
-    return {
-      tag: "object",
-      params: this.args.destructure(),
-      as: null,
-    }
+    return compileLet(
+      scope,
+      {
+        tag: "object",
+        params: this.args.destructure(),
+        as: null,
+      },
+      source
+    )
   }
 }
 

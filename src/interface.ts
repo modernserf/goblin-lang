@@ -9,8 +9,8 @@ export interface ParseExpr {
   setInPlace?(): ASTSimpleBinding
   simpleBinding?(): ASTSimpleBinding
   letBinding?(): ASTLetBinding
-  importBinding?(): ASTImportBinding
-  importSource?(): ASTImportSource
+  importBinding?(scope: Scope, source: IRExpr): IRStmt[]
+  importSource?(scope: Scope): IRExpr
 }
 
 export interface ParseHandler {
@@ -82,7 +82,7 @@ export type ASTImportBinding = {
   params: ASTBindPair[]
   as: null
 }
-export type ASTImportSource = { tag: "string"; value: string }
+// export type ASTImportSource = { tag: "string"; value: string }
 
 export type ASTArg =
   | { tag: "expr"; value: ParseExpr }
