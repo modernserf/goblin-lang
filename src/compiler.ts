@@ -1,5 +1,4 @@
 import {
-  ASTArg,
   ASTLetBinding,
   ASTHandler,
   ParseStmt,
@@ -7,6 +6,7 @@ import {
   ParseExpr,
   HandlerSet,
   ParseParam,
+  ParseArg,
 } from "./interface"
 import {
   IRClass,
@@ -31,7 +31,6 @@ import {
   LocalsImpl,
 } from "./scope"
 import {
-  IRArg,
   IRExpr,
   IRHandler,
   IRParam,
@@ -49,10 +48,10 @@ class Send {
   send(
     selector: string,
     astTarget: ParseExpr,
-    astArgs: ASTArg[],
+    astArgs: ParseArg[],
     orElse: ParseExpr | null = null
   ): IRExpr {
-    const args = astArgs.map((v) => this.arg(v))
+    const args = astArgs.map((v) => v.sendArg(this.scope))
     if (astTarget === Self) {
       const handler = this.instance.getPlaceholderHandler(selector)
       if (orElse) {
@@ -73,51 +72,13 @@ class Send {
       }
     }
   }
-
-  private arg(arg: ASTArg): IRArg {
-    switch (arg.tag) {
-      case "var":
-        return new IRVarArg(this.scope.lookupVarIndex(arg.value.value))
-      case "expr":
-        return new IRValueArg(arg.value.compile(this.scope))
-      case "do":
-        return new IRDoArg(this.block(arg.value.handlers, arg.value.else))
-    }
-  }
-  private block(
-    handlers: Map<string, ASTHandler>,
-    elseHandler: ASTHandler | null
-  ): IRBlockClass {
-    const objectClass = new IRBlockClass()
-    if (elseHandler) {
-      objectClass.addElse(this.body(elseHandler.body))
-    }
-    for (const [selector, handler] of handlers) {
-      const paramScope = new Handler(this.instance, this.locals)
-      // block params use parent scope, and do not start at zero
-      const offset = this.locals.allocate(handler.params.length)
-      const body: IRStmt[] = []
-      const params: IRParam[] = []
-      for (const [argIndex, p] of handler.params.entries()) {
-        params.push(p.toIR())
-        body.push(...paramScope.param(offset + argIndex, p))
-      }
-
-      body.push(...this.body(handler.body))
-      objectClass.add(selector, offset, params, body)
-    }
-    return objectClass
-  }
-  private body(stmts: ParseStmt[]): IRStmt[] {
-    return stmts.flatMap((s) => s.compile(this.scope))
-  }
 }
 
 export function compileSend(
   scope: Scope,
   selector: string,
   target: ParseExpr,
-  args: ASTArg[],
+  args: ParseArg[],
   orElse: ParseExpr | null = null
 ) {
   return new Send(scope.instance, scope.locals).send(
@@ -126,6 +87,32 @@ export function compileSend(
     args,
     orElse
   )
+}
+
+export function compileBlock(
+  scope: Scope,
+  handlers: Map<string, ASTHandler>,
+  elseHandler: ASTHandler | null
+) {
+  const objectClass = new IRBlockClass()
+  if (elseHandler) {
+    objectClass.addElse(elseHandler.body.flatMap((s) => s.compile(scope)))
+  }
+  for (const [selector, handler] of handlers) {
+    const paramScope = new Handler(scope.instance, scope.locals)
+    // block params use parent scope, and do not start at zero
+    const offset = scope.locals.allocate(handler.params.length)
+    const body: IRStmt[] = []
+    const params: IRParam[] = []
+    for (const [argIndex, p] of handler.params.entries()) {
+      params.push(p.toIR())
+      body.push(...paramScope.param(offset + argIndex, p))
+    }
+
+    body.push(...handler.body.flatMap((s) => s.compile(scope)))
+    objectClass.add(selector, offset, params, body)
+  }
+  return objectClass
 }
 
 class Handler {

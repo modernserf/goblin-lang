@@ -1,4 +1,9 @@
-import { compileLet, compileObject, compileSend } from "./compiler"
+import {
+  compileBlock,
+  compileLet,
+  compileObject,
+  compileSend,
+} from "./compiler"
 import {
   DuplicateElseHandlerError,
   DuplicateHandlerError,
@@ -15,13 +20,13 @@ import {
 } from "./error"
 import { frame } from "./frame"
 import {
-  ASTArg,
   ASTBindPair,
   ASTHandler,
   ASTLetBinding,
   ASTParam,
   ASTSimpleBinding,
   HandlerSet,
+  IRArg,
   IRExpr,
   IRParam,
   IRStmt,
@@ -35,9 +40,12 @@ import {
   Scope,
 } from "./interface"
 import {
+  IRDoArg,
   IRModuleExpr,
   IRProvideStmt,
   IRUseExpr,
+  IRValueArg,
+  IRVarArg,
   PrimitiveValue,
   unit,
 } from "./interpreter"
@@ -205,7 +213,7 @@ export class ParseBinaryOp implements ParseExpr {
   ) {}
   compile(scope: Scope): IRExpr {
     return compileSend(scope, `${this.operator}:`, this.target, [
-      { tag: "expr", value: this.operand },
+      new ValueArg(this.operand),
     ])
   }
 }
@@ -335,13 +343,7 @@ export class PairArgs implements ParseArgs {
         return arg
       },
       build(selector, args) {
-        return compileSend(
-          scope,
-          selector,
-          target,
-          args.map((arg) => arg.toAst()),
-          orElse
-        )
+        return compileSend(scope, selector, target, args, orElse)
       },
     })
   }
@@ -555,8 +557,8 @@ export class DoParam implements ParseParam {
 
 export class ValueArg implements ParseArg {
   constructor(private expr: ParseExpr) {}
-  toAst(): ASTArg {
-    return { tag: "expr", value: this.expr }
+  sendArg(scope: Scope): IRArg {
+    return new IRValueArg(this.expr.compile(scope))
   }
   frameArg(): ParseExpr {
     return this.expr
@@ -571,9 +573,11 @@ export class ValueArg implements ParseArg {
 
 export class VarArg implements ParseArg {
   constructor(private binding: ParseExpr) {}
-  toAst(): ASTArg {
+  sendArg(scope: Scope): IRArg {
     if (!this.binding.simpleBinding) throw new InvalidVarArgError()
-    return { tag: "var", value: this.binding.simpleBinding() }
+    return new IRVarArg(
+      scope.lookupVarIndex(this.binding.simpleBinding().value)
+    )
   }
   provide(scope: Scope, key: string): IRStmt {
     throw "todo: provide var"
@@ -582,8 +586,9 @@ export class VarArg implements ParseArg {
 
 export class HandlersArg implements ParseArg {
   constructor(private handlers: ParseHandler[]) {}
-  toAst(): ASTArg {
-    return { tag: "do", value: handlerSet(this.handlers) }
+  sendArg(scope: Scope): IRArg {
+    const h = handlerSet(this.handlers)
+    return new IRDoArg(compileBlock(scope, h.handlers, h.else))
   }
   provide(scope: Scope, key: string): IRStmt {
     throw "todo: provide handler"

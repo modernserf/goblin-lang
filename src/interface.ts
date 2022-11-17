@@ -18,7 +18,6 @@ export interface ParseHandler {
   addToSet(handlerSet: HandlerSet): void
 }
 
-// export type SendResult = { selector: string; args: ASTArg[] }
 export interface ParseArgs {
   provide(scope: Scope): IRStmt[]
   send(scope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr
@@ -27,7 +26,7 @@ export interface ParseArgs {
 }
 
 export interface ParseArg {
-  toAst(): ASTArg
+  sendArg(scope: Scope): IRArg
   frameArg?(): ParseExpr
   destructureArg?(): ASTLetBinding
   provide(scope: Scope, key: string): IRStmt
@@ -77,11 +76,6 @@ export type ASTSimpleBinding = { tag: "identifier"; value: string }
 export type ASTLetBinding =
   | { tag: "identifier"; value: string }
   | { tag: "object"; params: ASTBindPair[]; as: string | null }
-
-export type ASTArg =
-  | { tag: "expr"; value: ParseExpr }
-  | { tag: "var"; value: ASTSimpleBinding }
-  | { tag: "do"; value: ASTBlockArg }
 export type ASTBlockArg = HandlerSet
 
 export type HandlerSet = {
