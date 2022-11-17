@@ -1,11 +1,12 @@
 // parse
 export interface ParseStmt {
   stmt(): ASTStmt
+  unwrap?(): ParseExpr
 }
 
 export interface ParseExpr {
-  toAST(): ASTExpr
-  setInPlace?(value: ASTExpr): ASTStmt
+  compile(scope: Scope, selfBinding?: string | undefined): IRExpr
+  setInPlace?(value: ParseExpr): ASTStmt
   simpleBinding?(): ASTSimpleBinding
   letBinding?(): ASTLetBinding
   importBinding?(): ASTImportBinding
@@ -17,10 +18,12 @@ export interface ParseHandler {
   addToSet(handlerSet: HandlerSet): void
 }
 
+export type SendResult = { selector: string; args: ASTArg[] }
+export type FrameResult = { selector: string; args: ASTFrameArg[] }
 export interface ParseArgs {
   provide(): ASTStmt
-  send(target: ASTExpr): ASTExpr
-  frame(): ASTExpr
+  send(): SendResult
+  frame(): FrameResult
   destructure(): ASTBindPair[]
 }
 
@@ -37,7 +40,7 @@ export interface ParseParam {
 
 export interface ParseArg {
   toAst(): ASTArg
-  frameArg?(): ASTExpr
+  frameArg?(): ParseExpr
   destructureArg?(): ASTLetBinding
 }
 
@@ -67,15 +70,15 @@ export interface Scope {
 
 // TODO
 export type ASTStmt =
-  | { tag: "let"; binding: ASTLetBinding; value: ASTExpr; export: boolean }
-  | { tag: "set"; binding: ASTSimpleBinding; value: ASTExpr }
-  | { tag: "var"; binding: ASTSimpleBinding; value: ASTExpr }
+  | { tag: "let"; binding: ASTLetBinding; value: ParseExpr; export: boolean }
+  | { tag: "set"; binding: ASTSimpleBinding; value: ParseExpr }
+  | { tag: "var"; binding: ASTSimpleBinding; value: ParseExpr }
   | { tag: "provide"; args: ASTProvidePair[] }
   | { tag: "using"; params: ASTUsingPair[] }
   | { tag: "import"; binding: ASTImportBinding; source: ASTImportSource }
-  | { tag: "return"; value: ASTExpr }
+  | { tag: "return"; value: ParseExpr }
   | { tag: "defer"; body: ASTStmt[] }
-  | { tag: "expr"; value: ASTExpr }
+  | { tag: "expr"; value: ParseExpr }
 
 export type ASTProvidePair = { key: string; value: ASTArg }
 export type ASTUsingPair = { key: string; value: ASTParam }
@@ -91,17 +94,9 @@ export type ASTImportBinding = {
 }
 export type ASTImportSource = { tag: "string"; value: string }
 
-export type ASTExpr =
-  | { tag: "expr"; value: IRExpr }
-  | { tag: "self" }
-  | { tag: "identifier"; value: string }
-  | { tag: "send"; target: ASTExpr; selector: string; args: ASTArg[] }
-  | { tag: "frame"; selector: string; args: ASTFrameArg[] }
-  | HandlerSet
-
-export type ASTFrameArg = { key: string; value: ASTExpr }
+export type ASTFrameArg = { key: string; value: ParseExpr }
 export type ASTArg =
-  | { tag: "expr"; value: ASTExpr }
+  | { tag: "expr"; value: ParseExpr }
   | { tag: "var"; value: ASTVarArg }
   | { tag: "do"; value: ASTBlockArg }
 export type ASTVarArg = { tag: "identifier"; value: string }

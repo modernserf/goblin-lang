@@ -365,14 +365,14 @@ export class IRBlockClass {
   }
 }
 
-class IRElseBlockHandler implements IRBlockHandler {
+export class IRElseBlockHandler implements IRBlockHandler {
   constructor(private body: IRStmt[]) {}
   send(sender: Interpreter, ctx: Interpreter, args: IRArg[]): Value {
     return body(ctx, this.body)
   }
 }
 
-class IROnBlockHandler implements IRBlockHandler {
+export class IROnBlockHandler implements IRBlockHandler {
   constructor(
     private offset: number,
     private params: IRParam[],

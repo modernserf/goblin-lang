@@ -1,7 +1,8 @@
+import { compileObject, Send } from "./compiler"
+import { frame } from "./frame"
 import {
   ASTArg,
   ASTBindPair,
-  ASTExpr,
   ASTFrameArg,
   ASTHandler,
   ASTImportBinding,
@@ -12,7 +13,9 @@ import {
   ASTSimpleBinding,
   ASTStmt,
   ASTUsingPair,
+  FrameResult,
   HandlerSet,
+  IRExpr,
   ParseArg,
   ParseArgs,
   ParseExpr,
@@ -20,6 +23,8 @@ import {
   ParseParam,
   ParseParams,
   ParseStmt,
+  Scope,
+  SendResult,
 } from "./interface"
 import { PrimitiveValue, unit } from "./interpreter"
 import { floatClass, intClass, stringClass } from "./primitive"
@@ -51,7 +56,10 @@ export class DuplicateKeyError {
 export class ExprStmt implements ParseStmt {
   constructor(private expr: ParseExpr) {}
   stmt(): ASTStmt {
-    return { tag: "expr", value: this.expr.toAST() }
+    return { tag: "expr", value: this.expr }
+  }
+  unwrap(): ParseExpr {
+    return this.expr
   }
 }
 
@@ -65,7 +73,7 @@ export class DeferStmt implements ParseStmt {
 export class ReturnStmt implements ParseStmt {
   constructor(private expr: ParseExpr) {}
   stmt(): ASTStmt {
-    return { tag: "return", value: this.expr.toAST() }
+    return { tag: "return", value: this.expr }
   }
 }
 
@@ -103,7 +111,7 @@ export class VarStmt implements ParseStmt {
     return {
       tag: "var",
       binding: this.binding.simpleBinding(),
-      value: this.expr.toAST(),
+      value: this.expr,
     }
   }
 }
@@ -136,7 +144,7 @@ export class LetStmt implements ParseStmt {
     return {
       tag: "let",
       binding: letBinding(this.binding),
-      value: this.expr.toAST(),
+      value: this.expr,
       export: this.hasExport,
     }
   }
@@ -149,7 +157,7 @@ export class SetStmt implements ParseStmt {
     return {
       tag: "set",
       binding: this.binding.simpleBinding(),
-      value: this.expr.toAST(),
+      value: this.expr,
     }
   }
 }
@@ -158,40 +166,40 @@ export class SetInPlaceStmt implements ParseStmt {
   constructor(private place: ParseExpr) {}
   stmt(): ASTStmt {
     if (!this.place.setInPlace) throw new InvalidSetTargetError()
-    return this.place.setInPlace(this.place.toAST())
+    return this.place.setInPlace(this.place)
   }
 }
 
 export const Self: ParseExpr = {
-  toAST(): ASTExpr {
-    return { tag: "self" }
+  compile(scope, selfBinding?) {
+    return scope.instance.self()
   },
 }
 
 export const Unit: ParseExpr = {
-  toAST(): ASTExpr {
-    return { tag: "expr", value: unit }
+  compile() {
+    return unit
   },
 }
 
 export class ParseInt implements ParseExpr {
   constructor(private value: number) {}
-  toAST(): ASTExpr {
-    return { tag: "expr", value: new PrimitiveValue(intClass, this.value) }
+  compile(): IRExpr {
+    return new PrimitiveValue(intClass, this.value)
   }
 }
 
 export class ParseFloat implements ParseExpr {
   constructor(private value: number) {}
-  toAST(): ASTExpr {
-    return { tag: "expr", value: new PrimitiveValue(floatClass, this.value) }
+  compile(): IRExpr {
+    return new PrimitiveValue(floatClass, this.value)
   }
 }
 
 export class ParseString implements ParseExpr {
   constructor(private value: string) {}
-  toAST(): ASTExpr {
-    return { tag: "expr", value: new PrimitiveValue(stringClass, this.value) }
+  compile(): IRExpr {
+    return new PrimitiveValue(stringClass, this.value)
   }
   importSource(): ASTImportSource {
     return { tag: "string", value: this.value }
@@ -200,8 +208,8 @@ export class ParseString implements ParseExpr {
 
 export class ParseIdent implements ParseExpr {
   constructor(private value: string) {}
-  toAST(): ASTExpr {
-    return { tag: "identifier", value: this.value }
+  compile(scope: Scope): IRExpr {
+    return scope.lookup(this.value)
   }
   simpleBinding(): ASTSimpleBinding {
     return { tag: "identifier", value: this.value }
@@ -209,30 +217,38 @@ export class ParseIdent implements ParseExpr {
   letBinding(): ASTLetBinding {
     return { tag: "identifier", value: this.value }
   }
-  setInPlace(value: ASTExpr): ASTStmt {
+  setInPlace(value: ParseExpr): ASTStmt {
     return { tag: "set", binding: this.simpleBinding(), value }
   }
 }
 
 export class ParseParens implements ParseExpr {
   constructor(private expr: ParseExpr) {}
-  toAST(): ASTExpr {
-    return this.expr.toAST()
+  compile(scope: Scope, selfBinding?: string | undefined): IRExpr {
+    return this.expr.compile(scope)
   }
 }
 
 export class ParseObject implements ParseExpr {
   constructor(private handlers: ParseHandler[]) {}
-  toAST(): ASTExpr {
-    return handlerSet(this.handlers)
+  compile(scope: Scope, selfBinding?: string | undefined): IRExpr {
+    const hs = handlerSet(this.handlers)
+    return compileObject(hs, scope, selfBinding)
   }
 }
 
 export class ParseFrame implements ParseExpr {
   constructor(private args: ParseArgs, private as: ParseExpr | null) {}
-  toAST(): ASTExpr {
+  compile(scope: Scope): IRExpr {
     if (this.as) throw new InvalidFrameArgError()
-    return this.args.frame()
+    const { selector, args } = this.args.frame()
+    return frame(
+      selector,
+      args.map((arg) => ({
+        key: arg.key,
+        value: arg.value.compile(scope),
+      }))
+    )
   }
   letBinding(): ASTLetBinding {
     if (this.as) {
@@ -261,10 +277,15 @@ export class ParseFrame implements ParseExpr {
 
 export class ParseSend implements ParseExpr {
   constructor(private target: ParseExpr, private args: ParseArgs) {}
-  toAST(): ASTExpr {
-    return this.args.send(this.target.toAST())
+  compile(scope: Scope): IRExpr {
+    const { selector, args } = this.args.send()
+    return new Send(scope.instance, scope.locals).send(
+      selector,
+      this.target,
+      args
+    )
   }
-  setInPlace(value: ASTExpr): ASTStmt {
+  setInPlace(value: ParseExpr): ASTStmt {
     if (!this.target.setInPlace) throw new InvalidSetTargetError()
     return this.target.setInPlace(value)
   }
@@ -272,13 +293,12 @@ export class ParseSend implements ParseExpr {
 
 export class ParseUnaryOp implements ParseExpr {
   constructor(private target: ParseExpr, private operator: string) {}
-  toAST(): ASTExpr {
-    return {
-      tag: "send",
-      target: this.target.toAST(),
-      selector: this.operator,
-      args: [],
-    }
+  compile(scope: Scope): IRExpr {
+    return new Send(scope.instance, scope.locals).send(
+      this.operator,
+      this.target,
+      []
+    )
   }
 }
 
@@ -288,13 +308,12 @@ export class ParseBinaryOp implements ParseExpr {
     private operator: string,
     private operand: ParseExpr
   ) {}
-  toAST(): ASTExpr {
-    return {
-      tag: "send",
-      target: this.target.toAST(),
-      selector: `${this.operator}:`,
-      args: [{ tag: "expr", value: this.operand.toAST() }],
-    }
+  compile(scope: Scope): IRExpr {
+    return new Send(scope.instance, scope.locals).send(
+      `${this.operator}:`,
+      this.target,
+      [{ tag: "expr", value: this.operand }]
+    )
   }
 }
 
@@ -304,24 +323,18 @@ function mapBody(body: ParseStmt[]): ASTStmt[] {
 
 export class ParseDoBlock implements ParseExpr {
   constructor(private body: ParseStmt[]) {}
-  toAST(): ASTExpr {
-    return {
-      tag: "send",
-      target: { tag: "frame", selector: "", args: [] },
-      selector: ":",
-      args: [
+  compile(scope: Scope): IRExpr {
+    const expr: ParseExpr = new ParseSend(
+      new ParseFrame(new KeyArgs(""), null),
+      new PairArgs([
         {
-          tag: "do",
-          value: {
-            tag: "object",
-            else: null,
-            handlers: new Map<string, ASTHandler>([
-              ["", { selector: "", params: [], body: mapBody(this.body) }],
-            ]),
-          },
+          tag: "pair",
+          key: "",
+          value: new HandlersArg([new OnHandler(new KeyParams(""), this.body)]),
         },
-      ],
-    }
+      ])
+    )
+    return expr.compile(scope)
   }
 }
 
@@ -329,24 +342,29 @@ type ParseCond = { value: ParseExpr; body: ParseStmt[] }
 
 export class ParseIf implements ParseExpr {
   constructor(private conds: ParseCond[], private elseBody: ParseStmt[]) {}
-  toAST(): ASTExpr {
-    const res: ASTStmt[] = this.conds.reduceRight((falseBlock, cond) => {
-      const trueBlock: ASTStmt[] = mapBody(cond.body)
-      const handlers = new Map<string, ASTHandler>([
-        ["true", { selector: "true", params: [], body: trueBlock }],
-        ["false", { selector: "false", params: [], body: falseBlock }],
-      ])
-      const send: ASTExpr = {
-        tag: "send",
-        selector: ":",
-        target: cond.value.toAST(),
-        args: [{ tag: "do", value: { tag: "object", else: null, handlers } }],
-      }
-      return [{ tag: "expr", value: send } as ASTStmt]
-    }, mapBody(this.elseBody) as ASTStmt[])
-    /* istanbul ignore next */
-    if (!res.length || res[0].tag !== "expr") throw new Error("unreachable")
-    return res[0].value
+  compile(scope: Scope): IRExpr {
+    const res: ParseStmt[] = this.conds.reduceRight((falseBlock, cond) => {
+      const trueBlock = cond.body
+      const send = new ParseSend(
+        cond.value,
+        new PairArgs([
+          {
+            tag: "pair",
+            key: "",
+            value: new HandlersArg([
+              new OnHandler(new KeyParams("true"), trueBlock),
+              new OnHandler(new KeyParams("false"), falseBlock),
+            ]),
+          },
+        ])
+      )
+
+      return [new ExprStmt(send)]
+    }, this.elseBody)
+    if (res[0] && res[0].unwrap) {
+      return res[0].unwrap().compile(scope)
+    }
+    throw new Error("unreachable")
   }
 }
 
@@ -385,11 +403,11 @@ export class KeyArgs implements ParseArgs {
   provide(): ASTStmt {
     throw new InvalidProvideBindingError()
   }
-  send(target: ASTExpr): ASTExpr {
-    return { tag: "send", target, selector: this.key, args: [] }
+  send(): SendResult {
+    return { selector: this.key, args: [] }
   }
-  frame(): ASTExpr {
-    return { tag: "frame", selector: this.key, args: [] }
+  frame(): FrameResult {
+    return { selector: this.key, args: [] }
   }
   destructure(): ASTBindPair[] {
     throw new InvalidDestructuringError()
@@ -403,7 +421,7 @@ export class PairArgs implements ParseArgs {
       punValue(key) {
         return {
           key,
-          value: { tag: "expr", value: { tag: "identifier", value: key } },
+          value: { tag: "expr", value: new ParseIdent(key) },
         }
       },
       pair(key, arg) {
@@ -414,30 +432,30 @@ export class PairArgs implements ParseArgs {
       },
     })
   }
-  send(target: ASTExpr): ASTExpr {
-    return build<ParseArg, ASTArg, ASTExpr>(this.pairs, {
-      punValue(value) {
-        return { tag: "expr", value: { tag: "identifier", value } }
+  send(): SendResult {
+    return build<ParseArg, ASTArg, SendResult>(this.pairs, {
+      punValue(key) {
+        return { tag: "expr", value: new ParseIdent(key) }
       },
       pair(_, arg) {
         return arg.toAst()
       },
       build(selector, args) {
-        return { tag: "send", target, selector, args }
+        return { selector, args }
       },
     })
   }
-  frame(): ASTExpr {
-    return build<ParseArg, ASTFrameArg, ASTExpr>(this.pairs, {
+  frame(): FrameResult {
+    return build<ParseArg, ASTFrameArg, FrameResult>(this.pairs, {
       punValue(key) {
-        return { key, value: { tag: "identifier", value: key } }
+        return { key, value: new ParseIdent(key) }
       },
       pair(key, arg) {
         if (!arg.frameArg) throw new InvalidFrameArgError()
         return { key, value: arg.frameArg() }
       },
       build(selector, args) {
-        return { tag: "frame", selector, args }
+        return { selector, args }
       },
     })
   }
@@ -600,10 +618,10 @@ export class PatternParam implements ParseParam {
 export class ValueArg implements ParseArg {
   constructor(private expr: ParseExpr) {}
   toAst(): ASTArg {
-    return { tag: "expr", value: this.expr.toAST() }
+    return { tag: "expr", value: this.expr }
   }
-  frameArg(): ASTExpr {
-    return this.expr.toAST()
+  frameArg(): ParseExpr {
+    return this.expr
   }
   destructureArg(): ASTLetBinding {
     return letBinding(this.expr)

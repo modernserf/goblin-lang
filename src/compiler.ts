@@ -1,14 +1,14 @@
 import {
   ASTStmt,
-  ASTExpr,
   ASTArg,
   ASTLetBinding,
   ASTHandler,
   ASTParam,
   ParseStmt,
   Instance,
+  ParseExpr,
+  HandlerSet,
 } from "./interface"
-import { frame } from "./frame"
 import {
   IRClass,
   IRBlockClass,
@@ -48,13 +48,14 @@ import {
   Scope,
   ScopeRecord,
 } from "./interface"
+import { Self } from "./ast"
 
-class Send {
+export class Send {
   private scope = new SendScope(this.instance, this.locals)
   constructor(private instance: Instance, private locals: Locals) {}
-  send(selector: string, astTarget: ASTExpr, astArgs: ASTArg[]): IRExpr {
+  send(selector: string, astTarget: ParseExpr, astArgs: ASTArg[]): IRExpr {
     const args = astArgs.map((v) => this.arg(v))
-    if (astTarget.tag === "self") {
+    if (astTarget === Self) {
       const handler = this.instance.getPlaceholderHandler(selector)
       return new IRSendDirectExpr(handler, new IRSelfExpr(), args)
     } else {
@@ -96,7 +97,7 @@ class Send {
     }
     return objectClass
   }
-  private expr(value: ASTExpr): IRExpr {
+  private expr(value: ParseExpr): IRExpr {
     return new Expr(this.scope).expr(value)
   }
   private body(stmts: ASTStmt[]): IRStmt[] {
@@ -108,7 +109,7 @@ class Send {
 class Handler {
   private scope = new BasicScope(this.instance, this.locals)
   constructor(private instance: Instance, private locals: Locals) {}
-  handler(handler: ASTHandler, selfBinding: string | null): IRHandler {
+  handler(handler: ASTHandler, selfBinding?: string | undefined): IRHandler {
     const body: IRStmt[] = []
     const params: IRParam[] = []
     for (const [argIndex, p] of handler.params.entries()) {
@@ -140,7 +141,7 @@ class Handler {
         return []
     }
   }
-  selfBinding(selfBinding: string | null): IRStmt[] {
+  selfBinding(selfBinding: string | undefined): IRStmt[] {
     if (!selfBinding) return []
     return new Let(this.locals).compile(
       { tag: "identifier", value: selfBinding },
@@ -176,51 +177,32 @@ function param(p: ASTParam): IRParam {
   }
 }
 
-class Expr {
+export class Expr {
   constructor(private scope: Scope) {}
-  expr(value: ASTExpr, selfBinding: string | null = null): IRExpr {
-    switch (value.tag) {
-      case "expr":
-        return value.value
-      case "self":
-        return this.scope.instance.self()
-      case "identifier":
-        return this.scope.lookup(value.value)
-      case "send":
-        return new Send(this.scope.instance, this.scope.locals).send(
-          value.selector,
-          value.target,
-          value.args
-        )
-      case "frame":
-        return frame(
-          value.selector,
-          value.args.map((arg) => ({
-            key: arg.key,
-            value: this.expr(arg.value),
-          }))
-        )
-      case "object": {
-        const instance = new ObjectInstance(this.scope)
-        const objectClass = new IRClass()
-        if (value.else) {
-          const h = new Handler(
-            instance,
-            new LocalsImpl(value.else.params.length)
-          )
-          objectClass.addElse(h.handler(value.else, selfBinding))
-        }
-
-        for (const [selector, handler] of value.handlers) {
-          const h = new Handler(instance, new LocalsImpl(handler.params.length))
-          objectClass.add(selector, h.handler(handler, selfBinding))
-        }
-
-        instance.compileSelfHandlers(objectClass)
-        return constObject(objectClass, instance.ivars)
-      }
-    }
+  expr(parseValue: ParseExpr, selfBinding?: string | undefined): IRExpr {
+    return parseValue.compile(this.scope, selfBinding)
   }
+}
+
+export function compileObject(
+  value: HandlerSet,
+  scope: Scope,
+  selfBinding: string | undefined
+) {
+  const instance = new ObjectInstance(scope)
+  const objectClass = new IRClass()
+  if (value.else) {
+    const h = new Handler(instance, new LocalsImpl(value.else.params.length))
+    objectClass.addElse(h.handler(value.else, selfBinding))
+  }
+
+  for (const [selector, handler] of value.handlers) {
+    const h = new Handler(instance, new LocalsImpl(handler.params.length))
+    objectClass.add(selector, h.handler(handler, selfBinding))
+  }
+
+  instance.compileSelfHandlers(objectClass)
+  return constObject(objectClass, instance.ivars)
 }
 
 class Let {
@@ -311,14 +293,14 @@ class Stmt {
         return [this.expr(stmt.value)]
     }
   }
-  protected bindExpr(binding: ASTLetBinding, value: ASTExpr): IRExpr {
+  protected bindExpr(binding: ASTLetBinding, value: ParseExpr): IRExpr {
     if (binding.tag === "identifier") {
       return this.expr(value, binding.value)
     } else {
       return this.expr(value)
     }
   }
-  protected expr(value: ASTExpr, selfBinding: string | null = null): IRExpr {
+  protected expr(value: ParseExpr, selfBinding?: string | undefined): IRExpr {
     return new Expr(this.scope).expr(value, selfBinding)
   }
   private body(stmts: ASTStmt[]): IRStmt[] {
