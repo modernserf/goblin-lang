@@ -1,5 +1,4 @@
 import {
-  ASTStmt,
   ASTArg,
   ASTLetBinding,
   ASTHandler,
@@ -12,24 +11,17 @@ import {
 import {
   IRClass,
   IRBlockClass,
-  IRObjectExpr,
-  IRIvarExpr,
-  IRModuleExpr,
-  IRUseExpr,
   IRSendExpr,
   IRSelfExpr,
   IRLocalExpr,
   IRSendDirectExpr,
   IRAssignStmt,
-  IRReturnStmt,
   IRDeferStmt,
-  IRProvideStmt,
   IRObjectHandler,
   IRVarArg,
   IRValueArg,
   IRDoArg,
   IRTrySendExpr,
-  IRElseHandler,
 } from "./interpreter"
 import { constObject } from "./optimize"
 import {
@@ -50,7 +42,7 @@ import {
   Scope,
   ScopeRecord,
 } from "./interface"
-import { ElseHandler, Self } from "./ast"
+import { Self } from "./ast"
 
 export class Send {
   private scope = new SendScope(this.instance, this.locals)
@@ -61,7 +53,7 @@ export class Send {
       const handler = this.instance.getPlaceholderHandler(selector)
       return new IRSendDirectExpr(handler, new IRSelfExpr(), args)
     } else {
-      const target = this.expr(astTarget)
+      const target = astTarget.compile(this.scope)
       return new IRSendExpr(selector, target, args)
     }
   }
@@ -78,9 +70,9 @@ export class Send {
     } else {
       return new IRTrySendExpr(
         selector,
-        this.expr(astTarget),
+        astTarget.compile(this.scope),
         args,
-        this.expr(orElse)
+        orElse.compile(this.scope)
       )
     }
   }
@@ -89,7 +81,7 @@ export class Send {
       case "var":
         return new IRVarArg(this.scope.lookupVarIndex(arg.value.value))
       case "expr":
-        return new IRValueArg(this.expr(arg.value))
+        return new IRValueArg(arg.value.compile(this.scope))
       case "do":
         return new IRDoArg(this.block(arg.value.handlers, arg.value.else))
     }
@@ -118,12 +110,8 @@ export class Send {
     }
     return objectClass
   }
-  private expr(value: ParseExpr): IRExpr {
-    return new Expr(this.scope).expr(value)
-  }
-  private body(stmts: ASTStmt[]): IRStmt[] {
-    const stmtScope = new Stmt(this.scope)
-    return stmts.flatMap((s) => stmtScope.stmt(s))
+  private body(stmts: ParseStmt[]): IRStmt[] {
+    return stmts.flatMap((s) => s.compile(this.scope))
   }
 }
 
@@ -175,9 +163,8 @@ class Handler {
       new IRSelfExpr()
     )
   }
-  private body(stmts: ASTStmt[]): IRStmt[] {
-    const stmtScope = new Stmt(this.scope)
-    return stmts.flatMap((s) => stmtScope.stmt(s))
+  private body(stmts: ParseStmt[]): IRStmt[] {
+    return stmts.flatMap((s) => s.compile(this.scope))
   }
   private useLetArg(key: string, index: number) {
     return this.locals.set(key, { index, type: "let" })
@@ -201,13 +188,6 @@ function param(p: ASTParam): IRParam {
       return { tag: "do" }
     case "var":
       return { tag: "var" }
-  }
-}
-
-export class Expr {
-  constructor(private scope: Scope) {}
-  expr(parseValue: ParseExpr, selfBinding?: string | undefined): IRExpr {
-    return parseValue.compile(this.scope, selfBinding)
   }
 }
 
@@ -259,140 +239,25 @@ class Let {
   }
 }
 
-export class ScopedExportError {
-  constructor(readonly binding: ASTLetBinding) {}
-}
-export class DuplicateExportError {
-  constructor(readonly key: string) {}
-}
-
-class Stmt {
-  private locals = this.scope.locals
-  constructor(protected scope: Scope) {}
-  stmt(stmt: ASTStmt): IRStmt[] {
-    switch (stmt.tag) {
-      case "let":
-        if (stmt.export) throw new ScopedExportError(stmt.binding)
-        return this.let(stmt.binding, this.bindExpr(stmt.binding, stmt.value))
-      case "var": {
-        const value = this.expr(stmt.value)
-        const record = this.useVar(stmt.binding.value)
-        return [new IRAssignStmt(record.index, value)]
-      }
-      case "set": {
-        const value = this.expr(stmt.value)
-        return [
-          new IRAssignStmt(
-            this.scope.lookupVarIndex(stmt.binding.value),
-            value
-          ),
-        ]
-      }
-      case "provide": {
-        return stmt.args.map((arg) => {
-          switch (arg.value.tag) {
-            case "do":
-            case "var":
-              throw "todo: provide do/var"
-            case "expr":
-              return new IRProvideStmt(arg.key, this.expr(arg.value.value))
-          }
-        })
-      }
-      case "using": {
-        return stmt.params.flatMap((param) => {
-          switch (param.value.tag) {
-            case "do":
-            case "var":
-              throw "todo: using do/var"
-            case "binding":
-              return this.let(param.value.binding, new IRUseExpr(param.key))
-          }
-        })
-      }
-      case "import":
-        return this.let(stmt.binding, new IRModuleExpr(stmt.source.value))
-      case "defer":
-        return [new IRDeferStmt(this.body(stmt.body))]
-      case "return":
-        return [new IRReturnStmt(this.expr(stmt.value))]
-      case "expr":
-        return [this.expr(stmt.value)]
-    }
-  }
-  protected bindExpr(binding: ASTLetBinding, value: ParseExpr): IRExpr {
-    if (binding.tag === "identifier") {
-      return this.expr(value, binding.value)
-    } else {
-      return this.expr(value)
-    }
-  }
-  protected expr(value: ParseExpr, selfBinding?: string | undefined): IRExpr {
-    return new Expr(this.scope).expr(value, selfBinding)
-  }
-  private body(stmts: ASTStmt[]): IRStmt[] {
-    return stmts.flatMap((s) => this.stmt(s))
-  }
-  private useVar(key: string): ScopeRecord {
-    return this.locals.set(key, this.locals.create("var"))
-  }
-  protected let(binding: ASTLetBinding, value: IRExpr): IRStmt[] {
-    return new Let(this.locals).compile(binding, value)
-  }
-}
-
-class RootStmt extends Stmt {
-  private exports = new Map<string, IRExpr>()
-  module(stmts: ASTStmt[]): IRStmt[] {
-    const body = stmts.flatMap((stmt) => this.stmt(stmt))
-    const exportClass = new IRClass()
-    const ivars: IRExpr[] = []
-    for (const [i, [key, value]] of Array.from(this.exports).entries()) {
-      ivars[i] = value
-      exportClass.add(key, new IRObjectHandler([], [new IRIvarExpr(i)]))
-    }
-
-    body.push(new IRObjectExpr(exportClass, ivars))
-    return body
-  }
-  stmt(stmt: ASTStmt): IRStmt[] {
-    if (stmt.tag === "let" && stmt.export) {
-      const stmts = this.let(
-        stmt.binding,
-        this.bindExpr(stmt.binding, stmt.value)
-      )
-      this.getExports(stmt.binding)
-      return stmts
-    }
-    return super.stmt(stmt)
-  }
-  private getExports(binding: ASTLetBinding) {
-    switch (binding.tag) {
-      case "identifier":
-        if (this.exports.has(binding.value))
-          throw new DuplicateExportError(binding.value)
-        const value = this.scope.lookup(binding.value)
-        this.exports.set(binding.value, value)
-        return
-      case "object":
-        for (const param of binding.params) {
-          this.getExports(param.value)
-        }
-    }
-  }
+export function compileLet(
+  scope: Scope,
+  binding: ASTLetBinding,
+  value: IRExpr
+) {
+  return new Let(scope.locals).compile(binding, value)
 }
 
 export function coreModule(stmts: ParseStmt[], nativeValue: Value): IRStmt[] {
   const scope = new RootScope()
   const rec = scope.locals.set("native", scope.locals.create("let"))
-  const stmtScope = new RootStmt(scope)
   return [
     new IRAssignStmt(rec.index, nativeValue),
-    ...stmtScope.module(stmts.map((s) => s.stmt())),
+    ...stmts.flatMap((stmt) => stmt.compile(scope)),
+    scope.compileExports(),
   ]
 }
 
 export function program(stmts: ParseStmt[]): IRStmt[] {
-  const stmtScope = new RootStmt(new RootScope())
-  return stmts.flatMap((s) => stmtScope.stmt(s.stmt()))
+  const scope = new RootScope()
+  return stmts.flatMap((stmt) => stmt.compile(scope))
 }

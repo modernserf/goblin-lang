@@ -12,6 +12,8 @@ import {
   IRIvarExpr,
   IRLazyHandler,
   IRLocalExpr,
+  IRObjectExpr,
+  IRObjectHandler,
   IRSelfExpr,
 } from "./interpreter"
 
@@ -93,6 +95,13 @@ export class ObjectInstance implements Instance {
   }
 }
 
+export class ScopedExportError {
+  constructor(readonly key: string) {}
+}
+export class DuplicateExportError {
+  constructor(readonly key: string) {}
+}
+
 class ScopeImpl implements Scope {
   constructor(readonly instance: Instance, readonly locals: Locals) {}
   lookup(key: string): IRExpr {
@@ -129,11 +138,29 @@ class ScopeImpl implements Scope {
         return res.index
     }
   }
+  addExport(key: string) {
+    throw new ScopedExportError(key)
+  }
 }
 
 export class RootScope extends ScopeImpl {
+  private exports = new Map<string, IRExpr>()
   constructor() {
     super(new NilInstance(), new LocalsImpl())
+  }
+  addExport(key: string): void {
+    if (this.exports.has(key)) throw new DuplicateExportError(key)
+    const value = this.lookup(key)
+    this.exports.set(key, value)
+  }
+  compileExports(): IRExpr {
+    const exportClass = new IRClass()
+    const ivars: IRExpr[] = []
+    for (const [i, [key, value]] of Array.from(this.exports).entries()) {
+      ivars[i] = value
+      exportClass.add(key, new IRObjectHandler([], [new IRIvarExpr(i)]))
+    }
+    return new IRObjectExpr(exportClass, ivars)
   }
 }
 

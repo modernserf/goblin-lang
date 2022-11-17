@@ -1,12 +1,12 @@
 // parse
 export interface ParseStmt {
-  stmt(): ASTStmt
+  compile(scope: Scope): IRStmt[]
   unwrap?(): ParseExpr
 }
 
 export interface ParseExpr {
   compile(scope: Scope, selfBinding?: string | undefined): IRExpr
-  setInPlace?(value: ParseExpr): ASTStmt
+  setInPlace?(): ASTSimpleBinding
   simpleBinding?(): ASTSimpleBinding
   letBinding?(): ASTLetBinding
   importBinding?(): ASTImportBinding
@@ -21,7 +21,7 @@ export interface ParseHandler {
 export type SendResult = { selector: string; args: ASTArg[] }
 export type FrameResult = { selector: string; args: ASTFrameArg[] }
 export interface ParseArgs {
-  provide(): ASTStmt
+  provide(scope: Scope): IRStmt[]
   send(): SendResult
   frame(): FrameResult
   destructure(): ASTBindPair[]
@@ -29,8 +29,8 @@ export interface ParseArgs {
 
 export interface ParseParams {
   expand(body: ParseStmt[]): ParseHandler[]
-  addToSet(out: HandlerSet, body: ASTStmt[]): void
-  using(): ASTStmt
+  addToSet(out: HandlerSet, body: ParseStmt[]): void
+  using(scope: Scope): IRStmt[]
 }
 
 export interface ParseParam {
@@ -42,6 +42,7 @@ export interface ParseArg {
   toAst(): ASTArg
   frameArg?(): ParseExpr
   destructureArg?(): ASTLetBinding
+  provide?(scope: Scope, key: string): IRStmt
 }
 
 // compile
@@ -66,20 +67,10 @@ export interface Scope {
   lookup(key: string): IRExpr
   lookupOuterLet(key: string): IRExpr
   lookupVarIndex(key: string): number
+  addExport(key: string): void
 }
 
 // TODO
-export type ASTStmt =
-  | { tag: "let"; binding: ASTLetBinding; value: ParseExpr; export: boolean }
-  | { tag: "set"; binding: ASTSimpleBinding; value: ParseExpr }
-  | { tag: "var"; binding: ASTSimpleBinding; value: ParseExpr }
-  | { tag: "provide"; args: ASTProvidePair[] }
-  | { tag: "using"; params: ASTUsingPair[] }
-  | { tag: "import"; binding: ASTImportBinding; source: ASTImportSource }
-  | { tag: "return"; value: ParseExpr }
-  | { tag: "defer"; body: ASTStmt[] }
-  | { tag: "expr"; value: ParseExpr }
-
 export type ASTProvidePair = { key: string; value: ASTArg }
 export type ASTUsingPair = { key: string; value: ASTParam }
 export type ASTBindPair = { key: string; value: ASTLetBinding }
@@ -111,7 +102,7 @@ export type HandlerSet = {
 export type ASTHandler = {
   selector: string
   params: ASTParam[]
-  body: ASTStmt[]
+  body: ParseStmt[]
 }
 
 export type ASTParam =

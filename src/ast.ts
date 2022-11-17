@@ -1,4 +1,4 @@
-import { compileObject, Send } from "./compiler"
+import { compileLet, compileObject, Send } from "./compiler"
 import { frame } from "./frame"
 import {
   ASTArg,
@@ -11,11 +11,11 @@ import {
   ASTParam,
   ASTProvidePair,
   ASTSimpleBinding,
-  ASTStmt,
   ASTUsingPair,
   FrameResult,
   HandlerSet,
   IRExpr,
+  IRStmt,
   ParseArg,
   ParseArgs,
   ParseExpr,
@@ -26,7 +26,16 @@ import {
   Scope,
   SendResult,
 } from "./interface"
-import { PrimitiveValue, unit } from "./interpreter"
+import {
+  IRAssignStmt,
+  IRDeferStmt,
+  IRModuleExpr,
+  IRProvideStmt,
+  IRReturnStmt,
+  IRUseExpr,
+  PrimitiveValue,
+  unit,
+} from "./interpreter"
 import { floatClass, intClass, stringClass } from "./primitive"
 
 export type ParsePair<T> =
@@ -55,64 +64,61 @@ export class DuplicateKeyError {
 
 export class ExprStmt implements ParseStmt {
   constructor(private expr: ParseExpr) {}
-  stmt(): ASTStmt {
-    return { tag: "expr", value: this.expr }
-  }
   unwrap(): ParseExpr {
     return this.expr
+  }
+  compile(scope: Scope): IRStmt[] {
+    return [this.expr.compile(scope)]
   }
 }
 
 export class DeferStmt implements ParseStmt {
   constructor(private body: ParseStmt[]) {}
-  stmt(): ASTStmt {
-    return { tag: "defer", body: this.body.map((stmt) => stmt.stmt()) }
+  compile(scope: Scope): IRStmt[] {
+    return [new IRDeferStmt(this.body.flatMap((stmt) => stmt.compile(scope)))]
   }
 }
 
 export class ReturnStmt implements ParseStmt {
   constructor(private expr: ParseExpr) {}
-  stmt(): ASTStmt {
-    return { tag: "return", value: this.expr }
+  compile(scope: Scope): IRStmt[] {
+    return [new IRReturnStmt(this.expr.compile(scope))]
   }
 }
 
 export class ImportStmt implements ParseStmt {
   constructor(private binding: ParseExpr, private source: ParseExpr) {}
-  stmt(): ASTStmt {
+  compile(scope: Scope): IRStmt[] {
     if (!this.binding.importBinding) throw new InvalidImportBindingError()
+    const binding = this.binding.importBinding()
     if (!this.source.importSource) throw new InvalidImportSourceError()
-    return {
-      tag: "import",
-      binding: this.binding.importBinding(),
-      source: this.source.importSource(),
-    }
+    const source = this.source.importSource()
+    return compileLet(scope, binding, new IRModuleExpr(source.value))
   }
 }
 
 export class UsingStmt implements ParseStmt {
   constructor(private params: ParseParams) {}
-  stmt(): ASTStmt {
-    return this.params.using()
+  compile(scope: Scope): IRStmt[] {
+    return this.params.using(scope)
   }
 }
 
 export class ProvideStmt implements ParseStmt {
   constructor(private args: ParseArgs) {}
-  stmt(): ASTStmt {
-    return this.args.provide()
+  compile(scope: Scope): IRStmt[] {
+    return this.args.provide(scope)
   }
 }
 
 export class VarStmt implements ParseStmt {
   constructor(private binding: ParseExpr, private expr: ParseExpr) {}
-  stmt(): ASTStmt {
+  compile(scope: Scope): IRStmt[] {
     if (!this.binding.simpleBinding) throw new InvalidVarBindingError()
-    return {
-      tag: "var",
-      binding: this.binding.simpleBinding(),
-      value: this.expr,
-    }
+    const expr = this.expr.compile(scope)
+    const binding = this.binding.simpleBinding()
+    const record = scope.locals.set(binding.value, scope.locals.create("var"))
+    return [new IRAssignStmt(record.index, expr)]
   }
 }
 
@@ -140,38 +146,65 @@ export class LetStmt implements ParseStmt {
     private expr: ParseExpr,
     private hasExport: boolean
   ) {}
-  stmt(): ASTStmt {
-    return {
-      tag: "let",
-      binding: letBinding(this.binding),
-      value: this.expr,
-      export: this.hasExport,
+  compile(scope: Scope): IRStmt[] {
+    const binding = letBinding(this.binding)
+    const result = compileLet(
+      scope,
+      letBinding(this.binding),
+      this.bindExpr(scope, binding, this.expr)
+    )
+    if (this.hasExport) {
+      this.getExports(scope, binding)
+    }
+
+    return result
+  }
+  private bindExpr(
+    scope: Scope,
+    binding: ASTLetBinding,
+    value: ParseExpr
+  ): IRExpr {
+    if (binding.tag === "identifier") {
+      return value.compile(scope, binding.value)
+    } else {
+      return value.compile(scope)
+    }
+  }
+  private getExports(scope: Scope, binding: ASTLetBinding) {
+    switch (binding.tag) {
+      case "identifier":
+        scope.addExport(binding.value)
+        return
+      case "object":
+        for (const param of binding.params) {
+          this.getExports(scope, param.value)
+        }
     }
   }
 }
 
 export class SetStmt implements ParseStmt {
   constructor(private binding: ParseExpr, private expr: ParseExpr) {}
-  stmt(): ASTStmt {
+  compile(scope: Scope): IRStmt[] {
     if (!this.binding.simpleBinding) throw new InvalidSetTargetError()
-    return {
-      tag: "set",
-      binding: this.binding.simpleBinding(),
-      value: this.expr,
-    }
+    const binding = this.binding.simpleBinding()
+    const expr = this.expr.compile(scope)
+    return [new IRAssignStmt(scope.lookupVarIndex(binding.value), expr)]
   }
 }
 
 export class SetInPlaceStmt implements ParseStmt {
   constructor(private place: ParseExpr) {}
-  stmt(): ASTStmt {
+  compile(scope: Scope): IRStmt[] {
     if (!this.place.setInPlace) throw new InvalidSetTargetError()
-    return this.place.setInPlace(this.place)
+    const binding = this.place.setInPlace()
+    const expr = this.place.compile(scope)
+    return [new IRAssignStmt(scope.lookupVarIndex(binding.value), expr)]
   }
 }
 
 export const Self: ParseExpr = {
-  compile(scope, selfBinding?) {
+  compile(scope) {
     return scope.instance.self()
   },
 }
@@ -217,8 +250,8 @@ export class ParseIdent implements ParseExpr {
   letBinding(): ASTLetBinding {
     return { tag: "identifier", value: this.value }
   }
-  setInPlace(value: ParseExpr): ASTStmt {
-    return { tag: "set", binding: this.simpleBinding(), value }
+  setInPlace(): ASTSimpleBinding {
+    return this.simpleBinding()
   }
 }
 
@@ -285,9 +318,9 @@ export class ParseSend implements ParseExpr {
       args
     )
   }
-  setInPlace(value: ParseExpr): ASTStmt {
+  setInPlace(): ASTSimpleBinding {
     if (!this.target.setInPlace) throw new InvalidSetTargetError()
-    return this.target.setInPlace(value)
+    return this.target.setInPlace()
   }
 }
 
@@ -334,10 +367,6 @@ export class ParseBinaryOp implements ParseExpr {
   }
 }
 
-function mapBody(body: ParseStmt[]): ASTStmt[] {
-  return body.map((stmt) => stmt.stmt())
-}
-
 export class ParseDoBlock implements ParseExpr {
   constructor(private body: ParseStmt[]) {}
   compile(scope: Scope): IRExpr {
@@ -361,7 +390,7 @@ export class ParseIf implements ParseExpr {
   constructor(private conds: ParseCond[], private elseBody: ParseStmt[]) {}
   compile(scope: Scope): IRExpr {
     const res: ParseStmt[] = this.conds.reduceRight((falseBlock, cond) => {
-      const trueBlock = cond.body
+      const trueBlock: ParseStmt[] = cond.body
       const send = new ParseSend(
         cond.value,
         new PairArgs([
@@ -417,7 +446,7 @@ function expandDefaultParams(
 
 export class KeyArgs implements ParseArgs {
   constructor(private key: string) {}
-  provide(): ASTStmt {
+  provide(): IRStmt[] {
     throw new InvalidProvideBindingError()
   }
   send(): SendResult {
@@ -433,8 +462,8 @@ export class KeyArgs implements ParseArgs {
 
 export class PairArgs implements ParseArgs {
   constructor(private pairs: ParsePair<ParseArg>[]) {}
-  provide(): ASTStmt {
-    return build<ParseArg, ASTProvidePair, ASTStmt>(this.pairs, {
+  provide(scope: Scope): IRStmt[] {
+    return build<ParseArg, ASTProvidePair, IRStmt[]>(this.pairs, {
       punValue(key) {
         return {
           key,
@@ -445,7 +474,15 @@ export class PairArgs implements ParseArgs {
         return { key, value: arg.toAst() }
       },
       build(_, args) {
-        return { tag: "provide", args }
+        return args.map((arg) => {
+          switch (arg.value.tag) {
+            case "do":
+            case "var":
+              throw "todo: provide do/var"
+            case "expr":
+              return new IRProvideStmt(arg.key, arg.value.value.compile(scope))
+          }
+        })
       },
     })
   }
@@ -500,13 +537,13 @@ export class KeyParams implements ParseParams {
   expand(body: ParseStmt[]): ParseHandler[] {
     return [new OnHandler(this, body)]
   }
-  addToSet(out: HandlerSet, body: ASTStmt[]): void {
+  addToSet(out: HandlerSet, body: ParseStmt[]): void {
     if (out.handlers.has(this.key)) {
       throw new DuplicateHandlerError(this.key)
     }
     out.handlers.set(this.key, { selector: this.key, params: [], body })
   }
-  using(): ASTStmt {
+  using(): IRStmt[] {
     throw new InvalidProvideBindingError()
   }
 }
@@ -527,7 +564,7 @@ export class PairParams implements ParseParams {
     }
     return out
   }
-  addToSet(out: HandlerSet, body: ASTStmt[]): void {
+  addToSet(out: HandlerSet, body: ParseStmt[]): void {
     const m = build<ParseParam, ASTParam, ASTHandler>(this.pairs, {
       punValue(value) {
         return { tag: "binding", binding: { tag: "identifier", value } }
@@ -544,8 +581,8 @@ export class PairParams implements ParseParams {
     }
     out.handlers.set(m.selector, m)
   }
-  using(): ASTStmt {
-    return build<ParseParam, ASTUsingPair, ASTStmt>(this.pairs, {
+  using(scope: Scope): IRStmt[] {
+    return build<ParseParam, ASTUsingPair, IRStmt[]>(this.pairs, {
       punValue(key) {
         return {
           key,
@@ -559,7 +596,19 @@ export class PairParams implements ParseParams {
         return { key, value: param.toAST() }
       },
       build(_, params) {
-        return { tag: "using", params }
+        return params.flatMap((param) => {
+          switch (param.value.tag) {
+            case "do":
+            case "var":
+              throw "todo: using do/var"
+            case "binding":
+              return compileLet(
+                scope,
+                param.value.binding,
+                new IRUseExpr(param.key)
+              )
+          }
+        })
       },
     })
   }
@@ -571,7 +620,7 @@ export class OnHandler implements ParseHandler {
     return this.message.expand(this.body)
   }
   addToSet(out: HandlerSet): void {
-    this.message.addToSet(out, mapBody(this.body))
+    this.message.addToSet(out, this.body)
   }
 }
 export class ElseHandler implements ParseHandler {
@@ -584,7 +633,7 @@ export class ElseHandler implements ParseHandler {
     handlerSet.else = {
       selector: "",
       params: [],
-      body: mapBody(this.body),
+      body: this.body,
     }
   }
 }

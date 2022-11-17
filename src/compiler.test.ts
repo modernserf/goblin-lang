@@ -5,13 +5,15 @@ import { Lexer } from "./lexer"
 import { program as parse } from "./parser"
 import {
   BlockReferenceError,
+  DuplicateExportError,
   NoModuleSelfError,
   NotVarError,
   OuterScopeVarError,
   ReferenceError,
+  ScopedExportError,
   VarDoubleBorrowError,
 } from "./scope"
-import { DuplicateExportError, program, ScopedExportError } from "./compiler"
+import { program } from "./compiler"
 import { NoHandlerError } from "./interpreter"
 
 export function compile(source: string) {
