@@ -19,11 +19,10 @@ export interface ParseHandler {
 }
 
 export type SendResult = { selector: string; args: ASTArg[] }
-export type FrameResult = { selector: string; args: ASTFrameArg[] }
 export interface ParseArgs {
   provide(scope: Scope): IRStmt[]
   send(): SendResult
-  frame(): FrameResult
+  frame(scope: Scope): IRExpr
   destructure(): ASTBindPair[]
 }
 
@@ -85,7 +84,6 @@ export type ASTImportBinding = {
 }
 export type ASTImportSource = { tag: "string"; value: string }
 
-export type ASTFrameArg = { key: string; value: ParseExpr }
 export type ASTArg =
   | { tag: "expr"; value: ParseExpr }
   | { tag: "var"; value: ASTVarArg }
@@ -107,10 +105,8 @@ export type ASTHandler = {
 
 export type ASTParam =
   | { tag: "binding"; binding: ASTLetBinding }
-  | { tag: "var"; binding: ASTVarParam }
-  | { tag: "do"; binding: ASTBlockParam }
-export type ASTVarParam = { tag: "identifier"; value: string }
-export type ASTBlockParam = { tag: "identifier"; value: string }
+  | { tag: "var"; binding: ASTSimpleBinding }
+  | { tag: "do"; binding: ASTSimpleBinding }
 
 // interpret
 

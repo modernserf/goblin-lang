@@ -1,9 +1,22 @@
 import { compileLet, compileObject, Send } from "./compiler"
+import {
+  DuplicateElseHandlerError,
+  DuplicateHandlerError,
+  DuplicateKeyError,
+  InvalidDestructuringError,
+  InvalidDoParamError,
+  InvalidFrameArgError,
+  InvalidImportBindingError,
+  InvalidLetBindingError,
+  InvalidProvideBindingError,
+  InvalidSetTargetError,
+  InvalidVarArgError,
+  InvalidVarParamError,
+} from "./error"
 import { frame } from "./frame"
 import {
   ASTArg,
   ASTBindPair,
-  ASTFrameArg,
   ASTHandler,
   ASTImportBinding,
   ASTImportSource,
@@ -12,7 +25,6 @@ import {
   ASTProvidePair,
   ASTSimpleBinding,
   ASTUsingPair,
-  FrameResult,
   HandlerSet,
   IRExpr,
   IRStmt,
@@ -37,90 +49,11 @@ import {
   unit,
 } from "./interpreter"
 import { floatClass, intClass, stringClass } from "./primitive"
+import { ExprStmt, LetStmt } from "./stmt"
 
 export type ParsePair<T> =
   | { tag: "pair"; key: string; value: T }
   | { tag: "punPair"; key: string }
-
-export class InvalidBlockArgError {}
-export class InvalidLetBindingError {}
-export class InvalidSetTargetError {}
-export class InvalidVarBindingError {}
-export class InvalidImportBindingError {}
-export class InvalidImportSourceError {}
-export class InvalidDestructuringError {}
-export class InvalidFrameArgError {}
-export class InvalidProvideBindingError {}
-export class InvalidVarParamError {}
-export class InvalidDoParamError {}
-export class InvalidVarArgError {}
-export class DuplicateHandlerError {
-  constructor(readonly selector: string) {}
-}
-export class DuplicateElseHandlerError {}
-export class DuplicateKeyError {
-  constructor(readonly key: string) {}
-}
-
-export class ExprStmt implements ParseStmt {
-  constructor(private expr: ParseExpr) {}
-  unwrap(): ParseExpr {
-    return this.expr
-  }
-  compile(scope: Scope): IRStmt[] {
-    return [this.expr.compile(scope)]
-  }
-}
-
-export class DeferStmt implements ParseStmt {
-  constructor(private body: ParseStmt[]) {}
-  compile(scope: Scope): IRStmt[] {
-    return [new IRDeferStmt(this.body.flatMap((stmt) => stmt.compile(scope)))]
-  }
-}
-
-export class ReturnStmt implements ParseStmt {
-  constructor(private expr: ParseExpr) {}
-  compile(scope: Scope): IRStmt[] {
-    return [new IRReturnStmt(this.expr.compile(scope))]
-  }
-}
-
-export class ImportStmt implements ParseStmt {
-  constructor(private binding: ParseExpr, private source: ParseExpr) {}
-  compile(scope: Scope): IRStmt[] {
-    if (!this.binding.importBinding) throw new InvalidImportBindingError()
-    const binding = this.binding.importBinding()
-    if (!this.source.importSource) throw new InvalidImportSourceError()
-    const source = this.source.importSource()
-    return compileLet(scope, binding, new IRModuleExpr(source.value))
-  }
-}
-
-export class UsingStmt implements ParseStmt {
-  constructor(private params: ParseParams) {}
-  compile(scope: Scope): IRStmt[] {
-    return this.params.using(scope)
-  }
-}
-
-export class ProvideStmt implements ParseStmt {
-  constructor(private args: ParseArgs) {}
-  compile(scope: Scope): IRStmt[] {
-    return this.args.provide(scope)
-  }
-}
-
-export class VarStmt implements ParseStmt {
-  constructor(private binding: ParseExpr, private expr: ParseExpr) {}
-  compile(scope: Scope): IRStmt[] {
-    if (!this.binding.simpleBinding) throw new InvalidVarBindingError()
-    const expr = this.expr.compile(scope)
-    const binding = this.binding.simpleBinding()
-    const record = scope.locals.set(binding.value, scope.locals.create("var"))
-    return [new IRAssignStmt(record.index, expr)]
-  }
-}
 
 function handlerSet(ins: ParseHandler[]): HandlerSet {
   const out: HandlerSet = {
@@ -138,69 +71,6 @@ function handlerSet(ins: ParseHandler[]): HandlerSet {
 function letBinding(value: ParseExpr): ASTLetBinding {
   if (!value.letBinding) throw new InvalidLetBindingError()
   return value.letBinding()
-}
-
-export class LetStmt implements ParseStmt {
-  constructor(
-    private binding: ParseExpr,
-    private expr: ParseExpr,
-    private hasExport: boolean
-  ) {}
-  compile(scope: Scope): IRStmt[] {
-    const binding = letBinding(this.binding)
-    const result = compileLet(
-      scope,
-      letBinding(this.binding),
-      this.bindExpr(scope, binding, this.expr)
-    )
-    if (this.hasExport) {
-      this.getExports(scope, binding)
-    }
-
-    return result
-  }
-  private bindExpr(
-    scope: Scope,
-    binding: ASTLetBinding,
-    value: ParseExpr
-  ): IRExpr {
-    if (binding.tag === "identifier") {
-      return value.compile(scope, binding.value)
-    } else {
-      return value.compile(scope)
-    }
-  }
-  private getExports(scope: Scope, binding: ASTLetBinding) {
-    switch (binding.tag) {
-      case "identifier":
-        scope.addExport(binding.value)
-        return
-      case "object":
-        for (const param of binding.params) {
-          this.getExports(scope, param.value)
-        }
-    }
-  }
-}
-
-export class SetStmt implements ParseStmt {
-  constructor(private binding: ParseExpr, private expr: ParseExpr) {}
-  compile(scope: Scope): IRStmt[] {
-    if (!this.binding.simpleBinding) throw new InvalidSetTargetError()
-    const binding = this.binding.simpleBinding()
-    const expr = this.expr.compile(scope)
-    return [new IRAssignStmt(scope.lookupVarIndex(binding.value), expr)]
-  }
-}
-
-export class SetInPlaceStmt implements ParseStmt {
-  constructor(private place: ParseExpr) {}
-  compile(scope: Scope): IRStmt[] {
-    if (!this.place.setInPlace) throw new InvalidSetTargetError()
-    const binding = this.place.setInPlace()
-    const expr = this.place.compile(scope)
-    return [new IRAssignStmt(scope.lookupVarIndex(binding.value), expr)]
-  }
 }
 
 export const Self: ParseExpr = {
@@ -274,14 +144,7 @@ export class ParseFrame implements ParseExpr {
   constructor(private args: ParseArgs, private as: ParseExpr | null) {}
   compile(scope: Scope): IRExpr {
     if (this.as) throw new InvalidFrameArgError()
-    const { selector, args } = this.args.frame()
-    return frame(
-      selector,
-      args.map((arg) => ({
-        key: arg.key,
-        value: arg.value.compile(scope),
-      }))
-    )
+    return this.args.frame(scope)
   }
   letBinding(): ASTLetBinding {
     if (this.as) {
@@ -390,7 +253,7 @@ export class ParseIf implements ParseExpr {
   constructor(private conds: ParseCond[], private elseBody: ParseStmt[]) {}
   compile(scope: Scope): IRExpr {
     const res: ParseStmt[] = this.conds.reduceRight((falseBlock, cond) => {
-      const trueBlock: ParseStmt[] = cond.body
+      const trueBlock = cond.body
       const send = new ParseSend(
         cond.value,
         new PairArgs([
@@ -452,8 +315,8 @@ export class KeyArgs implements ParseArgs {
   send(): SendResult {
     return { selector: this.key, args: [] }
   }
-  frame(): FrameResult {
-    return { selector: this.key, args: [] }
+  frame(scope: Scope): IRExpr {
+    return frame(this.key, [])
   }
   destructure(): ASTBindPair[] {
     throw new InvalidDestructuringError()
@@ -499,19 +362,28 @@ export class PairArgs implements ParseArgs {
       },
     })
   }
-  frame(): FrameResult {
-    return build<ParseArg, ASTFrameArg, FrameResult>(this.pairs, {
-      punValue(key) {
-        return { key, value: new ParseIdent(key) }
-      },
-      pair(key, arg) {
-        if (!arg.frameArg) throw new InvalidFrameArgError()
-        return { key, value: arg.frameArg() }
-      },
-      build(selector, args) {
-        return { selector, args }
-      },
-    })
+  frame(scope: Scope): IRExpr {
+    return build<ParseArg, { key: string; value: ParseExpr }, IRExpr>(
+      this.pairs,
+      {
+        punValue(key) {
+          return { key, value: new ParseIdent(key) }
+        },
+        pair(key, arg) {
+          if (!arg.frameArg) throw new InvalidFrameArgError()
+          return { key, value: arg.frameArg() }
+        },
+        build(selector, args) {
+          return frame(
+            selector,
+            args.map((arg) => ({
+              key: arg.key,
+              value: arg.value.compile(scope),
+            }))
+          )
+        },
+      }
+    )
   }
   destructure(): ASTBindPair[] {
     return this.pairs.map((item) => {

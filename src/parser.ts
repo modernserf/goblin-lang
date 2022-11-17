@@ -31,6 +31,9 @@ import {
   ParseSend,
   ParseUnaryOp,
   ParseBinaryOp,
+  ParseTrySend,
+} from "./ast"
+import {
   LetStmt,
   VarStmt,
   ImportStmt,
@@ -41,8 +44,7 @@ import {
   ReturnStmt,
   DeferStmt,
   ExprStmt,
-  ParseTrySend,
-} from "./ast"
+} from "./stmt"
 import {
   ParseArg,
   ParseExpr,

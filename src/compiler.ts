@@ -16,7 +16,6 @@ import {
   IRLocalExpr,
   IRSendDirectExpr,
   IRAssignStmt,
-  IRDeferStmt,
   IRObjectHandler,
   IRVarArg,
   IRValueArg,

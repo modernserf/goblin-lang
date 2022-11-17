@@ -19,7 +19,7 @@ import {
   InvalidLetBindingError,
   InvalidSetTargetError,
   InvalidVarBindingError,
-} from "./ast"
+} from "./error"
 
 export function check(source: string) {
   const parseTree = parse(new Lexer(source))
