@@ -1,4 +1,4 @@
-import { IRBlockClass } from "./interpreter"
+import { IRBlockClass, IRClass } from "./interpreter"
 
 // parse
 export interface ParseStmt {
@@ -7,17 +7,22 @@ export interface ParseStmt {
 }
 
 export interface ParseExpr {
-  compile(scope: Scope, selfBinding?: string | undefined): IRExpr
+  compile(scope: Scope, selfBinding?: ParseExpr | undefined): IRExpr
   setInPlace?(): ASTSimpleBinding
   simpleBinding?(): ASTSimpleBinding
   letBinding?(): ASTLetBinding
+  selfBinding?(scope: Scope): IRStmt[]
   importBinding?(scope: Scope, source: IRExpr): IRStmt[]
   importSource?(scope: Scope): IRExpr
 }
 
 export interface ParseHandler {
   expand(): ParseHandler[]
-  addToSet(handlerSet: HandlerSet): void
+  addToClass(
+    instance: Instance,
+    cls: IRClass,
+    selfBinding: ParseExpr | undefined
+  ): void
   addToBlockClass(scope: Scope, cls: IRBlockClass): void
 }
 
@@ -41,8 +46,13 @@ export interface ParseArg {
 
 export interface ParseParams {
   expand(body: ParseStmt[]): ParseHandler[]
-  addToSet(out: HandlerSet, body: ParseStmt[]): void
   using(scope: Scope): IRStmt[]
+  addToClass(
+    instance: Instance,
+    cls: IRClass,
+    body: ParseStmt[],
+    selfBinding: ParseExpr | undefined
+  ): void
   addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void
 }
 
@@ -84,18 +94,6 @@ export type ASTSimpleBinding = { tag: "identifier"; value: string }
 export type ASTLetBinding =
   | { tag: "identifier"; value: string }
   | { tag: "object"; params: ASTBindPair[]; as: string | null }
-
-export type HandlerSet = {
-  tag: "object"
-  handlers: Map<string, ASTHandler>
-  else: ASTHandler | null
-}
-
-export type ASTHandler = {
-  selector: string
-  params: ParseParam[]
-  body: ParseStmt[]
-}
 
 // interpret
 

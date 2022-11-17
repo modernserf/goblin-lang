@@ -10,9 +10,7 @@ import {
 import { frame } from "./frame"
 import {
   ASTBindPair,
-  ASTHandler,
   ASTLetBinding,
-  HandlerSet,
   IRArg,
   IRExpr,
   IRStmt,

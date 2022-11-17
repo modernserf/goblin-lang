@@ -1,40 +1,19 @@
 import {
   ASTLetBinding,
-  ASTHandler,
   ParseStmt,
   Instance,
   ParseExpr,
-  HandlerSet,
   ParseArg,
 } from "./interface"
 import {
-  IRClass,
-  IRBlockClass,
   IRSendExpr,
   IRSelfExpr,
   IRSendDirectExpr,
   IRAssignStmt,
-  IRObjectHandler,
   IRTrySendExpr,
 } from "./interpreter"
-import { constObject } from "./optimize"
-import {
-  BasicScope,
-  ObjectInstance,
-  SendScope,
-  RootScope,
-  LocalsImpl,
-} from "./scope"
-import {
-  IRExpr,
-  IRHandler,
-  IRParam,
-  IRStmt,
-  Value,
-  Locals,
-  Scope,
-  ScopeRecord,
-} from "./interface"
+import { SendScope, RootScope } from "./scope"
+import { IRExpr, IRStmt, Value, Locals, Scope, ScopeRecord } from "./interface"
 import { Self } from "./expr"
 
 class Send {
@@ -82,60 +61,6 @@ export function compileSend(
     args,
     orElse
   )
-}
-
-class Handler {
-  private scope = new BasicScope(this.instance, this.locals)
-  constructor(private instance: Instance, private locals: Locals) {}
-  handler(handler: ASTHandler, selfBinding?: string | undefined): IRHandler {
-    const body: IRStmt[] = []
-    const params: IRParam[] = []
-    for (const [argIndex, p] of handler.params.entries()) {
-      params.push(p.toIR())
-      body.push(...p.handler(this.scope, argIndex))
-    }
-
-    body.push(...this.selfBinding(selfBinding))
-    body.push(...this.body(handler.body))
-    return new IRObjectHandler(params, body)
-  }
-  elseHandler(handler: ASTHandler, selfBinding?: string | undefined): IRStmt[] {
-    const body: IRStmt[] = []
-    body.push(...this.selfBinding(selfBinding))
-    body.push(...this.body(handler.body))
-    return body
-  }
-  selfBinding(selfBinding: string | undefined): IRStmt[] {
-    if (!selfBinding) return []
-    return new Let(this.locals).compile(
-      { tag: "identifier", value: selfBinding },
-      new IRSelfExpr()
-    )
-  }
-  private body(stmts: ParseStmt[]): IRStmt[] {
-    return stmts.flatMap((s) => s.compile(this.scope))
-  }
-}
-
-export function compileObject(
-  value: HandlerSet,
-  scope: Scope,
-  selfBinding: string | undefined
-) {
-  const instance = new ObjectInstance(scope)
-  const objectClass = new IRClass()
-  if (value.else) {
-    const h = new Handler(instance, new LocalsImpl(value.else.params.length))
-    objectClass.addElse(h.elseHandler(value.else, selfBinding))
-  }
-
-  for (const [selector, handler] of value.handlers) {
-    const h = new Handler(instance, new LocalsImpl(handler.params.length))
-    objectClass.add(selector, h.handler(handler, selfBinding))
-  }
-
-  instance.compileSelfHandlers(objectClass)
-  return constObject(objectClass, instance.ivars)
 }
 
 class Let {

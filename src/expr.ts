@@ -1,17 +1,15 @@
 import { HandlersArg, KeyArgs, PairArgs, ValueArg } from "./args"
-import { compileLet, compileObject, compileSend } from "./compiler"
+import { compileLet, compileSend } from "./compiler"
 import {
-  DuplicateElseHandlerError,
   InvalidFrameArgError,
   InvalidImportBindingError,
   InvalidLetBindingError,
   InvalidSetTargetError,
 } from "./error"
 import {
-  ASTHandler,
   ASTLetBinding,
   ASTSimpleBinding,
-  HandlerSet,
+  Instance,
   IRExpr,
   IRStmt,
   ParseArgs,
@@ -21,24 +19,18 @@ import {
   ParseStmt,
   Scope,
 } from "./interface"
-import { IRBlockClass, IRModuleExpr, PrimitiveValue, unit } from "./interpreter"
+import {
+  IRBlockClass,
+  IRClass,
+  IRModuleExpr,
+  PrimitiveValue,
+  unit,
+} from "./interpreter"
+import { constObject } from "./optimize"
 import { KeyParams } from "./params"
 import { floatClass, intClass, stringClass } from "./primitive"
-import { BasicScope } from "./scope"
+import { BasicScope, LocalsImpl, ObjectInstance } from "./scope"
 import { ExprStmt } from "./stmt"
-
-function handlerSet(ins: ParseHandler[]): HandlerSet {
-  const out: HandlerSet = {
-    tag: "object",
-    handlers: new Map<string, ASTHandler>(),
-    else: null,
-  }
-  for (const handler of ins.flatMap((x) => x.expand())) {
-    handler.addToSet(out)
-  }
-
-  return out
-}
 
 export const Self: ParseExpr = {
   compile(scope) {
@@ -87,6 +79,9 @@ export class ParseIdent implements ParseExpr {
   letBinding(): ASTLetBinding {
     return { tag: "identifier", value: this.value }
   }
+  selfBinding(scope: Scope): IRStmt[] {
+    return compileLet(scope, this.letBinding(), Self.compile(scope))
+  }
   setInPlace(): ASTSimpleBinding {
     return this.simpleBinding()
   }
@@ -94,16 +89,21 @@ export class ParseIdent implements ParseExpr {
 
 export class ParseParens implements ParseExpr {
   constructor(private expr: ParseExpr) {}
-  compile(scope: Scope, selfBinding?: string | undefined): IRExpr {
+  compile(scope: Scope): IRExpr {
     return this.expr.compile(scope)
   }
 }
 
 export class ParseObject implements ParseExpr {
   constructor(private handlers: ParseHandler[]) {}
-  compile(scope: Scope, selfBinding?: string | undefined): IRExpr {
-    const hs = handlerSet(this.handlers)
-    return compileObject(hs, scope, selfBinding)
+  compile(scope: Scope, selfBinding?: ParseExpr | undefined): IRExpr {
+    const cls = new IRClass()
+    const instance = new ObjectInstance(scope)
+    for (const handler of this.handlers.flatMap((h) => h.expand())) {
+      handler.addToClass(instance, cls, selfBinding)
+    }
+    instance.compileSelfHandlers(cls)
+    return constObject(cls, instance.ivars)
   }
 }
 
@@ -236,8 +236,12 @@ export class OnHandler implements ParseHandler {
   expand(): ParseHandler[] {
     return this.params.expand(this.body)
   }
-  addToSet(out: HandlerSet): void {
-    this.params.addToSet(out, this.body)
+  addToClass(
+    instance: Instance,
+    cls: IRClass,
+    selfBinding: ParseExpr | undefined
+  ): void {
+    return this.params.addToClass(instance, cls, this.body, selfBinding)
   }
   addToBlockClass(scope: Scope, cls: IRBlockClass): void {
     return this.params.addToBlockClass(scope, cls, this.body)
@@ -249,15 +253,28 @@ export class ElseHandler implements ParseHandler {
   expand(): ParseHandler[] {
     return [this]
   }
-  addToSet(handlerSet: HandlerSet): void {
-    if (handlerSet.else) throw new DuplicateElseHandlerError()
-    handlerSet.else = {
-      selector: "",
-      params: [],
-      body: this.body,
-    }
+  addToClass(
+    instance: Instance,
+    cls: IRClass,
+    selfBinding: ParseExpr | undefined
+  ): void {
+    const scope = new BasicScope(instance, new LocalsImpl())
+    cls.addElse([
+      ...compileSelfBinding(scope, selfBinding),
+      ...this.body.flatMap((s) => s.compile(scope)),
+    ])
   }
   addToBlockClass(scope: Scope, cls: IRBlockClass): void {
     cls.addElse(this.body.flatMap((s) => s.compile(scope)))
   }
+}
+
+function compileSelfBinding(
+  scope: Scope,
+  binding: ParseExpr | undefined
+): IRStmt[] {
+  if (binding && binding.selfBinding) {
+    return binding.selfBinding(scope)
+  }
+  return []
 }

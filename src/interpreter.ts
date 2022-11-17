@@ -1,3 +1,4 @@
+import { DuplicateElseHandlerError, DuplicateHandlerError } from "./error"
 import {
   Interpreter,
   IRArg,
@@ -29,17 +30,15 @@ export class IRClass {
     throw new NoHandlerError(selector)
   }
   add(selector: string, handler: IRHandler): this {
-    /* istanbul ignore next */
     if (this.handlers.has(selector)) {
-      throw new Error(`duplicate selector: ${selector}`)
+      throw new DuplicateHandlerError(selector)
     }
     this.handlers.set(selector, handler)
     return this
   }
   addElse(body: IRStmt[]): this {
-    /* istanbul ignore next */
     if (this.elseHandler) {
-      throw new Error(`duplicate else handler`)
+      throw new DuplicateElseHandlerError()
     }
     this.elseHandler = new IRElseHandler(body)
     return this
@@ -55,7 +54,7 @@ export class IRClass {
   ): this {
     /* istanbul ignore next */
     if (this.handlers.has(selector)) {
-      throw new Error(`duplicate selector: ${selector}`)
+      throw new DuplicateHandlerError(selector)
     }
     this.handlers.set(selector, new IRPrimitiveHandler(fn))
     return this
@@ -381,18 +380,14 @@ export class IRBlockClass {
     params: IRParam[],
     body: IRStmt[]
   ): this {
-    /* istanbul ignore next */
     if (this.handlers.has(selector)) {
-      throw new Error(`duplicate selector: ${selector}`)
+      throw new DuplicateHandlerError(selector)
     }
     this.handlers.set(selector, new IROnBlockHandler(offset, params, body))
     return this
   }
   addElse(body: IRStmt[]): this {
-    /* istanbul ignore next */
-    if (this.elseHandler) {
-      throw new Error(`duplicate else handler`)
-    }
+    if (this.elseHandler) throw new DuplicateElseHandlerError()
     this.elseHandler = new IRElseBlockHandler(body)
     return this
   }

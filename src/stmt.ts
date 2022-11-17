@@ -92,25 +92,14 @@ export class LetStmt implements ParseStmt {
     const binding = letBinding(this.binding)
     const result = compileLet(
       scope,
-      letBinding(this.binding),
-      this.bindExpr(scope, binding, this.expr)
+      binding,
+      this.expr.compile(scope, this.binding)
     )
     if (this.hasExport) {
       this.getExports(scope, binding)
     }
 
     return result
-  }
-  private bindExpr(
-    scope: Scope,
-    binding: ASTLetBinding,
-    value: ParseExpr
-  ): IRExpr {
-    if (binding.tag === "identifier") {
-      return value.compile(scope, binding.value)
-    } else {
-      return value.compile(scope)
-    }
   }
   private getExports(scope: Scope, binding: ASTLetBinding) {
     switch (binding.tag) {

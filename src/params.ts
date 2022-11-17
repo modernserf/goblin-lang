@@ -1,16 +1,14 @@
 import { OnHandler, ParseIdent } from "./expr"
 import { compileLet } from "./compiler"
 import {
-  DuplicateHandlerError,
   InvalidDoParamError,
   InvalidLetBindingError,
   InvalidProvideBindingError,
   InvalidVarParamError,
 } from "./error"
 import {
-  ASTHandler,
   ASTLetBinding,
-  HandlerSet,
+  Instance,
   IRParam,
   IRStmt,
   ParseExpr,
@@ -21,10 +19,52 @@ import {
   ParseStmt,
   Scope,
 } from "./interface"
-import { IRBlockClass, IRLocalExpr, IRUseExpr } from "./interpreter"
+import {
+  IRBlockClass,
+  IRClass,
+  IRLocalExpr,
+  IRObjectHandler,
+  IRUseExpr,
+} from "./interpreter"
 import { build } from "./message-builder"
 import { LetStmt } from "./stmt"
-import { BasicScope } from "./scope"
+import { BasicScope, LocalsImpl } from "./scope"
+
+export class KeyParams implements ParseParams {
+  constructor(private key: string) {}
+  expand(body: ParseStmt[]): ParseHandler[] {
+    return [new OnHandler(this, body)]
+  }
+  using(): IRStmt[] {
+    throw new InvalidProvideBindingError()
+  }
+  addToClass(
+    instance: Instance,
+    cls: IRClass,
+    body: ParseStmt[],
+    selfBinding: ParseExpr | undefined
+  ): void {
+    const scope = new BasicScope(instance, new LocalsImpl())
+    cls.add(
+      this.key,
+      new IRObjectHandler(
+        [],
+        [
+          ...compileSelfBinding(scope, selfBinding),
+          ...body.flatMap((stmt) => stmt.compile(scope)),
+        ]
+      )
+    )
+  }
+  addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void {
+    cls.add(
+      this.key,
+      0,
+      [],
+      body.flatMap((stmt) => stmt.compile(scope))
+    )
+  }
+}
 
 type ParamWithBindings = {
   pairs: ParsePair<ParseParam>[]
@@ -56,30 +96,6 @@ function expandDefaultParams(
   return out
 }
 
-export class KeyParams implements ParseParams {
-  constructor(private key: string) {}
-  expand(body: ParseStmt[]): ParseHandler[] {
-    return [new OnHandler(this, body)]
-  }
-  addToSet(out: HandlerSet, body: ParseStmt[]): void {
-    if (out.handlers.has(this.key)) {
-      throw new DuplicateHandlerError(this.key)
-    }
-    out.handlers.set(this.key, { selector: this.key, params: [], body })
-  }
-  using(): IRStmt[] {
-    throw new InvalidProvideBindingError()
-  }
-  addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void {
-    cls.add(
-      this.key,
-      0,
-      [],
-      body.flatMap((stmt) => stmt.compile(scope))
-    )
-  }
-}
-
 export class PairParams implements ParseParams {
   constructor(private pairs: ParsePair<ParseParam>[]) {}
   expand(body: ParseStmt[]): ParseHandler[] {
@@ -96,8 +112,13 @@ export class PairParams implements ParseParams {
     }
     return out
   }
-  addToSet(out: HandlerSet, body: ParseStmt[]): void {
-    const m = build<ParseParam, ParseParam, ASTHandler>(this.pairs, {
+  addToClass(
+    instance: Instance,
+    cls: IRClass,
+    body: ParseStmt[],
+    selfBinding: ParseExpr | undefined
+  ): void {
+    build<ParseParam, ParseParam, void>(this.pairs, {
       punValue(value) {
         return new ValueParam(new ParseIdent(value))
       },
@@ -105,13 +126,20 @@ export class PairParams implements ParseParams {
         return param
       },
       build(selector, params) {
-        return { selector, params, body }
+        const scope = new BasicScope(instance, new LocalsImpl(params.length))
+        cls.add(
+          selector,
+          new IRObjectHandler(
+            params.map((p) => p.toIR()),
+            [
+              ...compileSelfBinding(scope, selfBinding),
+              ...params.flatMap((p, i) => p.handler(scope, i)),
+              ...body.flatMap((s) => s.compile(scope)),
+            ]
+          )
+        )
       },
     })
-    if (out.handlers.has(m.selector)) {
-      throw new DuplicateHandlerError(m.selector)
-    }
-    out.handlers.set(m.selector, m)
   }
   addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void {
     // block params use parent scope, and do not start at zero
@@ -262,4 +290,14 @@ export class DoParam implements ParseParam {
 function letBinding(value: ParseExpr): ASTLetBinding {
   if (!value.letBinding) throw new InvalidLetBindingError()
   return value.letBinding()
+}
+
+function compileSelfBinding(
+  scope: Scope,
+  binding: ParseExpr | undefined
+): IRStmt[] {
+  if (binding && binding.selfBinding) {
+    return binding.selfBinding(scope)
+  }
+  return []
 }
