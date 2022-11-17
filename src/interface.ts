@@ -26,6 +26,13 @@ export interface ParseArgs {
   destructure(): ASTBindPair[]
 }
 
+export interface ParseArg {
+  toAst(): ASTArg
+  frameArg?(): ParseExpr
+  destructureArg?(): ASTLetBinding
+  provide(scope: Scope, key: string): IRStmt
+}
+
 export interface ParseParams {
   expand(body: ParseStmt[]): ParseHandler[]
   addToSet(out: HandlerSet, body: ParseStmt[]): void
@@ -35,13 +42,7 @@ export interface ParseParams {
 export interface ParseParam {
   toAST(): ASTParam
   defaultPair?(): { binding: ParseExpr; value: ParseExpr }
-}
-
-export interface ParseArg {
-  toAst(): ASTArg
-  frameArg?(): ParseExpr
-  destructureArg?(): ASTLetBinding
-  provide?(scope: Scope, key: string): IRStmt
+  using(scope: Scope, key: string): IRStmt[]
 }
 
 // compile
@@ -70,8 +71,6 @@ export interface Scope {
 }
 
 // TODO
-export type ASTProvidePair = { key: string; value: ASTArg }
-export type ASTUsingPair = { key: string; value: ASTParam }
 export type ASTBindPair = { key: string; value: ASTLetBinding }
 export type ASTSimpleBinding = { tag: "identifier"; value: string }
 export type ASTLetBinding =

@@ -16,12 +16,7 @@ import {
   ParseStmt,
   Scope,
 } from "./interface"
-import {
-  IRAssignStmt,
-  IRDeferStmt,
-  IRModuleExpr,
-  IRReturnStmt,
-} from "./interpreter"
+import { IRAssignStmt, IRDeferStmt, IRReturnStmt } from "./interpreter"
 
 function letBinding(value: ParseExpr): ASTLetBinding {
   if (!value.letBinding) throw new InvalidLetBindingError()
