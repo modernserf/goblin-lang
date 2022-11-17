@@ -1,4 +1,4 @@
-import { compileLet, compileObject, Send } from "./compiler"
+import { compileLet, compileObject, compileSend } from "./compiler"
 import {
   DuplicateElseHandlerError,
   DuplicateHandlerError,
@@ -23,6 +23,7 @@ import {
   ASTSimpleBinding,
   HandlerSet,
   IRExpr,
+  IRParam,
   IRStmt,
   ParseArg,
   ParseArgs,
@@ -32,7 +33,6 @@ import {
   ParseParams,
   ParseStmt,
   Scope,
-  SendResult,
 } from "./interface"
 import {
   IRModuleExpr,
@@ -171,12 +171,7 @@ export class ParseFrame implements ParseExpr {
 export class ParseSend implements ParseExpr {
   constructor(private target: ParseExpr, private args: ParseArgs) {}
   compile(scope: Scope): IRExpr {
-    const { selector, args } = this.args.send()
-    return new Send(scope.instance, scope.locals).send(
-      selector,
-      this.target,
-      args
-    )
+    return this.args.send(scope, this.target, null)
   }
   setInPlace(): ASTSimpleBinding {
     if (!this.target.setInPlace) throw new InvalidSetTargetError()
@@ -191,24 +186,14 @@ export class ParseTrySend implements ParseExpr {
     private orElse: ParseExpr
   ) {}
   compile(scope: Scope): IRExpr {
-    const { selector, args } = this.args.send()
-    return new Send(scope.instance, scope.locals).trySend(
-      selector,
-      this.target,
-      args,
-      this.orElse
-    )
+    return this.args.send(scope, this.target, this.orElse)
   }
 }
 
 export class ParseUnaryOp implements ParseExpr {
   constructor(private target: ParseExpr, private operator: string) {}
   compile(scope: Scope): IRExpr {
-    return new Send(scope.instance, scope.locals).send(
-      this.operator,
-      this.target,
-      []
-    )
+    return compileSend(scope, this.operator, this.target, [])
   }
 }
 
@@ -219,11 +204,9 @@ export class ParseBinaryOp implements ParseExpr {
     private operand: ParseExpr
   ) {}
   compile(scope: Scope): IRExpr {
-    return new Send(scope.instance, scope.locals).send(
-      `${this.operator}:`,
-      this.target,
-      [{ tag: "expr", value: this.operand }]
-    )
+    return compileSend(scope, `${this.operator}:`, this.target, [
+      { tag: "expr", value: this.operand },
+    ])
   }
 }
 
@@ -309,8 +292,8 @@ export class KeyArgs implements ParseArgs {
   provide(): IRStmt[] {
     throw new InvalidProvideBindingError()
   }
-  send(): SendResult {
-    return { selector: this.key, args: [] }
+  send(scope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr {
+    return compileSend(scope, this.key, target, [], orElse)
   }
   frame(scope: Scope): IRExpr {
     return frame(this.key, [])
@@ -343,16 +326,22 @@ export class PairArgs implements ParseArgs {
       }
     )
   }
-  send(): SendResult {
-    return build<ParseArg, ASTArg, SendResult>(this.pairs, {
+  send(scope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr {
+    return build<ParseArg, ParseArg, IRExpr>(this.pairs, {
       punValue(key) {
-        return { tag: "expr", value: new ParseIdent(key) }
+        return new ValueArg(new ParseIdent(key))
       },
       pair(_, arg) {
-        return arg.toAst()
+        return arg
       },
       build(selector, args) {
-        return { selector, args }
+        return compileSend(
+          scope,
+          selector,
+          target,
+          args.map((arg) => arg.toAst()),
+          orElse
+        )
       },
     })
   }
@@ -431,12 +420,12 @@ export class PairParams implements ParseParams {
     return out
   }
   addToSet(out: HandlerSet, body: ParseStmt[]): void {
-    const m = build<ParseParam, ASTParam, ASTHandler>(this.pairs, {
+    const m = build<ParseParam, ParseParam, ASTHandler>(this.pairs, {
       punValue(value) {
-        return { tag: "binding", binding: { tag: "identifier", value } }
+        return new ValueParam(new ParseIdent(value))
       },
       pair(_, param) {
-        return param.toAST()
+        return param
       },
       build(selector, params) {
         return { selector, params, body }
@@ -489,6 +478,8 @@ export class ElseHandler implements ParseHandler {
   }
 }
 
+// TODO: should DefaultValueParam & PatternParam be a different type?
+// ie ParseParams.expand() => ParseExpandedParams
 export class DefaultValueParam implements ParseParam {
   constructor(private binding: ParseExpr, private defaultValue: ParseExpr) {}
   toAST(): ASTParam {
@@ -500,6 +491,23 @@ export class DefaultValueParam implements ParseParam {
   using(scope: Scope): IRStmt[] {
     throw "todo: using default values"
   }
+  toIR(): IRParam {
+    return { tag: "value" }
+  }
+}
+
+export class PatternParam implements ParseParam {
+  readonly defaultValue = null
+  constructor(private message: ParseParams) {}
+  toAST(): ASTParam {
+    throw "todo: pattern param"
+  }
+  using(scope: Scope): IRStmt[] {
+    throw "todo: using pattern param"
+  }
+  toIR(): IRParam {
+    return { tag: "value" }
+  }
 }
 
 export class ValueParam implements ParseParam {
@@ -509,6 +517,9 @@ export class ValueParam implements ParseParam {
   }
   using(scope: Scope, key: string): IRStmt[] {
     return compileLet(scope, letBinding(this.value), new IRUseExpr(key))
+  }
+  toIR(): IRParam {
+    return { tag: "value" }
   }
 }
 
@@ -522,6 +533,9 @@ export class VarParam implements ParseParam {
   using(scope: Scope): IRStmt[] {
     throw "todo: using var param"
   }
+  toIR(): IRParam {
+    return { tag: "var" }
+  }
 }
 
 export class DoParam implements ParseParam {
@@ -534,16 +548,8 @@ export class DoParam implements ParseParam {
   using(scope: Scope): IRStmt[] {
     throw "todo: using do param"
   }
-}
-
-export class PatternParam implements ParseParam {
-  readonly defaultValue = null
-  constructor(private message: ParseParams) {}
-  toAST(): ASTParam {
-    throw "todo: pattern param"
-  }
-  using(scope: Scope): IRStmt[] {
-    throw "todo: using pattern param"
+  toIR(): IRParam {
+    return { tag: "do" }
   }
 }
 

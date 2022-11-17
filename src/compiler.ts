@@ -2,11 +2,11 @@ import {
   ASTArg,
   ASTLetBinding,
   ASTHandler,
-  ASTParam,
   ParseStmt,
   Instance,
   ParseExpr,
   HandlerSet,
+  ParseParam,
 } from "./interface"
 import {
   IRClass,
@@ -43,38 +43,37 @@ import {
 } from "./interface"
 import { Self } from "./ast"
 
-export class Send {
+class Send {
   private scope = new SendScope(this.instance, this.locals)
   constructor(private instance: Instance, private locals: Locals) {}
-  send(selector: string, astTarget: ParseExpr, astArgs: ASTArg[]): IRExpr {
-    const args = astArgs.map((v) => this.arg(v))
-    if (astTarget === Self) {
-      const handler = this.instance.getPlaceholderHandler(selector)
-      return new IRSendDirectExpr(handler, new IRSelfExpr(), args)
-    } else {
-      const target = astTarget.compile(this.scope)
-      return new IRSendExpr(selector, target, args)
-    }
-  }
-  trySend(
+  send(
     selector: string,
     astTarget: ParseExpr,
     astArgs: ASTArg[],
-    orElse: ParseExpr
+    orElse: ParseExpr | null = null
   ): IRExpr {
     const args = astArgs.map((v) => this.arg(v))
     if (astTarget === Self) {
-      this.instance.getPlaceholderHandler(selector)
-      throw new Error("trySend must be unneccessary on self")
+      const handler = this.instance.getPlaceholderHandler(selector)
+      if (orElse) {
+        throw new Error("trySend must be unneccessary on self")
+      }
+      return new IRSendDirectExpr(handler, new IRSelfExpr(), args)
     } else {
-      return new IRTrySendExpr(
-        selector,
-        astTarget.compile(this.scope),
-        args,
-        orElse.compile(this.scope)
-      )
+      const target = astTarget.compile(this.scope)
+      if (orElse) {
+        return new IRTrySendExpr(
+          selector,
+          astTarget.compile(this.scope),
+          args,
+          orElse.compile(this.scope)
+        )
+      } else {
+        return new IRSendExpr(selector, target, args)
+      }
     }
   }
+
   private arg(arg: ASTArg): IRArg {
     switch (arg.tag) {
       case "var":
@@ -100,7 +99,7 @@ export class Send {
       const body: IRStmt[] = []
       const params: IRParam[] = []
       for (const [argIndex, p] of handler.params.entries()) {
-        params.push(param(p))
+        params.push(p.toIR())
         body.push(...paramScope.param(offset + argIndex, p))
       }
 
@@ -114,6 +113,21 @@ export class Send {
   }
 }
 
+export function compileSend(
+  scope: Scope,
+  selector: string,
+  target: ParseExpr,
+  args: ASTArg[],
+  orElse: ParseExpr | null = null
+) {
+  return new Send(scope.instance, scope.locals).send(
+    selector,
+    target,
+    args,
+    orElse
+  )
+}
+
 class Handler {
   private scope = new BasicScope(this.instance, this.locals)
   constructor(private instance: Instance, private locals: Locals) {}
@@ -121,7 +135,7 @@ class Handler {
     const body: IRStmt[] = []
     const params: IRParam[] = []
     for (const [argIndex, p] of handler.params.entries()) {
-      params.push(param(p))
+      params.push(p.toIR())
       body.push(...this.param(argIndex, p))
     }
 
@@ -135,7 +149,8 @@ class Handler {
     body.push(...this.body(handler.body))
     return body
   }
-  param(offset: number, param: ASTParam): IRStmt[] {
+  param(offset: number, p: ParseParam): IRStmt[] {
+    const param = p.toAST()
     switch (param.tag) {
       case "binding":
         switch (param.binding.tag) {
@@ -176,17 +191,6 @@ class Handler {
   }
   private let(binding: ASTLetBinding, value: IRExpr): IRStmt[] {
     return new Let(this.locals).compile(binding, value)
-  }
-}
-
-function param(p: ASTParam): IRParam {
-  switch (p.tag) {
-    case "binding":
-      return { tag: "value" }
-    case "do":
-      return { tag: "do" }
-    case "var":
-      return { tag: "var" }
   }
 }
 
