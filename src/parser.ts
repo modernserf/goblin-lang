@@ -2,15 +2,8 @@
 
 import { keywords, Lexer, Token } from "./lexer"
 import {
-  VarParam,
-  DoParam,
-  PatternParam,
-  ValueParam,
-  DefaultValueParam,
   OnHandler,
   ElseHandler,
-  KeyParams,
-  PairParams,
   Self,
   ParseInt,
   ParseFloat,
@@ -27,6 +20,15 @@ import {
   ParseBinaryOp,
   ParseTrySend,
 } from "./ast"
+import {
+  VarParam,
+  DoParam,
+  PatternParam,
+  ValueParam,
+  DefaultValueParam,
+  KeyParams,
+  PairParams,
+} from "./params"
 import { KeyArgs, PairArgs, VarArg, HandlersArg, ValueArg } from "./args"
 import {
   LetStmt,
