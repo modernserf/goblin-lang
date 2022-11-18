@@ -98,8 +98,52 @@ export class ParseIdent implements ParseExpr, ParseBinding {
     const value = expr.compile(scope)
     return [new IRAssignStmt(scope.lookupVarIndex(this.value), value)]
   }
-  importBinding(scope: Scope, source: IRExpr): IRStmt[] {
+  import(scope: Scope, source: IRExpr): IRStmt[] {
     throw new InvalidImportBindingError()
+  }
+  export(scope: Scope): void {
+    scope.addExport(this.value)
+  }
+}
+
+export class ParseDestructure implements ParseBinding {
+  constructor(private params: ParseParams, private as: string | null) {}
+  letBinding(): ASTLetBinding {
+    return {
+      tag: "object",
+      params: this.params.destructure(),
+      as: this.as,
+    }
+  }
+  let(scope: Scope, value: IRExpr): IRStmt[] {
+    return compileLet(scope, this.letBinding(), value)
+  }
+  import(scope: Scope, source: IRExpr): IRStmt[] {
+    if (this.as) throw new InvalidImportBindingError()
+    return compileLet(
+      scope,
+      {
+        tag: "object",
+        params: this.params.destructure(),
+        as: null,
+      },
+      source
+    )
+  }
+  var(scope: Scope, expr: ParseExpr): IRStmt[] {
+    throw new InvalidVarBindingError()
+  }
+  set(scope: Scope, expr: ParseExpr): IRStmt[] {
+    throw new InvalidSetTargetError()
+  }
+  selfBinding(scope: Scope): IRStmt[] {
+    return []
+  }
+  export(scope: Scope): void {
+    if (this.as) {
+      scope.addExport(this.as)
+    }
+    this.params.export(scope)
   }
 }
 
@@ -120,41 +164,6 @@ export class ParseObject implements ParseExpr {
     }
     instance.compileSelfHandlers(cls)
     return constObject(cls, instance.ivars)
-  }
-}
-
-export class ParseDestructure implements ParseBinding {
-  constructor(private params: ParseParams, private as: string | null) {}
-  letBinding(): ASTLetBinding {
-    return {
-      tag: "object",
-      params: this.params.destructure(),
-      as: this.as,
-    }
-  }
-  let(scope: Scope, value: IRExpr): IRStmt[] {
-    return compileLet(scope, this.letBinding(), value)
-  }
-  importBinding(scope: Scope, source: IRExpr): IRStmt[] {
-    if (this.as) throw new InvalidImportBindingError()
-    return compileLet(
-      scope,
-      {
-        tag: "object",
-        params: this.params.destructure(),
-        as: null,
-      },
-      source
-    )
-  }
-  var(scope: Scope, expr: ParseExpr): IRStmt[] {
-    throw new InvalidVarBindingError()
-  }
-  set(scope: Scope, expr: ParseExpr): IRStmt[] {
-    throw new InvalidSetTargetError()
-  }
-  selfBinding(scope: Scope): IRStmt[] {
-    return []
   }
 }
 

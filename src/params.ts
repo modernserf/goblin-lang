@@ -91,6 +91,9 @@ class KeyParams implements ParseParams {
   destructure(): ASTBindPair[] {
     throw new InvalidDestructuringError()
   }
+  export(scope: Scope): void {
+    throw new InvalidDestructuringError()
+  }
 }
 
 type ParamWithBindings = {
@@ -205,6 +208,11 @@ class PairParams implements ParseParams {
       }
     })
   }
+  export(scope: Scope): void {
+    this.pairs.forEach((pair) => {
+      pair.value.export(scope)
+    })
+  }
 }
 
 // TODO: should DefaultValueParam & PatternParam be a different type?
@@ -236,6 +244,9 @@ export class DefaultValueParam implements ParseParam {
   destructureArg(): ASTLetBinding {
     return letBinding(this.binding)
   }
+  export(scope: Scope): void {
+    this.binding.export(scope)
+  }
 }
 
 export class PatternParam implements ParseParam {
@@ -254,6 +265,9 @@ export class PatternParam implements ParseParam {
   }
   destructureArg(): ASTLetBinding {
     throw "todo"
+  }
+  export(scope: Scope): void {
+    throw new InvalidDestructuringError()
   }
 }
 
@@ -281,6 +295,9 @@ export class ValueParam implements ParseParam {
   destructureArg(): ASTLetBinding {
     return letBinding(this.binding)
   }
+  export(scope: Scope): void {
+    this.binding.export(scope)
+  }
 }
 
 export class VarParam implements ParseParam {
@@ -303,6 +320,9 @@ export class VarParam implements ParseParam {
   destructureArg(): ASTLetBinding {
     throw new InvalidDestructuringError()
   }
+  export(scope: Scope): void {
+    throw new InvalidDestructuringError()
+  }
 }
 
 export class DoParam implements ParseParam {
@@ -323,6 +343,9 @@ export class DoParam implements ParseParam {
     return { tag: "do" }
   }
   destructureArg(): ASTLetBinding {
+    throw new InvalidDestructuringError()
+  }
+  export(scope: Scope): void {
     throw new InvalidDestructuringError()
   }
 }

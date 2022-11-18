@@ -45,8 +45,7 @@ export class ImportStmt implements ParseStmt {
   compile(scope: Scope): IRStmt[] {
     if (!this.source.importSource) throw new InvalidImportSourceError()
     const source = this.source.importSource(scope)
-    if (!this.binding.importBinding) throw new InvalidImportBindingError()
-    return this.binding.importBinding(scope, source)
+    return this.binding.import(scope, source)
   }
 }
 
@@ -84,21 +83,10 @@ export class LetStmt implements ParseStmt {
       this.expr.compile(scope, this.binding)
     )
     if (this.hasExport) {
-      this.getExports(scope, this.binding.letBinding())
+      this.binding.export(scope)
     }
 
     return result
-  }
-  private getExports(scope: Scope, binding: ASTLetBinding) {
-    switch (binding.tag) {
-      case "identifier":
-        scope.addExport(binding.value)
-        return
-      case "object":
-        for (const param of binding.params) {
-          this.getExports(scope, param.value)
-        }
-    }
   }
 }
 
