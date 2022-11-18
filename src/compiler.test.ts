@@ -102,7 +102,7 @@ test("invalid calls", () => {
   }, InvalidVarArgError)
 })
 
-test("invalid destructuring", () => {
+test("invalid destructuring", { todo: true }, () => {
   assert.throws(() => {
     compile(`
       let [x] := foo

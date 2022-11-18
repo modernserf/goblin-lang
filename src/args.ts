@@ -18,6 +18,7 @@ import {
   ParseExpr,
   ParseHandler,
   ParsePair,
+  PatternBuilder,
   Scope,
 } from "./interface"
 import {
@@ -34,7 +35,29 @@ import {
 import { build } from "./message-builder"
 import { SendScope } from "./scope"
 
-export class KeyArgs implements ParseArgs {
+export class InvalidArgsError {}
+
+export class ArgsBuilder implements PatternBuilder<ParseArg, ParseArgs> {
+  private pairs: ParsePair<ParseArg>[] = []
+  key(key: string): ParseArgs {
+    // TODO: maybe `return new InvalidArgs(key, this.pairs)`
+    if (this.pairs.length) throw new InvalidArgsError()
+    return new KeyArgs(key)
+  }
+  punPair(key: string): this {
+    this.pairs.push({ tag: "punPair", key })
+    return this
+  }
+  pair(key: string, value: ParseArg): this {
+    this.pairs.push({ tag: "pair", key, value })
+    return this
+  }
+  build(): ParseArgs {
+    return new PairArgs(this.pairs)
+  }
+}
+
+class KeyArgs implements ParseArgs {
   constructor(private key: string) {}
   provide(): IRStmt[] {
     throw new InvalidProvideBindingError()
@@ -50,7 +73,7 @@ export class KeyArgs implements ParseArgs {
   }
 }
 
-export class PairArgs implements ParseArgs {
+class PairArgs implements ParseArgs {
   constructor(private pairs: ParsePair<ParseArg>[]) {}
   provide(scope: Scope): IRStmt[] {
     return build<ParseArg, { key: string; value: ParseArg }, IRStmt[]>(

@@ -16,6 +16,7 @@ import {
   ParseParam,
   ParseParams,
   ParseStmt,
+  PatternBuilder,
   Scope,
 } from "./interface"
 import {
@@ -29,7 +30,29 @@ import { build } from "./message-builder"
 import { LetStmt } from "./stmt"
 import { BasicScope, LocalsImpl } from "./scope"
 
-export class KeyParams implements ParseParams {
+class InvalidParamsError {}
+
+export class ParamsBuilder implements PatternBuilder<ParseParam, ParseParams> {
+  private pairs: ParsePair<ParseParam>[] = []
+  key(key: string): ParseParams {
+    // TODO: maybe `return new InvalidParams(key, this.pairs)`
+    if (this.pairs.length) throw new InvalidParamsError()
+    return new KeyParams(key)
+  }
+  punPair(key: string): this {
+    this.pairs.push({ tag: "punPair", key })
+    return this
+  }
+  pair(key: string, value: ParseParam): this {
+    this.pairs.push({ tag: "pair", key, value })
+    return this
+  }
+  build(): ParseParams {
+    return new PairParams(this.pairs)
+  }
+}
+
+class KeyParams implements ParseParams {
   constructor(private key: string) {}
   expand(body: ParseStmt[]): ParseHandler[] {
     return [new OnHandler(this, body)]
@@ -95,7 +118,7 @@ function expandDefaultParams(
   return out
 }
 
-export class PairParams implements ParseParams {
+class PairParams implements ParseParams {
   constructor(private pairs: ParsePair<ParseParam>[]) {}
   expand(body: ParseStmt[]): ParseHandler[] {
     const out: ParseHandler[] = []

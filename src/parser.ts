@@ -26,10 +26,9 @@ import {
   PatternParam,
   ValueParam,
   DefaultValueParam,
-  KeyParams,
-  PairParams,
+  ParamsBuilder,
 } from "./params"
-import { KeyArgs, PairArgs, VarArg, HandlersArg, ValueArg } from "./args"
+import { VarArg, HandlersArg, ValueArg, ArgsBuilder } from "./args"
 import {
   LetStmt,
   VarStmt,
@@ -50,7 +49,7 @@ import {
   ParseParam,
   ParseArgs,
   ParseParams,
-  ParsePair,
+  PatternBuilder,
 } from "./interface"
 
 export class ParseError {
@@ -121,52 +120,41 @@ function parseKey(lexer: Lexer): string {
   return repeat(lexer, keyPart).join(" ")
 }
 
-type ParseMessage<T> =
-  | { tag: "key"; key: string }
-  | { tag: "pairs"; pairs: ParsePair<T>[] }
-
-function parseMessage<T>(lexer: Lexer, parser: Parser<T>): ParseMessage<T> {
-  const pairs: ParsePair<T>[] = []
+function parsePattern<Item, Collection>(
+  lexer: Lexer,
+  parser: Parser<Item>,
+  builder: PatternBuilder<Item, Collection>
+): Collection {
   while (true) {
     const token = lexer.peek()
     if (token.tag === "quotedIdent") {
       lexer.advance()
-      pairs.push({ tag: "punPair", key: token.value })
+      builder.punPair(token.value)
       continue
     }
 
     const key = parseKey(lexer)
     if (accept(lexer, "colon")) {
       const value = must(lexer, "arg", parser)
-      pairs.push({ tag: "pair", key, value })
+      builder.pair(key, value)
       continue
+    } else if (key) {
+      return builder.key(key)
+    } else {
+      return builder.build()
     }
-
-    if (pairs.length) return { tag: "pairs", pairs }
-    return { tag: "key", key }
   }
 }
 
 function parseParams(lexer: Lexer): ParseParams | null {
   if (!accept(lexer, "openBrace")) return null
-  const message = parseMessage(lexer, param)
+  const res = parsePattern(lexer, param, new ParamsBuilder())
   mustToken(lexer, "closeBrace")
-  switch (message.tag) {
-    case "key":
-      return new KeyParams(message.key)
-    case "pairs":
-      return new PairParams(message.pairs)
-  }
+  return res
 }
 
 function parseArgs(lexer: Lexer): ParseArgs {
-  const message = parseMessage(lexer, arg)
-  switch (message.tag) {
-    case "key":
-      return new KeyArgs(message.key)
-    case "pairs":
-      return new PairArgs(message.pairs)
-  }
+  return parsePattern(lexer, arg, new ArgsBuilder())
 }
 
 function parseHandlers(lexer: Lexer): ParseHandler[] {

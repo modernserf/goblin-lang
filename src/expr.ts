@@ -1,4 +1,4 @@
-import { HandlersArg, KeyArgs, PairArgs, ValueArg } from "./args"
+import { ArgsBuilder, HandlersArg, ValueArg } from "./args"
 import {
   InvalidFrameArgError,
   InvalidImportBindingError,
@@ -11,7 +11,6 @@ import {
   Instance,
   IRExpr,
   IRStmt,
-  Locals,
   ParseArgs,
   ParseExpr,
   ParseHandler,
@@ -30,7 +29,7 @@ import {
   unit,
 } from "./interpreter"
 import { constObject } from "./optimize"
-import { KeyParams } from "./params"
+import { ParamsBuilder } from "./params"
 import { floatClass, intClass, stringClass } from "./primitive"
 import { BasicScope, LocalsImpl, ObjectInstance } from "./scope"
 import { ExprStmt } from "./stmt"
@@ -176,7 +175,7 @@ export class ParseTrySend implements ParseExpr {
 export class ParseUnaryOp implements ParseExpr {
   constructor(private target: ParseExpr, private operator: string) {}
   compile(scope: Scope): IRExpr {
-    return new KeyArgs(this.operator).send(scope, this.target, null)
+    return new ArgsBuilder().key(this.operator).send(scope, this.target, null)
   }
 }
 
@@ -187,13 +186,10 @@ export class ParseBinaryOp implements ParseExpr {
     private operand: ParseExpr
   ) {}
   compile(scope: Scope): IRExpr {
-    return new PairArgs([
-      {
-        tag: "pair",
-        key: this.operator,
-        value: new ValueArg(this.operand),
-      },
-    ]).send(scope, this.target, null)
+    return new ArgsBuilder()
+      .pair(this.operator, new ValueArg(this.operand))
+      .build()
+      .send(scope, this.target, null)
   }
 }
 
@@ -201,14 +197,15 @@ export class ParseDoBlock implements ParseExpr {
   constructor(private body: ParseStmt[]) {}
   compile(scope: Scope): IRExpr {
     const expr: ParseExpr = new ParseSend(
-      new ParseFrame(new KeyArgs(""), null),
-      new PairArgs([
-        {
-          tag: "pair",
-          key: "",
-          value: new HandlersArg([new OnHandler(new KeyParams(""), this.body)]),
-        },
-      ])
+      new ParseFrame(new ArgsBuilder().key(""), null),
+      new ArgsBuilder()
+        .pair(
+          "",
+          new HandlersArg([
+            new OnHandler(new ParamsBuilder().key(""), this.body),
+          ])
+        )
+        .build()
     )
     return expr.compile(scope)
   }
@@ -223,16 +220,15 @@ export class ParseIf implements ParseExpr {
       const trueBlock = cond.body
       const send = new ParseSend(
         cond.value,
-        new PairArgs([
-          {
-            tag: "pair",
-            key: "",
-            value: new HandlersArg([
-              new OnHandler(new KeyParams("true"), trueBlock),
-              new OnHandler(new KeyParams("false"), falseBlock),
-            ]),
-          },
-        ])
+        new ArgsBuilder()
+          .pair(
+            "",
+            new HandlersArg([
+              new OnHandler(new ParamsBuilder().key("true"), trueBlock),
+              new OnHandler(new ParamsBuilder().key("false"), falseBlock),
+            ])
+          )
+          .build()
       )
 
       return [new ExprStmt(send)]

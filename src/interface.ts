@@ -27,6 +27,13 @@ export interface ParseHandler {
   addToBlockClass(scope: Scope, cls: IRBlockClass): void
 }
 
+export interface PatternBuilder<Item, Collection> {
+  key(key: string): Collection
+  punPair(key: string): this
+  pair(key: string, value: Item): this
+  build(): Collection
+}
+
 export type ParsePair<T> =
   | { tag: "pair"; key: string; value: T }
   | { tag: "punPair"; key: string }
