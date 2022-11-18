@@ -125,15 +125,7 @@ export class ParseDestructure implements ParseBinding {
   }
   import(scope: Scope, source: IRExpr): IRStmt[] {
     if (this.as) throw new InvalidImportBindingError()
-    return compileLet(
-      scope,
-      {
-        tag: "object",
-        params: this.params.destructure(),
-        as: null,
-      },
-      source
-    )
+    return this.params.import(scope, source)
   }
   var(scope: Scope, expr: ParseExpr): IRStmt[] {
     throw new InvalidVarBindingError()

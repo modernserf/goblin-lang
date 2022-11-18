@@ -8,6 +8,7 @@ import {
   ASTBindPair,
   ASTLetBinding,
   Instance,
+  IRExpr,
   IRParam,
   IRStmt,
   ParseBinding,
@@ -23,6 +24,7 @@ import {
   IRBlockClass,
   IRClass,
   IRObjectHandler,
+  IRSendExpr,
   IRUseExpr,
 } from "./interpreter"
 import { build } from "./message-builder"
@@ -91,6 +93,9 @@ class KeyParams implements ParseParams {
     throw new InvalidDestructuringError()
   }
   export(scope: Scope): void {
+    throw new InvalidDestructuringError()
+  }
+  import(scope: Scope, source: IRExpr): IRStmt[] {
     throw new InvalidDestructuringError()
   }
 }
@@ -212,6 +217,11 @@ class PairParams implements ParseParams {
       pair.value.export(scope)
     })
   }
+  import(scope: Scope, source: IRExpr): IRStmt[] {
+    return this.pairs.flatMap((pair) =>
+      pair.value.import(scope, pair.key, source)
+    )
+  }
 }
 
 // TODO: should DefaultValueParam & PatternParam be a different type?
@@ -237,6 +247,9 @@ export class DefaultValueParam implements ParseParam {
   export(scope: Scope): void {
     this.binding.export(scope)
   }
+  import(scope: Scope, key: string, source: IRExpr): IRStmt[] {
+    throw new InvalidDestructuringError()
+  }
 }
 
 export class PatternParam implements ParseParam {
@@ -259,6 +272,9 @@ export class PatternParam implements ParseParam {
   export(scope: Scope): void {
     throw new InvalidDestructuringError()
   }
+  import(scope: Scope, key: string, source: IRExpr): IRStmt[] {
+    throw new InvalidDestructuringError()
+  }
 }
 
 export class ValueParam implements ParseParam {
@@ -278,6 +294,9 @@ export class ValueParam implements ParseParam {
   }
   export(scope: Scope): void {
     this.binding.export(scope)
+  }
+  import(scope: Scope, key: string, source: IRExpr): IRStmt[] {
+    return this.binding.let(scope, new IRSendExpr(key, source, []))
   }
 }
 
@@ -301,7 +320,10 @@ export class VarParam implements ParseParam {
   destructureArg(): ASTLetBinding {
     throw new InvalidDestructuringError()
   }
-  export(scope: Scope): void {
+  export(): void {
+    throw new InvalidDestructuringError()
+  }
+  import(): IRStmt[] {
     throw new InvalidDestructuringError()
   }
 }
@@ -327,6 +349,9 @@ export class DoParam implements ParseParam {
     throw new InvalidDestructuringError()
   }
   export(scope: Scope): void {
+    throw new InvalidDestructuringError()
+  }
+  import(): IRStmt[] {
     throw new InvalidDestructuringError()
   }
 }
