@@ -8,7 +8,7 @@ export interface ParseStmt {
 
 export interface ParseExpr {
   compile(scope: Scope, selfBinding?: ParseExpr | undefined): IRExpr
-  setInPlace?(): ASTSimpleBinding
+  setInPlace?(scope: Scope, expr: ParseExpr): IRStmt[]
   simpleBinding?(): ASTSimpleBinding
   letBinding?(): ASTLetBinding
   let?(scope: Scope, value: IRExpr): IRStmt[]

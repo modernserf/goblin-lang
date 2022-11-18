@@ -126,8 +126,6 @@ export class SetInPlaceStmt implements ParseStmt {
   constructor(private place: ParseExpr) {}
   compile(scope: Scope): IRStmt[] {
     if (!this.place.setInPlace) throw new InvalidSetTargetError()
-    const binding = this.place.setInPlace()
-    const expr = this.place.compile(scope)
-    return [new IRAssignStmt(scope.lookupVarIndex(binding.value), expr)]
+    return this.place.setInPlace(scope, this.place)
   }
 }

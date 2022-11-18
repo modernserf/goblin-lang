@@ -87,8 +87,9 @@ export class ParseIdent implements ParseExpr {
   selfBinding(scope: Scope): IRStmt[] {
     return this.let(scope, Self.compile(scope))
   }
-  setInPlace(): ASTSimpleBinding {
-    return this.simpleBinding()
+  setInPlace(scope: Scope, expr: ParseExpr): IRStmt[] {
+    const value = expr.compile(scope)
+    return [new IRAssignStmt(scope.lookupVarIndex(this.value), value)]
   }
 }
 
@@ -155,9 +156,9 @@ export class ParseSend implements ParseExpr {
   compile(scope: Scope): IRExpr {
     return this.args.send(scope, this.target, null)
   }
-  setInPlace(): ASTSimpleBinding {
+  setInPlace(scope: Scope, expr: ParseExpr): IRStmt[] {
     if (!this.target.setInPlace) throw new InvalidSetTargetError()
-    return this.target.setInPlace()
+    return this.target.setInPlace(scope, expr)
   }
 }
 
