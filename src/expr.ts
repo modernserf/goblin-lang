@@ -81,13 +81,23 @@ export class ParseIdent implements ParseExpr {
   letBinding(): ASTLetBinding {
     return { tag: "identifier", value: this.value }
   }
+  var(scope: Scope, expr: ParseExpr): IRStmt[] {
+    const value = expr.compile(scope)
+    const record = scope.locals.set(this.value, scope.locals.create("var"))
+    return [new IRAssignStmt(record.index, value)]
+  }
   let(scope: Scope, value: IRExpr): IRStmt[] {
     return compileLet(scope, { tag: "identifier", value: this.value }, value)
   }
   selfBinding(scope: Scope): IRStmt[] {
     return this.let(scope, Self.compile(scope))
   }
+  set(scope: Scope, expr: ParseExpr): IRStmt[] {
+    const value = expr.compile(scope)
+    return [new IRAssignStmt(scope.lookupVarIndex(this.value), value)]
+  }
   setInPlace(scope: Scope, expr: ParseExpr): IRStmt[] {
+    if (expr === this) throw new InvalidSetTargetError()
     const value = expr.compile(scope)
     return [new IRAssignStmt(scope.lookupVarIndex(this.value), value)]
   }

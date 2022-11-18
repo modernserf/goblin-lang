@@ -73,11 +73,8 @@ export class ProvideStmt implements ParseStmt {
 export class VarStmt implements ParseStmt {
   constructor(private binding: ParseExpr, private expr: ParseExpr) {}
   compile(scope: Scope): IRStmt[] {
-    if (!this.binding.simpleBinding) throw new InvalidVarBindingError()
-    const expr = this.expr.compile(scope)
-    const binding = this.binding.simpleBinding()
-    const record = scope.locals.set(binding.value, scope.locals.create("var"))
-    return [new IRAssignStmt(record.index, expr)]
+    if (!this.binding.var) throw new InvalidVarBindingError()
+    return this.binding.var(scope, this.expr)
   }
 }
 
@@ -115,10 +112,8 @@ export class LetStmt implements ParseStmt {
 export class SetStmt implements ParseStmt {
   constructor(private binding: ParseExpr, private expr: ParseExpr) {}
   compile(scope: Scope): IRStmt[] {
-    if (!this.binding.simpleBinding) throw new InvalidSetTargetError()
-    const binding = this.binding.simpleBinding()
-    const expr = this.expr.compile(scope)
-    return [new IRAssignStmt(scope.lookupVarIndex(binding.value), expr)]
+    if (!this.binding.set) throw new InvalidSetTargetError()
+    return this.binding.set(scope, this.expr)
   }
 }
 
