@@ -1,7 +1,7 @@
-import { ASTLetBinding, ParseStmt } from "./interface"
-import { IRSendExpr, IRAssignStmt } from "./interpreter"
+import { ParseStmt } from "./interface"
+import { IRAssignStmt } from "./interpreter"
 import { RootScope } from "./scope"
-import { IRExpr, IRStmt, Value, Locals, Scope, ScopeRecord } from "./interface"
+import { IRStmt, Value } from "./interface"
 
 export function coreModule(stmts: ParseStmt[], nativeValue: Value): IRStmt[] {
   const scope = new RootScope()

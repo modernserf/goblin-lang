@@ -1,12 +1,10 @@
 import { ArgsBuilder, HandlersArg, ValueArg } from "./args"
 import {
-  InvalidFrameArgError,
   InvalidImportBindingError,
   InvalidSetTargetError,
   InvalidVarBindingError,
 } from "./error"
 import {
-  ASTLetBinding,
   Instance,
   IRExpr,
   IRStmt,
@@ -25,7 +23,6 @@ import {
   IRClass,
   IRLocalExpr,
   IRModuleExpr,
-  IRSendExpr,
   PrimitiveValue,
   unit,
 } from "./interpreter"
@@ -76,9 +73,6 @@ export class ParseIdent implements ParseExpr, ParseBinding {
   compile(scope: Scope): IRExpr {
     return scope.lookup(this.value)
   }
-  letBinding(): ASTLetBinding {
-    return { tag: "identifier", value: this.value }
-  }
   var(scope: Scope, expr: ParseExpr): IRStmt[] {
     const value = expr.compile(scope)
     const record = scope.locals.set(this.value, scope.locals.create("var"))
@@ -114,13 +108,6 @@ export class ParseIdent implements ParseExpr, ParseBinding {
 
 export class ParseDestructure implements ParseBinding {
   constructor(private params: ParseParams, private as: string | null) {}
-  letBinding(): ASTLetBinding {
-    return {
-      tag: "object",
-      params: this.params.destructure(),
-      as: this.as,
-    }
-  }
   let(scope: Scope, value: IRExpr): IRStmt[] {
     const record = useAs(scope, this.as)
     return [

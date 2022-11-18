@@ -1,11 +1,9 @@
 import {
-  InvalidImportBindingError,
   InvalidImportSourceError,
   InvalidSetTargetError,
   InvalidVarBindingError,
 } from "./error"
 import {
-  ASTLetBinding,
   IRStmt,
   ParseArgs,
   ParseBinding,

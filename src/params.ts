@@ -5,8 +5,6 @@ import {
   InvalidProvideBindingError,
 } from "./error"
 import {
-  ASTBindPair,
-  ASTLetBinding,
   Instance,
   IRExpr,
   IRParam,
@@ -88,9 +86,6 @@ class KeyParams implements ParseParams {
       [],
       body.flatMap((stmt) => stmt.compile(scope))
     )
-  }
-  destructure(): ASTBindPair[] {
-    throw new InvalidDestructuringError()
   }
   export(scope: Scope): void {
     throw new InvalidDestructuringError()
@@ -207,14 +202,6 @@ class PairParams implements ParseParams {
       }
     )
   }
-  destructure(): ASTBindPair[] {
-    return this.pairs.map((item) => {
-      return {
-        key: item.key,
-        value: item.value.destructureArg(),
-      }
-    })
-  }
   export(scope: Scope): void {
     this.pairs.forEach((pair) => {
       pair.value.export(scope)
@@ -247,9 +234,6 @@ export class DefaultValueParam implements ParseParam {
   toIR(): IRParam {
     return { tag: "value" }
   }
-  destructureArg(): ASTLetBinding {
-    return this.binding.letBinding()
-  }
   export(scope: Scope): void {
     this.binding.export(scope)
   }
@@ -275,9 +259,6 @@ export class PatternParam implements ParseParam {
   toIR(): IRParam {
     return { tag: "value" }
   }
-  destructureArg(): ASTLetBinding {
-    throw "todo"
-  }
   export(scope: Scope): void {
     throw new InvalidDestructuringError()
   }
@@ -300,9 +281,6 @@ export class ValueParam implements ParseParam {
   }
   toIR(): IRParam {
     return { tag: "value" }
-  }
-  destructureArg(): ASTLetBinding {
-    return this.binding.letBinding()
   }
   export(scope: Scope): void {
     this.binding.export(scope)
@@ -332,9 +310,6 @@ export class VarParam implements ParseParam {
   toIR(): IRParam {
     return { tag: "var" }
   }
-  destructureArg(): ASTLetBinding {
-    throw new InvalidDestructuringError()
-  }
   export(): void {
     throw new InvalidDestructuringError()
   }
@@ -362,9 +337,6 @@ export class DoParam implements ParseParam {
   }
   toIR(): IRParam {
     return { tag: "do" }
-  }
-  destructureArg(): ASTLetBinding {
-    throw new InvalidDestructuringError()
   }
   export(scope: Scope): void {
     throw new InvalidDestructuringError()

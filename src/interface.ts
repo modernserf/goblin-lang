@@ -1,5 +1,3 @@
-import { IRBlockClass, IRClass } from "./interpreter"
-
 // parse
 export interface ParseStmt {
   compile(scope: Scope): IRStmt[]
@@ -15,12 +13,20 @@ export interface ParseExpr {
 export interface ParseBinding {
   var(scope: Scope, expr: ParseExpr): IRStmt[]
   set(scope: Scope, expr: ParseExpr): IRStmt[]
-  letBinding(): ASTLetBinding
   export(scope: Scope): void
   let(scope: Scope, value: IRExpr): IRStmt[]
   handler(scope: Scope, offset: number): IRStmt[]
   selfBinding(scope: Scope): IRStmt[]
   import(scope: Scope, source: IRExpr): IRStmt[]
+}
+
+interface IRClass {
+  add(selector: string, handler: IRHandler): this
+  addElse(body: IRStmt[]): this
+}
+interface IRBlockClass {
+  add(selector: string, offset: number, params: IRParam[], body: IRStmt[]): this
+  addElse(body: IRStmt[]): this
 }
 
 export interface ParseHandler {
@@ -62,7 +68,6 @@ export interface ParseParams {
     selfBinding: ParseBinding | undefined
   ): void
   addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void
-  destructure(): ASTBindPair[]
   let(scope: Scope, value: IRExpr): IRStmt[]
   export(scope: Scope): void
   import(scope: Scope, source: IRExpr): IRStmt[]
@@ -73,7 +78,6 @@ export interface ParseParam {
   handler(scope: Scope, offset: number): IRStmt[]
   defaultPair?(): { binding: ParseBinding; value: ParseExpr }
   using(scope: Scope, key: string): IRStmt[]
-  destructureArg(): ASTLetBinding
   let(scope: Scope, key: string, value: IRExpr): IRStmt[]
   export(scope: Scope): void
   import(scope: Scope, key: string, source: IRExpr): IRStmt[]
@@ -103,12 +107,6 @@ export interface Scope {
   lookupVarIndex(key: string): number
   addExport(key: string): void
 }
-
-// TODO
-export type ASTBindPair = { key: string; value: ASTLetBinding }
-export type ASTLetBinding =
-  | { tag: "identifier"; value: string }
-  | { tag: "object"; params: ASTBindPair[]; as: string | null }
 
 // interpret
 
