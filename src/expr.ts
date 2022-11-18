@@ -154,7 +154,7 @@ export class ParseObject implements ParseExpr {
   compile(scope: Scope, selfBinding?: ParseBinding | undefined): IRExpr {
     const cls = new IRClass()
     const instance = new ObjectInstance(scope)
-    for (const handler of this.handlers.flatMap((h) => h.expand())) {
+    for (const handler of this.handlers) {
       handler.addToClass(instance, cls, selfBinding)
     }
     instance.compileSelfHandlers(cls)
@@ -261,9 +261,6 @@ export class ParseIf implements ParseExpr {
 
 export class OnHandler implements ParseHandler {
   constructor(private params: ParseParams, private body: ParseStmt[]) {}
-  expand(): ParseHandler[] {
-    return this.params.expand(this.body)
-  }
   addToClass(
     instance: Instance,
     cls: IRClass,
@@ -278,9 +275,6 @@ export class OnHandler implements ParseHandler {
 
 export class ElseHandler implements ParseHandler {
   constructor(private body: ParseStmt[]) {}
-  expand(): ParseHandler[] {
-    return [this]
-  }
   addToClass(
     instance: Instance,
     cls: IRClass,

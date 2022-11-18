@@ -141,7 +141,7 @@ export class HandlersArg implements ParseArg {
   constructor(private handlers: ParseHandler[]) {}
   sendArg(scope: Scope): IRArg {
     const cls = new IRBlockClass()
-    for (const handler of this.handlers.flatMap((h) => h.expand())) {
+    for (const handler of this.handlers) {
       handler.addToBlockClass(scope, cls)
     }
     return new IRDoArg(cls)

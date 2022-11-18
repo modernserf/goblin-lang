@@ -55,9 +55,6 @@ export class ParamsBuilder implements PatternBuilder<ParseParam, ParseParams> {
 
 class KeyParams implements ParseParams {
   constructor(private key: string) {}
-  expand(body: ParseStmt[]): ParseHandler[] {
-    return [new OnHandler(this, body)]
-  }
   using(): IRStmt[] {
     throw new InvalidProvideBindingError()
   }
@@ -128,66 +125,63 @@ function expandDefaultParams(pairs: Pair[]): ParamWithBindings[] {
 
 class PairParams implements ParseParams {
   constructor(private pairs: Pair[]) {}
-  expand(body: ParseStmt[]): ParseHandler[] {
-    const out: ParseHandler[] = []
-    for (const { pairs, bindings } of expandDefaultParams(this.pairs)) {
-      out.push(
-        new OnHandler(new PairParams(pairs), [
-          ...bindings.map(
-            ({ binding, value }) => new LetStmt(binding, value, false)
-          ),
-          ...body,
-        ])
-      )
-    }
-    return out
-  }
   addToClass(
     instance: Instance,
     cls: IRClass,
     body: ParseStmt[],
     selfBinding: ParseBinding | undefined
   ): void {
-    build<ParseParam, ParseParam, void>(this.pairs, {
-      pair(_, param) {
-        return param
-      },
-      build(selector, params) {
-        const scope = new BasicScope(instance, new LocalsImpl(params.length))
-        cls.add(
-          selector,
-          new IRObjectHandler(
-            params.map((p) => p.toIR()),
-            [
-              ...compileSelfBinding(scope, selfBinding),
-              ...params.flatMap((p, i) => p.handler(scope, i)),
-              ...body.flatMap((s) => s.compile(scope)),
-            ]
+    for (const { pairs, bindings } of expandDefaultParams(this.pairs)) {
+      build<ParseParam, ParseParam, void>(pairs, {
+        pair(_, param) {
+          return param
+        },
+        build(selector, params) {
+          const scope = new BasicScope(instance, new LocalsImpl(params.length))
+
+          cls.add(
+            selector,
+            new IRObjectHandler(
+              params.map((p) => p.toIR()),
+              [
+                ...compileSelfBinding(scope, selfBinding),
+                ...params.flatMap((p, i) => p.handler(scope, i)),
+                ...bindings.flatMap(({ binding, value }) =>
+                  new LetStmt(binding, value, false).compile(scope)
+                ),
+                ...body.flatMap((s) => s.compile(scope)),
+              ]
+            )
           )
-        )
-      },
-    })
+        },
+      })
+    }
   }
   addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void {
     // block params use parent scope, and do not start at zero
-    const offset = scope.locals.allocate(this.pairs.length)
-    build<ParseParam, ParseParam, void>(this.pairs, {
-      pair(_, param) {
-        return param
-      },
-      build(selector, params) {
-        const paramScope = new BasicScope(scope.instance, scope.locals)
-        cls.add(
-          selector,
-          offset,
-          params.map((p) => p.toIR()),
-          [
-            ...params.flatMap((p, i) => p.handler(paramScope, offset + i)),
-            ...body.flatMap((stmt) => stmt.compile(scope)),
-          ]
-        )
-      },
-    })
+    for (const { pairs, bindings } of expandDefaultParams(this.pairs)) {
+      const offset = scope.locals.allocate(pairs.length)
+      build<ParseParam, ParseParam, void>(pairs, {
+        pair(_, param) {
+          return param
+        },
+        build(selector, params) {
+          const paramScope = new BasicScope(scope.instance, scope.locals)
+          cls.add(
+            selector,
+            offset,
+            params.map((p) => p.toIR()),
+            [
+              ...params.flatMap((p, i) => p.handler(paramScope, offset + i)),
+              ...bindings.flatMap(({ binding, value }) =>
+                new LetStmt(binding, value, false).compile(scope)
+              ),
+              ...body.flatMap((stmt) => stmt.compile(scope)),
+            ]
+          )
+        },
+      })
+    }
   }
   using(scope: Scope): IRStmt[] {
     return build<ParseParam, { key: string; value: ParseParam }, IRStmt[]>(
@@ -217,8 +211,6 @@ class PairParams implements ParseParams {
   }
 }
 
-// TODO: should DefaultValueParam & PatternParam be a different type?
-// ie ParseParams.expand() => ParseExpandedParams
 export class DefaultValueParam implements ParseParam {
   constructor(private binding: ParseBinding, private defaultValue: ParseExpr) {}
   handler(scope: Scope, offset: number): IRStmt[] {

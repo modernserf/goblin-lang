@@ -30,7 +30,6 @@ interface IRBlockClass {
 }
 
 export interface ParseHandler {
-  expand(): ParseHandler[]
   addToClass(
     instance: Instance,
     cls: IRClass,
@@ -59,7 +58,6 @@ export interface ParseArg {
 }
 
 export interface ParseParams {
-  expand(body: ParseStmt[]): ParseHandler[]
   using(scope: Scope): IRStmt[]
   addToClass(
     instance: Instance,
