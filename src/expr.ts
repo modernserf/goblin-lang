@@ -23,6 +23,7 @@ import {
   IRAssignStmt,
   IRBlockClass,
   IRClass,
+  IRLocalExpr,
   IRModuleExpr,
   IRSendExpr,
   PrimitiveValue,
@@ -104,6 +105,10 @@ export class ParseIdent implements ParseExpr, ParseBinding {
   export(scope: Scope): void {
     scope.addExport(this.value)
   }
+  handler(scope: Scope, offset: number): IRStmt[] {
+    scope.locals.set(this.value, { index: offset, type: "let" })
+    return []
+  }
 }
 
 export class ParseDestructure implements ParseBinding {
@@ -144,6 +149,12 @@ export class ParseDestructure implements ParseBinding {
       scope.addExport(this.as)
     }
     this.params.export(scope)
+  }
+  handler(scope: Scope, offset: number): IRStmt[] {
+    if (this.as) {
+      scope.locals.set(this.as, { index: offset, type: "let" })
+    }
+    return this.let(scope, new IRLocalExpr(offset))
   }
 }
 

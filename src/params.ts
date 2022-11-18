@@ -22,7 +22,6 @@ import {
 import {
   IRBlockClass,
   IRClass,
-  IRLocalExpr,
   IRObjectHandler,
   IRUseExpr,
 } from "./interpreter"
@@ -220,16 +219,7 @@ class PairParams implements ParseParams {
 export class DefaultValueParam implements ParseParam {
   constructor(private binding: ParseBinding, private defaultValue: ParseExpr) {}
   handler(scope: Scope, offset: number): IRStmt[] {
-    const binding = letBinding(this.binding)
-    switch (binding.tag) {
-      case "identifier":
-        scope.locals.set(binding.value, { index: offset, type: "let" })
-        return []
-      case "object": {
-        if (!this.binding.let) throw new InvalidLetBindingError()
-        return this.binding.let(scope, new IRLocalExpr(offset))
-      }
-    }
+    return this.binding.handler(scope, offset)
   }
   defaultPair(): { binding: ParseBinding; value: ParseExpr } {
     return { binding: this.binding, value: this.defaultValue }
@@ -242,7 +232,7 @@ export class DefaultValueParam implements ParseParam {
     return { tag: "value" }
   }
   destructureArg(): ASTLetBinding {
-    return letBinding(this.binding)
+    return this.binding.letBinding()
   }
   export(scope: Scope): void {
     this.binding.export(scope)
@@ -274,16 +264,7 @@ export class PatternParam implements ParseParam {
 export class ValueParam implements ParseParam {
   constructor(private binding: ParseBinding) {}
   handler(scope: Scope, offset: number): IRStmt[] {
-    const binding = letBinding(this.binding)
-    switch (binding.tag) {
-      case "identifier":
-        scope.locals.set(binding.value, { index: offset, type: "let" })
-        return []
-      case "object": {
-        if (!this.binding.let) throw new InvalidLetBindingError()
-        return this.binding.let(scope, new IRLocalExpr(offset))
-      }
-    }
+    return this.binding.handler(scope, offset)
   }
   using(scope: Scope, key: string): IRStmt[] {
     if (!this.binding.let) throw new InvalidLetBindingError()
@@ -293,7 +274,7 @@ export class ValueParam implements ParseParam {
     return { tag: "value" }
   }
   destructureArg(): ASTLetBinding {
-    return letBinding(this.binding)
+    return this.binding.letBinding()
   }
   export(scope: Scope): void {
     this.binding.export(scope)
@@ -348,11 +329,6 @@ export class DoParam implements ParseParam {
   export(scope: Scope): void {
     throw new InvalidDestructuringError()
   }
-}
-
-function letBinding(value: ParseBinding): ASTLetBinding {
-  if (!value.letBinding) throw new InvalidLetBindingError()
-  return value.letBinding()
 }
 
 function compileSelfBinding(

@@ -18,6 +18,7 @@ export interface ParseBinding {
   letBinding(): ASTLetBinding
   export(scope: Scope): void
   let(scope: Scope, value: IRExpr): IRStmt[]
+  handler(scope: Scope, offset: number): IRStmt[]
   selfBinding(scope: Scope): IRStmt[]
   import(scope: Scope, source: IRExpr): IRStmt[]
 }
