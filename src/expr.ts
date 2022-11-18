@@ -1,5 +1,5 @@
 import { HandlersArg, KeyArgs, PairArgs, ValueArg } from "./args"
-import { compileLet, compileSend } from "./compiler"
+import { compileLet } from "./compiler"
 import {
   InvalidFrameArgError,
   InvalidImportBindingError,
@@ -167,7 +167,7 @@ export class ParseTrySend implements ParseExpr {
 export class ParseUnaryOp implements ParseExpr {
   constructor(private target: ParseExpr, private operator: string) {}
   compile(scope: Scope): IRExpr {
-    return compileSend(scope, this.operator, this.target, [])
+    return new KeyArgs(this.operator).send(scope, this.target, null)
   }
 }
 
@@ -178,9 +178,13 @@ export class ParseBinaryOp implements ParseExpr {
     private operand: ParseExpr
   ) {}
   compile(scope: Scope): IRExpr {
-    return compileSend(scope, `${this.operator}:`, this.target, [
-      new ValueArg(this.operand),
-    ])
+    return new PairArgs([
+      {
+        tag: "pair",
+        key: this.operator,
+        value: new ValueArg(this.operand),
+      },
+    ]).send(scope, this.target, null)
   }
 }
 

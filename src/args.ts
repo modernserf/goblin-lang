@@ -1,5 +1,4 @@
-import { ParseIdent } from "./expr"
-import { compileSend } from "./compiler"
+import { ParseIdent, Self } from "./expr"
 import {
   InvalidDestructuringError,
   InvalidFrameArgError,
@@ -25,10 +24,15 @@ import {
   IRBlockClass,
   IRDoArg,
   IRProvideStmt,
+  IRSelfExpr,
+  IRSendDirectExpr,
+  IRSendExpr,
+  IRTrySendExpr,
   IRValueArg,
   IRVarArg,
 } from "./interpreter"
 import { build } from "./message-builder"
+import { SendScope } from "./scope"
 
 export class KeyArgs implements ParseArgs {
   constructor(private key: string) {}
@@ -170,4 +174,34 @@ export class HandlersArg implements ParseArg {
 function letBinding(value: ParseExpr): ASTLetBinding {
   if (!value.letBinding) throw new InvalidLetBindingError()
   return value.letBinding()
+}
+
+function compileSend(
+  inScope: Scope,
+  selector: string,
+  target: ParseExpr,
+  astArgs: ParseArg[],
+  orElse: ParseExpr | null = null
+) {
+  const scope = new SendScope(inScope.instance, inScope.locals)
+
+  const irArgs = astArgs.map((v) => v.sendArg(scope))
+  if (target === Self) {
+    const handler = scope.instance.getPlaceholderHandler(selector)
+    if (orElse) {
+      throw new Error("trySend must be unneccessary on self")
+    }
+    return new IRSendDirectExpr(handler, new IRSelfExpr(), irArgs)
+  } else {
+    if (orElse) {
+      return new IRTrySendExpr(
+        selector,
+        target.compile(scope),
+        irArgs,
+        orElse.compile(scope)
+      )
+    } else {
+      return new IRSendExpr(selector, target.compile(scope), irArgs)
+    }
+  }
 }
