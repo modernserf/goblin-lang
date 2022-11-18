@@ -12,7 +12,6 @@ import {
   IRStmt,
   ParseExpr,
   ParseHandler,
-  ParsePair,
   ParseParam,
   ParseParams,
   ParseStmt,
@@ -32,19 +31,21 @@ import { BasicScope, LocalsImpl } from "./scope"
 
 class InvalidParamsError {}
 
+type Pair = { key: string; value: ParseParam }
+
 export class ParamsBuilder implements PatternBuilder<ParseParam, ParseParams> {
-  private pairs: ParsePair<ParseParam>[] = []
+  private pairs: Pair[] = []
   key(key: string): ParseParams {
     // TODO: maybe `return new InvalidParams(key, this.pairs)`
     if (this.pairs.length) throw new InvalidParamsError()
     return new KeyParams(key)
   }
   punPair(key: string): this {
-    this.pairs.push({ tag: "punPair", key })
+    this.pairs.push({ key, value: new ValueParam(new ParseIdent(key)) })
     return this
   }
   pair(key: string, value: ParseParam): this {
-    this.pairs.push({ tag: "pair", key, value })
+    this.pairs.push({ key, value })
     return this
   }
   build(): ParseParams {
@@ -89,15 +90,13 @@ class KeyParams implements ParseParams {
 }
 
 type ParamWithBindings = {
-  pairs: ParsePair<ParseParam>[]
+  pairs: Pair[]
   bindings: { binding: ParseExpr; value: ParseExpr }[]
 }
-function expandDefaultParams(
-  pairs: ParsePair<ParseParam>[]
-): ParamWithBindings[] {
+function expandDefaultParams(pairs: Pair[]): ParamWithBindings[] {
   const out: ParamWithBindings[] = [{ pairs: [], bindings: [] }]
   for (const pair of pairs) {
-    if (pair.tag === "pair" && pair.value.defaultPair) {
+    if (pair.value.defaultPair) {
       const copy = out.map((x) => ({
         pairs: x.pairs.slice(),
         bindings: x.bindings.slice(),
@@ -119,7 +118,7 @@ function expandDefaultParams(
 }
 
 class PairParams implements ParseParams {
-  constructor(private pairs: ParsePair<ParseParam>[]) {}
+  constructor(private pairs: Pair[]) {}
   expand(body: ParseStmt[]): ParseHandler[] {
     const out: ParseHandler[] = []
     for (const { pairs, bindings } of expandDefaultParams(this.pairs)) {
@@ -141,9 +140,6 @@ class PairParams implements ParseParams {
     selfBinding: ParseExpr | undefined
   ): void {
     build<ParseParam, ParseParam, void>(this.pairs, {
-      punValue(value) {
-        return new ValueParam(new ParseIdent(value))
-      },
       pair(_, param) {
         return param
       },
@@ -167,9 +163,6 @@ class PairParams implements ParseParams {
     // block params use parent scope, and do not start at zero
     const offset = scope.locals.allocate(this.pairs.length)
     build<ParseParam, ParseParam, void>(this.pairs, {
-      punValue(value) {
-        return new ValueParam(new ParseIdent(value))
-      },
       pair(_, param) {
         return param
       },
@@ -191,9 +184,6 @@ class PairParams implements ParseParams {
     return build<ParseParam, { key: string; value: ParseParam }, IRStmt[]>(
       this.pairs,
       {
-        punValue(key) {
-          return { key, value: new ValueParam(new ParseIdent(key)) }
-        },
         pair(key, param) {
           return { key, value: param }
         },

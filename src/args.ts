@@ -17,7 +17,6 @@ import {
   ParseArgs,
   ParseExpr,
   ParseHandler,
-  ParsePair,
   PatternBuilder,
   Scope,
 } from "./interface"
@@ -32,24 +31,26 @@ import {
   IRValueArg,
   IRVarArg,
 } from "./interpreter"
-import { build } from "./message-builder"
 import { SendScope } from "./scope"
+import { build } from "./message-builder"
 
 export class InvalidArgsError {}
 
+type Pair = { key: string; value: ParseArg }
+
 export class ArgsBuilder implements PatternBuilder<ParseArg, ParseArgs> {
-  private pairs: ParsePair<ParseArg>[] = []
+  private pairs: Pair[] = []
   key(key: string): ParseArgs {
     // TODO: maybe `return new InvalidArgs(key, this.pairs)`
     if (this.pairs.length) throw new InvalidArgsError()
     return new KeyArgs(key)
   }
   punPair(key: string): this {
-    this.pairs.push({ tag: "punPair", key })
+    this.pairs.push({ key, value: new ValueArg(new ParseIdent(key)) })
     return this
   }
   pair(key: string, value: ParseArg): this {
-    this.pairs.push({ tag: "pair", key, value })
+    this.pairs.push({ key, value })
     return this
   }
   build(): ParseArgs {
@@ -74,17 +75,11 @@ class KeyArgs implements ParseArgs {
 }
 
 class PairArgs implements ParseArgs {
-  constructor(private pairs: ParsePair<ParseArg>[]) {}
+  constructor(private pairs: Pair[]) {}
   provide(scope: Scope): IRStmt[] {
     return build<ParseArg, { key: string; value: ParseArg }, IRStmt[]>(
       this.pairs,
       {
-        punValue(key) {
-          return {
-            key,
-            value: new ValueArg(new ParseIdent(key)),
-          }
-        },
         pair(key, arg) {
           return { key, value: arg }
         },
@@ -98,9 +93,6 @@ class PairArgs implements ParseArgs {
   }
   send(scope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr {
     return build<ParseArg, ParseArg, IRExpr>(this.pairs, {
-      punValue(key) {
-        return new ValueArg(new ParseIdent(key))
-      },
       pair(_, arg) {
         return arg
       },
@@ -113,9 +105,6 @@ class PairArgs implements ParseArgs {
     return build<ParseArg, { key: string; value: ParseExpr }, IRExpr>(
       this.pairs,
       {
-        punValue(key) {
-          return { key, value: new ParseIdent(key) }
-        },
         pair(key, arg) {
           if (!arg.frameArg) throw new InvalidFrameArgError()
           return { key, value: arg.frameArg() }
@@ -134,18 +123,10 @@ class PairArgs implements ParseArgs {
   }
   destructure(): ASTBindPair[] {
     return this.pairs.map((item) => {
-      switch (item.tag) {
-        case "punPair":
-          return {
-            key: item.key,
-            value: { tag: "identifier", value: item.key },
-          }
-        case "pair":
-          if (!item.value.destructureArg) throw new InvalidDestructuringError()
-          return {
-            key: item.key,
-            value: item.value.destructureArg(),
-          }
+      if (!item.value.destructureArg) throw new InvalidDestructuringError()
+      return {
+        key: item.key,
+        value: item.value.destructureArg(),
       }
     })
   }

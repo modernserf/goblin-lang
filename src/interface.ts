@@ -34,10 +34,6 @@ export interface PatternBuilder<Item, Collection> {
   build(): Collection
 }
 
-export type ParsePair<T> =
-  | { tag: "pair"; key: string; value: T }
-  | { tag: "punPair"; key: string }
-
 export interface ParseArgs {
   provide(scope: Scope): IRStmt[]
   send(scope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr
