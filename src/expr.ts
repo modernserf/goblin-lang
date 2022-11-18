@@ -85,7 +85,8 @@ export class ParseIdent implements ParseExpr, ParseBinding {
     return [new IRAssignStmt(record.index, value)]
   }
   let(scope: Scope, value: IRExpr): IRStmt[] {
-    return compileLet(scope, { tag: "identifier", value: this.value }, value)
+    const record = useLet(scope, this.value)
+    return [new IRAssignStmt(record.index, value)]
   }
   selfBinding(scope: Scope): IRStmt[] {
     return this.let(scope, Self.compile(scope))
@@ -121,7 +122,11 @@ export class ParseDestructure implements ParseBinding {
     }
   }
   let(scope: Scope, value: IRExpr): IRStmt[] {
-    return compileLet(scope, this.letBinding(), value)
+    const record = useAs(scope, this.as)
+    return [
+      new IRAssignStmt(record.index, value),
+      ...this.params.let(scope, value),
+    ]
   }
   import(scope: Scope, source: IRExpr): IRStmt[] {
     if (this.as) throw new InvalidImportBindingError()
@@ -321,25 +326,4 @@ function useAs(scope: Scope, as: string | null): ScopeRecord {
 }
 function useLet(scope: Scope, key: string): ScopeRecord {
   return scope.locals.set(key, scope.locals.create("let"))
-}
-
-function compileLet(
-  scope: Scope,
-  binding: ASTLetBinding,
-  value: IRExpr
-): IRStmt[] {
-  switch (binding.tag) {
-    case "identifier": {
-      const record = useLet(scope, binding.value)
-      return [new IRAssignStmt(record.index, value)]
-    }
-    case "object":
-      const record = useAs(scope, binding.as)
-      return [
-        new IRAssignStmt(record.index, value),
-        ...binding.params.flatMap((param) =>
-          compileLet(scope, param.value, new IRSendExpr(param.key, value, []))
-        ),
-      ]
-  }
 }

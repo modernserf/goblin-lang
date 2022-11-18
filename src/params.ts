@@ -98,6 +98,9 @@ class KeyParams implements ParseParams {
   import(scope: Scope, source: IRExpr): IRStmt[] {
     throw new InvalidDestructuringError()
   }
+  let(scope: Scope, value: IRExpr): IRStmt[] {
+    throw new InvalidDestructuringError()
+  }
 }
 
 type ParamWithBindings = {
@@ -222,6 +225,9 @@ class PairParams implements ParseParams {
       pair.value.import(scope, pair.key, source)
     )
   }
+  let(scope: Scope, value: IRExpr): IRStmt[] {
+    return this.pairs.flatMap((pair) => pair.value.let(scope, pair.key, value))
+  }
 }
 
 // TODO: should DefaultValueParam & PatternParam be a different type?
@@ -250,6 +256,9 @@ export class DefaultValueParam implements ParseParam {
   import(scope: Scope, key: string, source: IRExpr): IRStmt[] {
     throw new InvalidDestructuringError()
   }
+  let(scope: Scope, key: string, value: IRExpr): IRStmt[] {
+    throw "todo: default params in let bindings"
+  }
 }
 
 export class PatternParam implements ParseParam {
@@ -275,6 +284,9 @@ export class PatternParam implements ParseParam {
   import(scope: Scope, key: string, source: IRExpr): IRStmt[] {
     throw new InvalidDestructuringError()
   }
+  let(scope: Scope, key: string, value: IRExpr): IRStmt[] {
+    throw new InvalidDestructuringError()
+  }
 }
 
 export class ValueParam implements ParseParam {
@@ -297,6 +309,9 @@ export class ValueParam implements ParseParam {
   }
   import(scope: Scope, key: string, source: IRExpr): IRStmt[] {
     return this.binding.let(scope, new IRSendExpr(key, source, []))
+  }
+  let(scope: Scope, key: string, value: IRExpr): IRStmt[] {
+    return this.binding.let(scope, new IRSendExpr(key, value, []))
   }
 }
 
@@ -326,6 +341,9 @@ export class VarParam implements ParseParam {
   import(): IRStmt[] {
     throw new InvalidDestructuringError()
   }
+  let(): IRStmt[] {
+    throw new InvalidDestructuringError()
+  }
 }
 
 export class DoParam implements ParseParam {
@@ -352,6 +370,9 @@ export class DoParam implements ParseParam {
     throw new InvalidDestructuringError()
   }
   import(): IRStmt[] {
+    throw new InvalidDestructuringError()
+  }
+  let(): IRStmt[] {
     throw new InvalidDestructuringError()
   }
 }

@@ -63,6 +63,7 @@ export interface ParseParams {
   ): void
   addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void
   destructure(): ASTBindPair[]
+  let(scope: Scope, value: IRExpr): IRStmt[]
   export(scope: Scope): void
   import(scope: Scope, source: IRExpr): IRStmt[]
 }
@@ -73,6 +74,7 @@ export interface ParseParam {
   defaultPair?(): { binding: ParseBinding; value: ParseExpr }
   using(scope: Scope, key: string): IRStmt[]
   destructureArg(): ASTLetBinding
+  let(scope: Scope, key: string, value: IRExpr): IRStmt[]
   export(scope: Scope): void
   import(scope: Scope, key: string, source: IRExpr): IRStmt[]
 }
