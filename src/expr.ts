@@ -2,12 +2,10 @@ import { ArgsBuilder, HandlersArg, ValueArg } from "./args"
 import {
   InvalidFrameArgError,
   InvalidImportBindingError,
-  InvalidLetBindingError,
   InvalidSetTargetError,
 } from "./error"
 import {
   ASTLetBinding,
-  ASTSimpleBinding,
   Instance,
   IRExpr,
   IRStmt,
@@ -75,9 +73,6 @@ export class ParseIdent implements ParseExpr {
   compile(scope: Scope): IRExpr {
     return scope.lookup(this.value)
   }
-  simpleBinding(): ASTSimpleBinding {
-    return { tag: "identifier", value: this.value }
-  }
   letBinding(): ASTLetBinding {
     return { tag: "identifier", value: this.value }
   }
@@ -124,24 +119,16 @@ export class ParseObject implements ParseExpr {
 }
 
 export class ParseFrame implements ParseExpr {
-  constructor(private args: ParseArgs, private as: ParseExpr | null) {}
+  constructor(private args: ParseArgs, private as: string | null) {}
   compile(scope: Scope): IRExpr {
     if (this.as) throw new InvalidFrameArgError()
     return this.args.frame(scope)
   }
   letBinding(): ASTLetBinding {
-    if (this.as) {
-      if (!this.as.simpleBinding) throw new InvalidLetBindingError()
-      return {
-        tag: "object",
-        params: this.args.destructure(),
-        as: this.as.simpleBinding().value,
-      }
-    }
     return {
       tag: "object",
       params: this.args.destructure(),
-      as: null,
+      as: this.as,
     }
   }
   let(scope: Scope, value: IRExpr): IRStmt[] {

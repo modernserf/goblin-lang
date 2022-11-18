@@ -11,7 +11,6 @@ export interface ParseExpr {
   setInPlace?(scope: Scope, expr: ParseExpr): IRStmt[]
   var?(scope: Scope, expr: ParseExpr): IRStmt[]
   set?(scope: Scope, expr: ParseExpr): IRStmt[]
-  simpleBinding?(): ASTSimpleBinding
   letBinding?(): ASTLetBinding
   let?(scope: Scope, value: IRExpr): IRStmt[]
   selfBinding?(scope: Scope): IRStmt[]
@@ -96,7 +95,6 @@ export interface Scope {
 
 // TODO
 export type ASTBindPair = { key: string; value: ASTLetBinding }
-export type ASTSimpleBinding = { tag: "identifier"; value: string }
 export type ASTLetBinding =
   | { tag: "identifier"; value: string }
   | { tag: "object"; params: ASTBindPair[]; as: string | null }

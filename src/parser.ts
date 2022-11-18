@@ -63,10 +63,10 @@ function param(lexer: Lexer): ParseParam {
   switch (token.tag) {
     case "var":
       lexer.advance()
-      return new VarParam(must(lexer, "expr", parseExpr))
+      return new VarParam(ident(lexer))
     case "do":
       lexer.advance()
-      return new DoParam(must(lexer, "expr", parseExpr))
+      return new DoParam(ident(lexer))
     case "openBrace": {
       const message = must(lexer, "params", parseParams)
       mustToken(lexer, "closeBrace")
@@ -87,7 +87,7 @@ function arg(lexer: Lexer): ParseArg {
   switch (token.tag) {
     case "var":
       lexer.advance()
-      return new VarArg(must(lexer, "expr", parseExpr))
+      return new VarArg(ident(lexer))
     case "on":
     case "else":
     case "openBrace":
@@ -95,6 +95,17 @@ function arg(lexer: Lexer): ParseArg {
     default:
       return new ValueArg(must(lexer, "expr", parseExpr))
   }
+}
+
+function ident(lexer: Lexer): string {
+  const token = lexer.peek()
+  switch (token.tag) {
+    case "identifier":
+    case "quotedIdent":
+      lexer.advance()
+      return token.value
+  }
+  throw new ParseError("identifier", token.tag)
 }
 
 function keyPart(lexer: Lexer): string | null {
@@ -218,7 +229,7 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
       const message = parseArgs(lexer)
       mustToken(lexer, "closeBracket")
       if (accept(lexer, "as")) {
-        const as = must(lexer, "binding", parseExpr)
+        const as = ident(lexer)
         return new ParseFrame(message, as)
       }
       return new ParseFrame(message, null)

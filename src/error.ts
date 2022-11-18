@@ -7,9 +7,6 @@ export class InvalidImportSourceError {}
 export class InvalidDestructuringError {}
 export class InvalidFrameArgError {}
 export class InvalidProvideBindingError {}
-export class InvalidVarParamError {}
-export class InvalidDoParamError {}
-export class InvalidVarArgError {}
 export class DuplicateHandlerError {
   constructor(readonly selector: string) {}
 }

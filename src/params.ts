@@ -1,10 +1,5 @@
 import { OnHandler, ParseIdent } from "./expr"
-import {
-  InvalidDoParamError,
-  InvalidLetBindingError,
-  InvalidProvideBindingError,
-  InvalidVarParamError,
-} from "./error"
+import { InvalidLetBindingError, InvalidProvideBindingError } from "./error"
 import {
   ASTLetBinding,
   Instance,
@@ -264,10 +259,9 @@ export class ValueParam implements ParseParam {
 
 export class VarParam implements ParseParam {
   readonly defaultValue = null
-  constructor(private value: ParseExpr) {}
+  constructor(private key: string) {}
   handler(scope: Scope, offset: number): IRStmt[] {
-    if (!this.value.simpleBinding) throw new InvalidVarParamError()
-    scope.locals.set(this.value.simpleBinding().value, {
+    scope.locals.set(this.key, {
       index: offset,
       type: "var",
     })
@@ -284,10 +278,9 @@ export class VarParam implements ParseParam {
 
 export class DoParam implements ParseParam {
   readonly defaultValue = null
-  constructor(private value: ParseExpr) {}
+  constructor(private key: string) {}
   handler(scope: Scope, offset: number): IRStmt[] {
-    if (!this.value.simpleBinding) throw new InvalidDoParamError()
-    scope.locals.set(this.value.simpleBinding().value, {
+    scope.locals.set(this.key, {
       index: offset,
       type: "do",
     })

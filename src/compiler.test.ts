@@ -20,16 +20,12 @@ import {
   DuplicateHandlerError,
   DuplicateKeyError,
   InvalidDestructuringError,
-  InvalidDoParamError,
-  InvalidFrameArgError,
   InvalidImportBindingError,
   InvalidImportSourceError,
   InvalidLetBindingError,
   InvalidProvideBindingError,
   InvalidSetTargetError,
-  InvalidVarArgError,
   InvalidVarBindingError,
-  InvalidVarParamError,
 } from "./error"
 
 export function compile(source: string) {
@@ -94,14 +90,6 @@ test("duplicate methods", () => {
   }, DuplicateElseHandlerError)
 })
 
-test("invalid calls", () => {
-  assert.throws(() => {
-    compile(`
-      val{arg: var 1} 
-    `)
-  }, InvalidVarArgError)
-})
-
 test("invalid destructuring", { todo: true }, () => {
   assert.throws(() => {
     compile(`
@@ -152,27 +140,6 @@ test("imports", () => {
       import [_foo_] := 123
     `)
   }, InvalidImportSourceError)
-})
-
-test("method params", () => {
-  assert.throws(() => {
-    compile(`
-      [{arg: var 1} 1]
-    `)
-  }, InvalidVarParamError)
-  assert.throws(() => {
-    compile(`
-      [{arg: do [x: x]} x] 
-    `)
-  }, InvalidDoParamError)
-})
-
-test("frames", () => {
-  assert.throws(() => {
-    compile(`
-      [x: var 1] 
-    `)
-  }, InvalidFrameArgError)
 })
 
 test("todo: sub-pattern", () => {

@@ -4,7 +4,6 @@ import {
   InvalidFrameArgError,
   InvalidLetBindingError,
   InvalidProvideBindingError,
-  InvalidVarArgError,
 } from "./error"
 import { frame } from "./frame"
 import {
@@ -149,12 +148,9 @@ export class ValueArg implements ParseArg {
 }
 
 export class VarArg implements ParseArg {
-  constructor(private binding: ParseExpr) {}
+  constructor(private key: string) {}
   sendArg(scope: Scope): IRArg {
-    if (!this.binding.simpleBinding) throw new InvalidVarArgError()
-    return new IRVarArg(
-      scope.lookupVarIndex(this.binding.simpleBinding().value)
-    )
+    return new IRVarArg(scope.lookupVarIndex(this.key))
   }
   provide(scope: Scope, key: string): IRStmt {
     throw "todo: provide var"

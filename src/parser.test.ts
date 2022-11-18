@@ -71,4 +71,27 @@ test("parse errors", () => {
     ParseError,
     "using without message"
   )
+
+  assert.throws(() => {
+    parse(`
+        val{arg: var 1} 
+      `)
+  }, ParseError)
+
+  assert.throws(() => {
+    parse(`
+      [{arg: var 1} 1]
+    `)
+  }, ParseError)
+  assert.throws(() => {
+    parse(`
+      [{arg: do [x: x]} x] 
+    `)
+  }, ParseError)
+
+  assert.throws(() => {
+    parse(`
+      [x: var 1] 
+    `)
+  }, ParseError)
 })
