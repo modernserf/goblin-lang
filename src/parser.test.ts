@@ -107,3 +107,18 @@ test("parse errors", () => {
     `)
   }, ParseError)
 })
+
+test("other errors thrown at parse time", () => {
+  assert.throws(() => {
+    parse(`
+      let x := [foo: bar baz]
+    `)
+  })
+  assert.throws(() => {
+    parse(`
+      let x := [
+        on {foo: bar baz} bar
+      ]
+    `)
+  })
+})

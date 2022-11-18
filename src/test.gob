@@ -61,6 +61,11 @@ Assert{
   expected: 0
 }
 
+let res := [x: 1 y: 2]{:
+  on {x: x y: y z: z := 0}
+    x + y + z
+}
+Assert{received: res expected: 3}
 
 # frames
 let bar := 2
@@ -81,9 +86,19 @@ Assert{
   expected: [x: 1 y: [a: 2 b: 3]]
 }
 
+let [_x_ _y_] as z := [
+  on {x} 1
+  on {y} 2
+  on {other: value} value
+]
+Assert{
+  received: x + y + z{other: 3}
+  expected: 6
+}
+
 let p := [
-  {add: [x: x1 y: y1] to: [x: x2 y: y2]}
-    [x: x1 + x2 y: y1 + y2]
+  {add: [x: x1 y: y1] to: [x: x2 y: y2] as other}
+    [x: x1 + x2 y: y1 + other{y}]
 ]
 let result := p{add: [x: 1 y: 1] to: [x: 2 y: 2]}
 
@@ -481,6 +496,20 @@ Assert{
 
 Assert{
   received: params{y} ? defaults{y}
+  expected: 2
+}
+
+Assert{
+  received: 1{foo} ? 1
+  expected: 1
+}
+
+let mapper := [{: do target}
+  return target{: 1 index: 0} ? target{: 1}
+]
+
+Assert{
+  received: mapper{: {: x} x + 1}
   expected: 2
 }
 

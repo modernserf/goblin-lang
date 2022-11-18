@@ -24,7 +24,6 @@ import {
 import {
   VarParam,
   DoParam,
-  PatternParam,
   ValueParam,
   DefaultValueParam,
   ParamsBuilder,
@@ -69,11 +68,7 @@ function param(lexer: Lexer): ParseParam {
     case "do":
       lexer.advance()
       return new DoParam(ident(lexer))
-    case "openBrace": {
-      const message = must(lexer, "params", parseParams)
-      mustToken(lexer, "closeBrace")
-      return new PatternParam(message)
-    }
+    // TODO: refutable bindings
     default:
       const value = must(lexer, "binding", parseBinding)
       if (accept(lexer, "colonEquals")) {

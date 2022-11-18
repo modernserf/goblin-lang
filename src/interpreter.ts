@@ -120,7 +120,7 @@ export class PrimitiveValue implements Value, IRExpr, IRStmt {
   }
 }
 
-export class DoValue implements Value, IRExpr, IRStmt {
+export class DoValue implements Value {
   readonly primitiveValue = null
   constructor(private cls: IRBlockClass, private ctx: Interpreter) {}
   /* istanbul ignore next */
@@ -145,9 +145,6 @@ export class DoValue implements Value, IRExpr, IRStmt {
   instanceof(cls: IRClass): boolean {
     return false
   }
-  eval(ctx: Interpreter): Value {
-    return this
-  }
 }
 
 // TODO: RuntimeError base class
@@ -159,7 +156,7 @@ export class NoProviderError {
 }
 
 export const unitClass: IRClass = new IRClass()
-export const unit: Value = new ObjectValue(unitClass, [])
+export const unit = new ObjectValue(unitClass, [])
 
 export class Modules {
   private cache = new Map<string, Value>()
@@ -262,6 +259,7 @@ export class IRValueArg implements IRArg {
 
 export class IRVarArg implements IRArg {
   constructor(private index: number) {}
+  /* istanbul ignore next */
   value(ctx: Interpreter): Value {
     throw "todo: handle var args in primitive fns"
   }
@@ -380,9 +378,7 @@ export class IRBlockClass {
     params: IRParam[],
     body: IRStmt[]
   ): this {
-    if (this.handlers.has(selector)) {
-      throw new DuplicateHandlerError(selector)
-    }
+    if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
     this.handlers.set(selector, new IROnBlockHandler(offset, params, body))
     return this
   }
@@ -550,7 +546,7 @@ export class IRDeferStmt implements IRStmt {
 }
 
 function body(ctx: Interpreter, stmts: IRStmt[]): Value {
-  let result = unit
+  let result: Value = unit
   try {
     for (const stmt of stmts) {
       result = stmt.eval(ctx) || unit

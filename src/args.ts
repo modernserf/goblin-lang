@@ -1,5 +1,9 @@
 import { ParseIdent, Self } from "./expr"
-import { InvalidFrameArgError, InvalidProvideBindingError } from "./error"
+import {
+  InvalidFrameArgError,
+  InvalidProvideBindingError,
+  RedundantTrySendError,
+} from "./error"
 import { frame } from "./frame"
 import {
   IRArg,
@@ -159,7 +163,7 @@ function compileSend(
   selector: string,
   target: ParseExpr,
   astArgs: ParseArg[],
-  orElse: ParseExpr | null = null
+  orElse: ParseExpr | null
 ) {
   const scope = new SendScope(inScope.instance, inScope.locals)
 
@@ -167,7 +171,8 @@ function compileSend(
   if (target === Self) {
     const handler = scope.instance.getPlaceholderHandler(selector)
     if (orElse) {
-      throw new Error("trySend must be unneccessary on self")
+      // TODO: make this a "warning" rather than an "error"
+      throw new RedundantTrySendError()
     }
     return new IRSendDirectExpr(handler, new IRSelfExpr(), irArgs)
   } else {

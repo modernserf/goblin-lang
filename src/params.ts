@@ -1,4 +1,4 @@
-import { OnHandler, ParseIdent } from "./expr"
+import { ParseIdent } from "./expr"
 import {
   InvalidDestructuringError,
   InvalidLetBindingError,
@@ -11,7 +11,6 @@ import {
   IRStmt,
   ParseBinding,
   ParseExpr,
-  ParseHandler,
   ParseParam,
   ParseParams,
   ParseStmt,
@@ -84,8 +83,9 @@ class KeyParams implements ParseParams {
       body.flatMap((stmt) => stmt.compile(scope))
     )
   }
+  /* istanbul ignore next */
   export(scope: Scope): void {
-    throw new InvalidDestructuringError()
+    throw new Error("unreachable")
   }
   import(scope: Scope, source: IRExpr): IRStmt[] {
     throw new InvalidDestructuringError()
@@ -226,39 +226,16 @@ export class DefaultValueParam implements ParseParam {
   toIR(): IRParam {
     return { tag: "value" }
   }
-  export(scope: Scope): void {
-    this.binding.export(scope)
-  }
-  import(scope: Scope, key: string, source: IRExpr): IRStmt[] {
+  import(): IRStmt[] {
     throw new InvalidDestructuringError()
   }
-  let(scope: Scope, key: string, value: IRExpr): IRStmt[] {
+  /* istanbul ignore next */
+  export(scope: Scope): void {
     throw "todo: default params in let bindings"
   }
-}
-
-export class PatternParam implements ParseParam {
-  readonly defaultValue = null
-  constructor(private message: ParseParams) {}
   /* istanbul ignore next */
-  handler(scope: Scope, offset: number): IRStmt[] {
-    throw "todo: handler pattern param"
-  }
-  /* istanbul ignore next */
-  using(scope: Scope): IRStmt[] {
-    throw "todo: using pattern param"
-  }
-  toIR(): IRParam {
-    return { tag: "value" }
-  }
-  export(scope: Scope): void {
-    throw new InvalidDestructuringError()
-  }
-  import(scope: Scope, key: string, source: IRExpr): IRStmt[] {
-    throw new InvalidDestructuringError()
-  }
   let(scope: Scope, key: string, value: IRExpr): IRStmt[] {
-    throw new InvalidDestructuringError()
+    throw "todo: default params in let bindings"
   }
 }
 
@@ -268,7 +245,6 @@ export class ValueParam implements ParseParam {
     return this.binding.handler(scope, offset)
   }
   using(scope: Scope, key: string): IRStmt[] {
-    if (!this.binding.let) throw new InvalidLetBindingError()
     return this.binding.let(scope, new IRUseExpr(key))
   }
   toIR(): IRParam {
@@ -302,8 +278,9 @@ export class VarParam implements ParseParam {
   toIR(): IRParam {
     return { tag: "var" }
   }
+  /* istanbul ignore next */
   export(): void {
-    throw new InvalidDestructuringError()
+    throw new Error("unreachable")
   }
   import(): IRStmt[] {
     throw new InvalidDestructuringError()
@@ -330,8 +307,9 @@ export class DoParam implements ParseParam {
   toIR(): IRParam {
     return { tag: "do" }
   }
-  export(scope: Scope): void {
-    throw new InvalidDestructuringError()
+  /* istanbul ignore next */
+  export(): void {
+    throw new Error("unreachable")
   }
   import(): IRStmt[] {
     throw new InvalidDestructuringError()

@@ -132,7 +132,7 @@ export interface Value {
     orElse: IRExpr
   ): Value
   instanceof(cls: unknown): boolean
-  eval(ctx: Interpreter): Value
+  // eval(ctx: Interpreter): Value
 }
 export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "do" }
 

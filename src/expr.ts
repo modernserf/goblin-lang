@@ -122,6 +122,7 @@ export class ParseDestructure implements ParseBinding {
   var(scope: Scope, expr: ParseExpr): IRStmt[] {
     throw new InvalidVarBindingError()
   }
+  /* istanbul ignore next */
   set(scope: Scope, expr: ParseExpr): IRStmt[] {
     throw new InvalidSetTargetError()
   }
@@ -255,6 +256,7 @@ export class ParseIf implements ParseExpr {
     if (res[0] && res[0].unwrap) {
       return res[0].unwrap().compile(scope)
     }
+    /* istanbul ignore next */
     throw new Error("unreachable")
   }
 }

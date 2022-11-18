@@ -20,12 +20,13 @@ import {
   DuplicateHandlerError,
   DuplicateKeyError,
   InvalidDestructuringError,
+  InvalidFrameArgError,
   InvalidImportBindingError,
   InvalidImportSourceError,
-  InvalidLetBindingError,
   InvalidProvideBindingError,
   InvalidSetTargetError,
   InvalidVarBindingError,
+  RedundantTrySendError,
 } from "./error"
 
 export function compile(source: string) {
@@ -70,6 +71,14 @@ test("duplicate methods", () => {
   }, DuplicateHandlerError)
   assert.throws(() => {
     compile(`
+      [x: 1 y: 2]{:
+        on {x: x y: y} x + y
+        on {_x_ _y_} x + y
+      }
+    `)
+  }, DuplicateHandlerError)
+  assert.throws(() => {
+    compile(`
       [
         else 1
         else 2
@@ -78,22 +87,57 @@ test("duplicate methods", () => {
   }, DuplicateElseHandlerError)
 })
 
-test("invalid destructuring", { todo: true }, () => {
+test("invalid destructuring", () => {
   assert.throws(() => {
     compile(`
-      let [x] := foo
+      let [x] := [x]
     `)
   }, InvalidDestructuringError)
   assert.throws(() => {
     compile(`
-      let [x: var x] := foo
+      let [x: var x] := [x: 1]
     `)
   }, InvalidDestructuringError)
   assert.throws(() => {
     compile(`
-      let [x: else 1] := foo
+      let [x: do x] := [x: 1]
     `)
   }, InvalidDestructuringError)
+  assert.throws(() => {
+    compile(`
+      import [x] := "core"
+    `)
+  }, InvalidDestructuringError)
+  assert.throws(() => {
+    compile(`
+      import [x: var x] := "core"
+    `)
+  }, InvalidDestructuringError)
+  assert.throws(() => {
+    compile(`
+      import [x: do x] := "core"
+    `)
+  }, InvalidDestructuringError)
+
+  assert.throws(() => {
+    compile(`
+      import [x: x := 1] := "core"
+    `)
+  }, InvalidDestructuringError)
+})
+
+test("invalid frame args", () => {
+  assert.throws(() => {
+    compile(`
+      var x := 1
+      [x: var x] 
+    `)
+  }, InvalidFrameArgError)
+  assert.throws(() => {
+    compile(`
+      [x: on {foo} 1] 
+    `)
+  }, InvalidFrameArgError)
 })
 
 test("provide/using", () => {
@@ -295,15 +339,41 @@ test("do usage", () => {
   })
 })
 
-test("selfDirect", () => {
+test("statically resolvable calls", () => {
   assert.throws(() => {
     compile(`
-      let foo := [
-        on {x}
-          self{y}
+      let obj := [
+        on {bar} 
+          self{foo}
       ]
     `)
   }, NoHandlerError)
+  assert.throws(() => {
+    compile(`
+      let obj := [
+        on {foo} 
+          1
+        on {bar} 
+          self{foo} ? 3
+      ]
+    `)
+  }, RedundantTrySendError)
+  assert.throws(() => {
+    compile(`
+      let obj := [
+        on {bar} 
+          self{foo} ? 3
+      ]
+    `)
+  }, RedundantTrySendError)
+  assert.doesNotThrow(() => {
+    compile(`
+      let obj := [
+        on {bar}
+          obj{foo} ? 3
+      ]
+    `)
+  })
 })
 
 test("exports", () => {

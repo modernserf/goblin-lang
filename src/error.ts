@@ -14,3 +14,4 @@ export class DuplicateElseHandlerError {}
 export class DuplicateKeyError {
   constructor(readonly key: string) {}
 }
+export class RedundantTrySendError {}
