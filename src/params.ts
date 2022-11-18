@@ -1,5 +1,4 @@
 import { OnHandler, ParseIdent } from "./expr"
-import { compileLet } from "./compiler"
 import {
   InvalidDoParamError,
   InvalidLetBindingError,
@@ -194,7 +193,8 @@ export class DefaultValueParam implements ParseParam {
         scope.locals.set(binding.value, { index: offset, type: "let" })
         return []
       case "object": {
-        return compileLet(scope, binding, new IRLocalExpr(offset))
+        if (!this.binding.let) throw new InvalidLetBindingError()
+        return this.binding.let(scope, new IRLocalExpr(offset))
       }
     }
   }
@@ -235,12 +235,14 @@ export class ValueParam implements ParseParam {
         scope.locals.set(binding.value, { index: offset, type: "let" })
         return []
       case "object": {
-        return compileLet(scope, binding, new IRLocalExpr(offset))
+        if (!this.binding.let) throw new InvalidLetBindingError()
+        return this.binding.let(scope, new IRLocalExpr(offset))
       }
     }
   }
   using(scope: Scope, key: string): IRStmt[] {
-    return compileLet(scope, letBinding(this.binding), new IRUseExpr(key))
+    if (!this.binding.let) throw new InvalidLetBindingError()
+    return this.binding.let(scope, new IRUseExpr(key))
   }
   toIR(): IRParam {
     return { tag: "value" }

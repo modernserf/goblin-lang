@@ -11,6 +11,7 @@ export interface ParseExpr {
   setInPlace?(): ASTSimpleBinding
   simpleBinding?(): ASTSimpleBinding
   letBinding?(): ASTLetBinding
+  let?(scope: Scope, value: IRExpr): IRStmt[]
   selfBinding?(scope: Scope): IRStmt[]
   importBinding?(scope: Scope, source: IRExpr): IRStmt[]
   importSource?(scope: Scope): IRExpr

@@ -1,4 +1,3 @@
-import { compileLet } from "./compiler"
 import {
   InvalidImportBindingError,
   InvalidImportSourceError,
@@ -89,14 +88,13 @@ export class LetStmt implements ParseStmt {
     private hasExport: boolean
   ) {}
   compile(scope: Scope): IRStmt[] {
-    const binding = letBinding(this.binding)
-    const result = compileLet(
+    if (!this.binding.let) throw new InvalidLetBindingError()
+    const result = this.binding.let(
       scope,
-      binding,
       this.expr.compile(scope, this.binding)
     )
     if (this.hasExport) {
-      this.getExports(scope, binding)
+      this.getExports(scope, letBinding(this.binding))
     }
 
     return result

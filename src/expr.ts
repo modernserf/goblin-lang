@@ -1,5 +1,4 @@
 import { HandlersArg, KeyArgs, PairArgs, ValueArg } from "./args"
-import { compileLet } from "./compiler"
 import {
   InvalidFrameArgError,
   InvalidImportBindingError,
@@ -12,17 +11,21 @@ import {
   Instance,
   IRExpr,
   IRStmt,
+  Locals,
   ParseArgs,
   ParseExpr,
   ParseHandler,
   ParseParams,
   ParseStmt,
   Scope,
+  ScopeRecord,
 } from "./interface"
 import {
+  IRAssignStmt,
   IRBlockClass,
   IRClass,
   IRModuleExpr,
+  IRSendExpr,
   PrimitiveValue,
   unit,
 } from "./interpreter"
@@ -79,8 +82,11 @@ export class ParseIdent implements ParseExpr {
   letBinding(): ASTLetBinding {
     return { tag: "identifier", value: this.value }
   }
+  let(scope: Scope, value: IRExpr): IRStmt[] {
+    return compileLet(scope, { tag: "identifier", value: this.value }, value)
+  }
   selfBinding(scope: Scope): IRStmt[] {
-    return compileLet(scope, this.letBinding(), Self.compile(scope))
+    return this.let(scope, Self.compile(scope))
   }
   setInPlace(): ASTSimpleBinding {
     return this.simpleBinding()
@@ -127,6 +133,9 @@ export class ParseFrame implements ParseExpr {
       params: this.args.destructure(),
       as: null,
     }
+  }
+  let(scope: Scope, value: IRExpr): IRStmt[] {
+    return compileLet(scope, this.letBinding(), value)
   }
   importBinding(scope: Scope, source: IRExpr): IRStmt[] {
     if (this.as) throw new InvalidImportBindingError()
@@ -281,4 +290,33 @@ function compileSelfBinding(
     return binding.selfBinding(scope)
   }
   return []
+}
+
+function useAs(scope: Scope, as: string | null): ScopeRecord {
+  if (as === null) return scope.locals.create("let")
+  return useLet(scope, as)
+}
+function useLet(scope: Scope, key: string): ScopeRecord {
+  return scope.locals.set(key, scope.locals.create("let"))
+}
+
+function compileLet(
+  scope: Scope,
+  binding: ASTLetBinding,
+  value: IRExpr
+): IRStmt[] {
+  switch (binding.tag) {
+    case "identifier": {
+      const record = useLet(scope, binding.value)
+      return [new IRAssignStmt(record.index, value)]
+    }
+    case "object":
+      const record = useAs(scope, binding.as)
+      return [
+        new IRAssignStmt(record.index, value),
+        ...binding.params.flatMap((param) =>
+          compileLet(scope, param.value, new IRSendExpr(param.key, value, []))
+        ),
+      ]
+  }
 }
