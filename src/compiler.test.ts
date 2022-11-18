@@ -42,21 +42,9 @@ test("duplicate keys", () => {
 test("invalid bindings", () => {
   assert.throws(() => {
     compile(`
-      let 1 := foo
-    `)
-  }, InvalidLetBindingError)
-  assert.throws(() => {
-    compile(`
       var [x: a y: b] := [x: 1 y: 2]
     `)
   }, InvalidVarBindingError)
-
-  assert.throws(() => {
-    compile(`
-      var p := 1
-      set [x: p] := [x: 2]
-    `)
-  }, InvalidSetTargetError)
   assert.throws(() => {
     compile(`
       var x := 0

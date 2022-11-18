@@ -7,15 +7,18 @@ export interface ParseStmt {
 }
 
 export interface ParseExpr {
-  compile(scope: Scope, selfBinding?: ParseExpr | undefined): IRExpr
+  compile(scope: Scope, selfBinding?: ParseBinding | undefined): IRExpr
   setInPlace?(scope: Scope, expr: ParseExpr): IRStmt[]
-  var?(scope: Scope, expr: ParseExpr): IRStmt[]
-  set?(scope: Scope, expr: ParseExpr): IRStmt[]
-  letBinding?(): ASTLetBinding
-  let?(scope: Scope, value: IRExpr): IRStmt[]
-  selfBinding?(scope: Scope): IRStmt[]
-  importBinding?(scope: Scope, source: IRExpr): IRStmt[]
   importSource?(scope: Scope): IRExpr
+}
+
+export interface ParseBinding {
+  var(scope: Scope, expr: ParseExpr): IRStmt[]
+  set(scope: Scope, expr: ParseExpr): IRStmt[]
+  letBinding(): ASTLetBinding
+  let(scope: Scope, value: IRExpr): IRStmt[]
+  selfBinding(scope: Scope): IRStmt[]
+  importBinding(scope: Scope, source: IRExpr): IRStmt[]
 }
 
 export interface ParseHandler {
@@ -23,7 +26,7 @@ export interface ParseHandler {
   addToClass(
     instance: Instance,
     cls: IRClass,
-    selfBinding: ParseExpr | undefined
+    selfBinding: ParseBinding | undefined
   ): void
   addToBlockClass(scope: Scope, cls: IRBlockClass): void
 }
@@ -39,13 +42,11 @@ export interface ParseArgs {
   provide(scope: Scope): IRStmt[]
   send(scope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr
   frame(scope: Scope): IRExpr
-  destructure(): ASTBindPair[]
 }
 
 export interface ParseArg {
   sendArg(scope: Scope): IRArg
-  frameArg?(): ParseExpr
-  destructureArg?(): ASTLetBinding
+  frameArg(): ParseExpr
   provide(scope: Scope, key: string): IRStmt
 }
 
@@ -56,16 +57,18 @@ export interface ParseParams {
     instance: Instance,
     cls: IRClass,
     body: ParseStmt[],
-    selfBinding: ParseExpr | undefined
+    selfBinding: ParseBinding | undefined
   ): void
   addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void
+  destructure(): ASTBindPair[]
 }
 
 export interface ParseParam {
   toIR(): IRParam
   handler(scope: Scope, offset: number): IRStmt[]
-  defaultPair?(): { binding: ParseExpr; value: ParseExpr }
+  defaultPair?(): { binding: ParseBinding; value: ParseExpr }
   using(scope: Scope, key: string): IRStmt[]
+  destructureArg(): ASTLetBinding
 }
 
 // compile

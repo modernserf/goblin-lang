@@ -1,10 +1,16 @@
 import { OnHandler, ParseIdent } from "./expr"
-import { InvalidLetBindingError, InvalidProvideBindingError } from "./error"
 import {
+  InvalidDestructuringError,
+  InvalidLetBindingError,
+  InvalidProvideBindingError,
+} from "./error"
+import {
+  ASTBindPair,
   ASTLetBinding,
   Instance,
   IRParam,
   IRStmt,
+  ParseBinding,
   ParseExpr,
   ParseHandler,
   ParseParam,
@@ -60,7 +66,7 @@ class KeyParams implements ParseParams {
     instance: Instance,
     cls: IRClass,
     body: ParseStmt[],
-    selfBinding: ParseExpr | undefined
+    selfBinding: ParseBinding | undefined
   ): void {
     const scope = new BasicScope(instance, new LocalsImpl())
     cls.add(
@@ -82,11 +88,14 @@ class KeyParams implements ParseParams {
       body.flatMap((stmt) => stmt.compile(scope))
     )
   }
+  destructure(): ASTBindPair[] {
+    throw new InvalidDestructuringError()
+  }
 }
 
 type ParamWithBindings = {
   pairs: Pair[]
-  bindings: { binding: ParseExpr; value: ParseExpr }[]
+  bindings: { binding: ParseBinding; value: ParseExpr }[]
 }
 function expandDefaultParams(pairs: Pair[]): ParamWithBindings[] {
   const out: ParamWithBindings[] = [{ pairs: [], bindings: [] }]
@@ -132,7 +141,7 @@ class PairParams implements ParseParams {
     instance: Instance,
     cls: IRClass,
     body: ParseStmt[],
-    selfBinding: ParseExpr | undefined
+    selfBinding: ParseBinding | undefined
   ): void {
     build<ParseParam, ParseParam, void>(this.pairs, {
       pair(_, param) {
@@ -188,12 +197,20 @@ class PairParams implements ParseParams {
       }
     )
   }
+  destructure(): ASTBindPair[] {
+    return this.pairs.map((item) => {
+      return {
+        key: item.key,
+        value: item.value.destructureArg(),
+      }
+    })
+  }
 }
 
 // TODO: should DefaultValueParam & PatternParam be a different type?
 // ie ParseParams.expand() => ParseExpandedParams
 export class DefaultValueParam implements ParseParam {
-  constructor(private binding: ParseExpr, private defaultValue: ParseExpr) {}
+  constructor(private binding: ParseBinding, private defaultValue: ParseExpr) {}
   handler(scope: Scope, offset: number): IRStmt[] {
     const binding = letBinding(this.binding)
     switch (binding.tag) {
@@ -206,7 +223,7 @@ export class DefaultValueParam implements ParseParam {
       }
     }
   }
-  defaultPair(): { binding: ParseExpr; value: ParseExpr } {
+  defaultPair(): { binding: ParseBinding; value: ParseExpr } {
     return { binding: this.binding, value: this.defaultValue }
   }
   /* istanbul ignore next */
@@ -215,6 +232,9 @@ export class DefaultValueParam implements ParseParam {
   }
   toIR(): IRParam {
     return { tag: "value" }
+  }
+  destructureArg(): ASTLetBinding {
+    return letBinding(this.binding)
   }
 }
 
@@ -232,10 +252,13 @@ export class PatternParam implements ParseParam {
   toIR(): IRParam {
     return { tag: "value" }
   }
+  destructureArg(): ASTLetBinding {
+    throw "todo"
+  }
 }
 
 export class ValueParam implements ParseParam {
-  constructor(private binding: ParseExpr) {}
+  constructor(private binding: ParseBinding) {}
   handler(scope: Scope, offset: number): IRStmt[] {
     const binding = letBinding(this.binding)
     switch (binding.tag) {
@@ -254,6 +277,9 @@ export class ValueParam implements ParseParam {
   }
   toIR(): IRParam {
     return { tag: "value" }
+  }
+  destructureArg(): ASTLetBinding {
+    return letBinding(this.binding)
   }
 }
 
@@ -274,6 +300,9 @@ export class VarParam implements ParseParam {
   toIR(): IRParam {
     return { tag: "var" }
   }
+  destructureArg(): ASTLetBinding {
+    throw new InvalidDestructuringError()
+  }
 }
 
 export class DoParam implements ParseParam {
@@ -293,19 +322,20 @@ export class DoParam implements ParseParam {
   toIR(): IRParam {
     return { tag: "do" }
   }
+  destructureArg(): ASTLetBinding {
+    throw new InvalidDestructuringError()
+  }
 }
 
-function letBinding(value: ParseExpr): ASTLetBinding {
+function letBinding(value: ParseBinding): ASTLetBinding {
   if (!value.letBinding) throw new InvalidLetBindingError()
   return value.letBinding()
 }
 
 function compileSelfBinding(
   scope: Scope,
-  binding: ParseExpr | undefined
+  binding: ParseBinding | undefined
 ): IRStmt[] {
-  if (binding && binding.selfBinding) {
-    return binding.selfBinding(scope)
-  }
+  if (binding) return binding.selfBinding(scope)
   return []
 }

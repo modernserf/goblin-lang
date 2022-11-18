@@ -94,4 +94,16 @@ test("parse errors", () => {
       [x: var 1] 
     `)
   }, ParseError)
+
+  assert.throws(() => {
+    parse(`
+      let 1 := foo
+    `)
+  }, ParseError)
+  assert.throws(() => {
+    parse(`
+      var p := 1
+      set [x: p] := [x: 2]
+    `)
+  }, ParseError)
 })

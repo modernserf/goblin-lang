@@ -19,6 +19,7 @@ import {
   ParseUnaryOp,
   ParseBinaryOp,
   ParseTrySend,
+  ParseDestructure,
 } from "./expr"
 import {
   VarParam,
@@ -50,6 +51,7 @@ import {
   ParseArgs,
   ParseParams,
   PatternBuilder,
+  ParseBinding,
 } from "./interface"
 
 export class ParseError {
@@ -73,7 +75,7 @@ function param(lexer: Lexer): ParseParam {
       return new PatternParam(message)
     }
     default:
-      const value = must(lexer, "binding", parseExpr)
+      const value = must(lexer, "binding", parseBinding)
       if (accept(lexer, "colonEquals")) {
         const defaultValue = must(lexer, "expr", parseExpr)
         return new DefaultValueParam(value, defaultValue)
@@ -190,6 +192,27 @@ function parseHandlers(lexer: Lexer): ParseHandler[] {
   }
 }
 
+function parseBinding(lexer: Lexer): ParseBinding | null {
+  const token = lexer.peek()
+  switch (token.tag) {
+    case "identifier":
+    case "quotedIdent":
+      lexer.advance()
+      return new ParseIdent(token.value)
+    case "openBracket": {
+      lexer.advance()
+      const params = parsePattern(lexer, param, new ParamsBuilder())
+      mustToken(lexer, "closeBracket")
+      if (accept(lexer, "as")) {
+        const as = ident(lexer)
+        return new ParseDestructure(params, as)
+      }
+      return new ParseDestructure(params, null)
+    }
+  }
+  return null
+}
+
 function baseExpr(lexer: Lexer): ParseExpr | null {
   const token = lexer.peek()
   switch (token.tag) {
@@ -228,11 +251,7 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
       }
       const message = parseArgs(lexer)
       mustToken(lexer, "closeBracket")
-      if (accept(lexer, "as")) {
-        const as = ident(lexer)
-        return new ParseFrame(message, as)
-      }
-      return new ParseFrame(message, null)
+      return new ParseFrame(message)
     }
     case "do": {
       lexer.advance()
@@ -309,8 +328,8 @@ function parseExpr(lexer: Lexer): ParseExpr | null {
   return value
 }
 
-function assign(lexer: Lexer): { binding: ParseExpr; expr: ParseExpr } {
-  const binding = must(lexer, "binding", parseExpr)
+function assign(lexer: Lexer): { binding: ParseBinding; expr: ParseExpr } {
+  const binding = must(lexer, "binding", parseBinding)
   mustToken(lexer, "colonEquals")
   const expr = must(lexer, "expr", parseExpr)
   return { binding, expr }
@@ -342,12 +361,17 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
     }
     case "set": {
       lexer.advance()
-      const binding = must(lexer, "binding", parseExpr)
+      const place = must(lexer, "binding", parseExpr)
       if (accept(lexer, "colonEquals")) {
-        const expr = must(lexer, "expr", parseExpr)
-        return new SetStmt(binding, expr)
+        // ugh
+        if (place instanceof ParseIdent) {
+          const expr = must(lexer, "expr", parseExpr)
+          return new SetStmt(place, expr)
+        } else {
+          throw new ParseError("binding", "expr")
+        }
       } else {
-        return new SetInPlaceStmt(binding)
+        return new SetInPlaceStmt(place)
       }
     }
     case "provide": {

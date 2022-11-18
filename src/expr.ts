@@ -3,6 +3,7 @@ import {
   InvalidFrameArgError,
   InvalidImportBindingError,
   InvalidSetTargetError,
+  InvalidVarBindingError,
 } from "./error"
 import {
   ASTLetBinding,
@@ -10,6 +11,7 @@ import {
   IRExpr,
   IRStmt,
   ParseArgs,
+  ParseBinding,
   ParseExpr,
   ParseHandler,
   ParseParams,
@@ -68,7 +70,7 @@ export class ParseString implements ParseExpr {
   }
 }
 
-export class ParseIdent implements ParseExpr {
+export class ParseIdent implements ParseExpr, ParseBinding {
   constructor(private value: string) {}
   compile(scope: Scope): IRExpr {
     return scope.lookup(this.value)
@@ -96,6 +98,9 @@ export class ParseIdent implements ParseExpr {
     const value = expr.compile(scope)
     return [new IRAssignStmt(scope.lookupVarIndex(this.value), value)]
   }
+  importBinding(scope: Scope, source: IRExpr): IRStmt[] {
+    throw new InvalidImportBindingError()
+  }
 }
 
 export class ParseParens implements ParseExpr {
@@ -107,7 +112,7 @@ export class ParseParens implements ParseExpr {
 
 export class ParseObject implements ParseExpr {
   constructor(private handlers: ParseHandler[]) {}
-  compile(scope: Scope, selfBinding?: ParseExpr | undefined): IRExpr {
+  compile(scope: Scope, selfBinding?: ParseBinding | undefined): IRExpr {
     const cls = new IRClass()
     const instance = new ObjectInstance(scope)
     for (const handler of this.handlers.flatMap((h) => h.expand())) {
@@ -118,16 +123,12 @@ export class ParseObject implements ParseExpr {
   }
 }
 
-export class ParseFrame implements ParseExpr {
-  constructor(private args: ParseArgs, private as: string | null) {}
-  compile(scope: Scope): IRExpr {
-    if (this.as) throw new InvalidFrameArgError()
-    return this.args.frame(scope)
-  }
+export class ParseDestructure implements ParseBinding {
+  constructor(private params: ParseParams, private as: string | null) {}
   letBinding(): ASTLetBinding {
     return {
       tag: "object",
-      params: this.args.destructure(),
+      params: this.params.destructure(),
       as: this.as,
     }
   }
@@ -140,11 +141,27 @@ export class ParseFrame implements ParseExpr {
       scope,
       {
         tag: "object",
-        params: this.args.destructure(),
+        params: this.params.destructure(),
         as: null,
       },
       source
     )
+  }
+  var(scope: Scope, expr: ParseExpr): IRStmt[] {
+    throw new InvalidVarBindingError()
+  }
+  set(scope: Scope, expr: ParseExpr): IRStmt[] {
+    throw new InvalidSetTargetError()
+  }
+  selfBinding(scope: Scope): IRStmt[] {
+    return []
+  }
+}
+
+export class ParseFrame implements ParseExpr {
+  constructor(private args: ParseArgs) {}
+  compile(scope: Scope): IRExpr {
+    return this.args.frame(scope)
   }
 }
 
@@ -195,7 +212,7 @@ export class ParseDoBlock implements ParseExpr {
   constructor(private body: ParseStmt[]) {}
   compile(scope: Scope): IRExpr {
     const expr: ParseExpr = new ParseSend(
-      new ParseFrame(new ArgsBuilder().key(""), null),
+      new ParseFrame(new ArgsBuilder().key("")),
       new ArgsBuilder()
         .pair(
           "",
@@ -246,7 +263,7 @@ export class OnHandler implements ParseHandler {
   addToClass(
     instance: Instance,
     cls: IRClass,
-    selfBinding: ParseExpr | undefined
+    selfBinding: ParseBinding | undefined
   ): void {
     return this.params.addToClass(instance, cls, this.body, selfBinding)
   }
@@ -263,7 +280,7 @@ export class ElseHandler implements ParseHandler {
   addToClass(
     instance: Instance,
     cls: IRClass,
-    selfBinding: ParseExpr | undefined
+    selfBinding: ParseBinding | undefined
   ): void {
     const scope = new BasicScope(instance, new LocalsImpl())
     cls.addElse([
@@ -278,7 +295,7 @@ export class ElseHandler implements ParseHandler {
 
 function compileSelfBinding(
   scope: Scope,
-  binding: ParseExpr | undefined
+  binding: ParseBinding | undefined
 ): IRStmt[] {
   if (binding && binding.selfBinding) {
     return binding.selfBinding(scope)

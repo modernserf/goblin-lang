@@ -1,26 +1,20 @@
 import {
   InvalidImportBindingError,
   InvalidImportSourceError,
-  InvalidLetBindingError,
   InvalidSetTargetError,
   InvalidVarBindingError,
 } from "./error"
 import {
   ASTLetBinding,
-  IRExpr,
   IRStmt,
   ParseArgs,
+  ParseBinding,
   ParseExpr,
   ParseParams,
   ParseStmt,
   Scope,
 } from "./interface"
 import { IRDeferStmt, IRReturnStmt } from "./interpreter"
-
-function letBinding(value: ParseExpr): ASTLetBinding {
-  if (!value.letBinding) throw new InvalidLetBindingError()
-  return value.letBinding()
-}
 
 export class ExprStmt implements ParseStmt {
   constructor(private expr: ParseExpr) {}
@@ -47,7 +41,7 @@ export class ReturnStmt implements ParseStmt {
 }
 
 export class ImportStmt implements ParseStmt {
-  constructor(private binding: ParseExpr, private source: ParseExpr) {}
+  constructor(private binding: ParseBinding, private source: ParseExpr) {}
   compile(scope: Scope): IRStmt[] {
     if (!this.source.importSource) throw new InvalidImportSourceError()
     const source = this.source.importSource(scope)
@@ -71,7 +65,7 @@ export class ProvideStmt implements ParseStmt {
 }
 
 export class VarStmt implements ParseStmt {
-  constructor(private binding: ParseExpr, private expr: ParseExpr) {}
+  constructor(private binding: ParseBinding, private expr: ParseExpr) {}
   compile(scope: Scope): IRStmt[] {
     if (!this.binding.var) throw new InvalidVarBindingError()
     return this.binding.var(scope, this.expr)
@@ -80,18 +74,17 @@ export class VarStmt implements ParseStmt {
 
 export class LetStmt implements ParseStmt {
   constructor(
-    private binding: ParseExpr,
+    private binding: ParseBinding,
     private expr: ParseExpr,
     private hasExport: boolean
   ) {}
   compile(scope: Scope): IRStmt[] {
-    if (!this.binding.let) throw new InvalidLetBindingError()
     const result = this.binding.let(
       scope,
       this.expr.compile(scope, this.binding)
     )
     if (this.hasExport) {
-      this.getExports(scope, letBinding(this.binding))
+      this.getExports(scope, this.binding.letBinding())
     }
 
     return result
@@ -110,7 +103,7 @@ export class LetStmt implements ParseStmt {
 }
 
 export class SetStmt implements ParseStmt {
-  constructor(private binding: ParseExpr, private expr: ParseExpr) {}
+  constructor(private binding: ParseBinding, private expr: ParseExpr) {}
   compile(scope: Scope): IRStmt[] {
     if (!this.binding.set) throw new InvalidSetTargetError()
     return this.binding.set(scope, this.expr)

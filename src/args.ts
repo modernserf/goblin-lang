@@ -1,14 +1,7 @@
 import { ParseIdent, Self } from "./expr"
-import {
-  InvalidDestructuringError,
-  InvalidFrameArgError,
-  InvalidLetBindingError,
-  InvalidProvideBindingError,
-} from "./error"
+import { InvalidFrameArgError, InvalidProvideBindingError } from "./error"
 import { frame } from "./frame"
 import {
-  ASTBindPair,
-  ASTLetBinding,
   IRArg,
   IRExpr,
   IRStmt,
@@ -68,9 +61,6 @@ class KeyArgs implements ParseArgs {
   frame(scope: Scope): IRExpr {
     return frame(this.key, [])
   }
-  destructure(): ASTBindPair[] {
-    throw new InvalidDestructuringError()
-  }
 }
 
 class PairArgs implements ParseArgs {
@@ -105,7 +95,6 @@ class PairArgs implements ParseArgs {
       this.pairs,
       {
         pair(key, arg) {
-          if (!arg.frameArg) throw new InvalidFrameArgError()
           return { key, value: arg.frameArg() }
         },
         build(selector, args) {
@@ -120,15 +109,6 @@ class PairArgs implements ParseArgs {
       }
     )
   }
-  destructure(): ASTBindPair[] {
-    return this.pairs.map((item) => {
-      if (!item.value.destructureArg) throw new InvalidDestructuringError()
-      return {
-        key: item.key,
-        value: item.value.destructureArg(),
-      }
-    })
-  }
 }
 
 export class ValueArg implements ParseArg {
@@ -138,9 +118,6 @@ export class ValueArg implements ParseArg {
   }
   frameArg(): ParseExpr {
     return this.expr
-  }
-  destructureArg(): ASTLetBinding {
-    return letBinding(this.expr)
   }
   provide(scope: Scope, key: string): IRStmt {
     return new IRProvideStmt(key, this.expr.compile(scope))
@@ -154,6 +131,9 @@ export class VarArg implements ParseArg {
   }
   provide(scope: Scope, key: string): IRStmt {
     throw "todo: provide var"
+  }
+  frameArg(): ParseExpr {
+    throw new InvalidFrameArgError()
   }
 }
 
@@ -169,11 +149,9 @@ export class HandlersArg implements ParseArg {
   provide(scope: Scope, key: string): IRStmt {
     throw "todo: provide handler"
   }
-}
-
-function letBinding(value: ParseExpr): ASTLetBinding {
-  if (!value.letBinding) throw new InvalidLetBindingError()
-  return value.letBinding()
+  frameArg(): ParseExpr {
+    throw new InvalidFrameArgError()
+  }
 }
 
 function compileSend(
