@@ -26,3 +26,4 @@ export class NoProviderError {
 export class ArgMismatchError {
   constructor(readonly paramType: string, readonly argType: string) {}
 }
+export class NoMatchError {}
