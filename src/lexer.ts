@@ -5,6 +5,7 @@ export type Token =
   | { tag: "identifier"; value: string }
   | { tag: "quotedIdent"; value: string }
   | { tag: "operator"; value: string }
+  | { tag: "placeholder" }
   | { tag: "self" }
   | { tag: "let" }
   | { tag: "return" }
@@ -39,7 +40,7 @@ const re = {
   integer: /[0-9][0-9_]*/y,
   float: /\.[0-9_]+/y,
   string: /"(?:\\"|[^"])*"/y,
-  identKw: /[a-zA-Z][a-zA-Z0-9']*/y,
+  identKw: /[a-zA-Z][a-zA-Z0-9'_]*/y,
   identUnderscore: /_(?:\\_|[^_])*_/y,
   operator: /[-~!@$%^&*+|<>,/=]+/y,
   punctuation: /:=|[\[\]\(\)\{\}:;?]/y,
@@ -132,10 +133,9 @@ export class Lexer {
 
     const identU = this.callRe(re.identUnderscore)
     if (identU) {
-      return {
-        tag: "quotedIdent",
-        value: identU.value.slice(1, -1).replace(/\s+/g, " "),
-      }
+      const value = identU.value.slice(1, -1)
+      if (!value) return { tag: "placeholder" }
+      return { tag: "quotedIdent", value }
     }
 
     const op = this.callRe(re.operator)

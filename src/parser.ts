@@ -20,6 +20,7 @@ import {
   ParseBinaryOp,
   ParseTrySend,
   ParseDestructure,
+  ParsePlaceholder,
 } from "./expr"
 import {
   VarParam,
@@ -115,6 +116,9 @@ function ident(lexer: Lexer): string {
     case "quotedIdent":
       lexer.advance()
       return token.value
+    case "placeholder":
+      lexer.advance()
+      return ""
   }
   throw new ParseError("identifier", token.tag)
 }
@@ -208,6 +212,9 @@ function parseBinding(lexer: Lexer): ParseBinding | null {
     case "quotedIdent":
       lexer.advance()
       return new ParseIdent(token.value)
+    case "placeholder":
+      lexer.advance()
+      return ParsePlaceholder
     case "openBracket": {
       lexer.advance()
       const params = parsePattern(lexer, param, new ParamsBuilder())

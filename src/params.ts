@@ -351,6 +351,12 @@ export class VarParam implements ParseParam {
     })
     return []
   }
+  // TODO: provide{x: var x} should remove x from parent scope
+  // using{x: var x} should remove x from subsequent contexts
+  // same ownership applies to provide/using do blocks
+  //
+  // Also, should be ways to remove arbitrary items & completely clear context
+  // maybe: `using{x: take x}`, `provide{clear}`
   /* istanbul ignore next */
   using(scope: Scope): IRStmt[] {
     throw "todo: using var param"
@@ -374,6 +380,7 @@ export class DoParam implements ParseParam {
   readonly defaultValue = null
   constructor(private key: string) {}
   handler(scope: Scope, offset: number): IRStmt[] {
+    if (!this.key) return []
     scope.locals.set(this.key, {
       index: offset,
       type: "do",

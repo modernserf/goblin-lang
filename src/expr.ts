@@ -111,6 +111,30 @@ export class ParseIdent implements ParseExpr, ParseBinding {
   }
 }
 
+export const ParsePlaceholder: ParseBinding = {
+  let(scope, value) {
+    return []
+  },
+  import(scope, source) {
+    throw new InvalidImportBindingError()
+  },
+  var() {
+    throw new InvalidVarBindingError()
+  },
+  set() {
+    throw new InvalidSetTargetError()
+  },
+  selfBinding() {
+    return []
+  },
+  export(scope) {
+    throw new Error("invalid export")
+  },
+  handler() {
+    return []
+  },
+}
+
 export class ParseDestructure implements ParseBinding {
   constructor(private params: ParseParams, private as: string | null) {}
   let(scope: Scope, value: IRExpr): IRStmt[] {
