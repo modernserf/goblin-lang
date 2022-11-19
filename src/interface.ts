@@ -19,8 +19,19 @@ export interface ParseBinding {
   import(scope: Scope, source: IRExpr): IRStmt[]
 }
 
+export interface PartialHandler {
+  cond: ParseExpr
+  ifTrue: ParseStmt[]
+}
 export interface IRClassBuilder {
-  add(selector: string, handler: IRHandler): this
+  addPartial(selector: string, partial: PartialHandler): this
+  addFinal(
+    selector: string,
+    scope: Scope,
+    params: IRParam[],
+    head: IRStmt[],
+    body: ParseStmt[]
+  ): this
   addElse(body: IRStmt[]): this
 }
 export interface IRBlockClassBuilder {

@@ -1,5 +1,10 @@
-import { ParseIdent } from "./expr"
-import { InvalidDestructuringError, InvalidProvideBindingError } from "./error"
+import { ParseIdent, ParseIf } from "./expr"
+import {
+  DuplicateElseHandlerError,
+  DuplicateHandlerError,
+  InvalidDestructuringError,
+  InvalidProvideBindingError,
+} from "./error"
 import {
   Instance,
   IRExpr,
@@ -12,17 +17,41 @@ import {
   ParseStmt,
   PatternBuilder,
   Scope,
-  IRBlockClassBuilder,
   IRClassBuilder,
 } from "./interface"
-import { IRObjectHandler, IRSendExpr, IRUseExpr } from "./ir"
+import {
+  IRElseBlockHandler,
+  IRObjectHandler,
+  IROnBlockHandler,
+  IRSendExpr,
+  IRUseExpr,
+} from "./ir"
 import { build } from "./message-builder"
 import { LetStmt } from "./stmt"
 import { BasicScope, LocalsImpl } from "./scope"
+import { IRBlockClass } from "./value"
 
 class InvalidParamsError {}
 
 type Pair = { key: string; value: ParseParam }
+
+class IRBlockClassBuilder extends IRBlockClass {
+  add(
+    selector: string,
+    offset: number,
+    params: IRParam[],
+    body: IRStmt[]
+  ): this {
+    if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
+    this.handlers.set(selector, new IROnBlockHandler(offset, params, body))
+    return this
+  }
+  addElse(body: IRStmt[]): this {
+    if (this.elseHandler) throw new DuplicateElseHandlerError()
+    this.elseHandler = new IRElseBlockHandler(body)
+    return this
+  }
+}
 
 export class ParamsBuilder implements PatternBuilder<ParseParam, ParseParams> {
   private pairs: Pair[] = []
@@ -56,15 +85,12 @@ class KeyParams implements ParseParams {
     selfBinding: ParseBinding | undefined
   ): void {
     const scope = new BasicScope(instance, new LocalsImpl())
-    cls.add(
+    cls.addFinal(
       this.key,
-      new IRObjectHandler(
-        [],
-        [
-          ...compileSelfBinding(scope, selfBinding),
-          ...body.flatMap((stmt) => stmt.compile(scope)),
-        ]
-      )
+      scope,
+      [],
+      compileSelfBinding(scope, selfBinding),
+      body
     )
   }
   addToBlockClass(
@@ -135,19 +161,18 @@ class PairParams implements ParseParams {
         build(selector, params) {
           const scope = new BasicScope(instance, new LocalsImpl(params.length))
 
-          cls.add(
+          cls.addFinal(
             selector,
-            new IRObjectHandler(
-              params.map((p) => p.toIR()),
-              [
-                ...compileSelfBinding(scope, selfBinding),
-                ...params.flatMap((p, i) => p.handler(scope, i)),
-                ...bindings.flatMap(({ binding, value }) =>
-                  new LetStmt(binding, value, false).compile(scope)
-                ),
-                ...body.flatMap((s) => s.compile(scope)),
-              ]
-            )
+            scope,
+            params.map((p) => p.toIR()),
+            [
+              ...compileSelfBinding(scope, selfBinding),
+              ...params.flatMap((p, i) => p.handler(scope, i)),
+              ...bindings.flatMap(({ binding, value }) =>
+                new LetStmt(binding, value, false).compile(scope)
+              ),
+            ],
+            body
           )
         },
       })
