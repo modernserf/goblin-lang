@@ -18,11 +18,12 @@ import {
   PatternBuilder,
   Scope,
   IRClassBuilder,
+  PartialHandler,
+  PartialParseParam,
 } from "./interface"
 import {
   IRElseBlockHandler,
   IRLocalExpr,
-  IRObjectHandler,
   IROnBlockHandler,
   IRSendExpr,
   IRUseExpr,
@@ -147,11 +148,27 @@ function expandDefaultParams(pairs: Pair[]): ParamWithBindings[] {
   return out
 }
 
-function buildCond(params: ParseParam[]) {
-  params.flatMap((param) => {
-    if (param.cond) {
+class ParseLocal implements ParseExpr {
+  constructor(private index: number) {}
+  compile(): IRExpr {
+    return new IRLocalExpr(this.index)
+  }
+}
+
+function condParams(
+  params: ParseParam[],
+  body: ParseStmt[]
+): PartialHandler | null {
+  return params.reduceRight((coll: PartialHandler | null, param, index) => {
+    if (!param.cond) return coll
+    const p = param as PartialParseParam
+    return {
+      cond: (ifFalse) => {
+        const ifTrue = coll ? coll.cond(ifFalse) : body
+        return p.cond(new ParseLocal(index), ifTrue, ifFalse)
+      },
     }
-  })
+  }, null)
 }
 
 class PairParams implements ParseParams {
@@ -170,20 +187,9 @@ class PairParams implements ParseParams {
         build(selector, params) {
           const scope = new BasicScope(instance, new LocalsImpl(params.length))
 
-          if (params[0] && params[0].cond) {
-            const param = params[0]
-            cls.addPartial(selector, {
-              cond: (ifFalse) =>
-                param.cond?.(
-                  {
-                    compile() {
-                      return new IRLocalExpr(0)
-                    },
-                  },
-                  body,
-                  ifFalse
-                )!,
-            })
+          const partial = condParams(params, body)
+          if (partial) {
+            cls.addPartial(selector, partial)
           } else {
             cls.addFinal(
               selector,

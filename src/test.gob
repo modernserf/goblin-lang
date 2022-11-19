@@ -544,3 +544,17 @@ Assert{
   expected: "10 items"
 }
 
+let obj := [
+  on {x: 0 y: 0}
+    "at origin"
+  on {x: 0 y: __}
+    "on y axis"
+  on {x: __ y: 0}
+    "on x axis"
+  on {x: __ y: __}
+    "elsewhere"
+]
+Assert{received: obj{x: 1 y: 2}  expected: "elsewhere"}
+Assert{received: obj{x: 0 y: 0}  expected: "at origin"}
+Assert{received: obj{x: 1 y: 0}  expected: "on x axis"}
+Assert{received: obj{x: 0 y: 2}  expected: "on y axis"}

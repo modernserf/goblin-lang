@@ -96,6 +96,10 @@ export interface ParseParam {
   import(scope: Scope, key: string, source: IRExpr): IRStmt[]
 }
 
+export interface PartialParseParam {
+  cond(arg: ParseExpr, ifTrue: ParseStmt[], ifFalse: ParseStmt[]): ParseStmt[]
+}
+
 // compile
 export interface Instance {
   lookup(key: string): IRExpr

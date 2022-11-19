@@ -11,15 +11,48 @@ import {
   IRHandler,
   IRParam,
   IRStmt,
+  ParseStmt,
+  PartialHandler,
+  Scope,
   Value,
 } from "./interface"
 import { IRClass, IRBlockClass, DoValue, ObjectValue, unit } from "./value"
 
 export class IRClassBuilder {
+  private partials = new Map<string, PartialHandler[]>()
   constructor(
     protected handlers: Map<string, IRHandler> = new Map(),
     protected elseHandler: IRHandler | null = null
   ) {}
+  addPartial(selector: string, partial: PartialHandler): this {
+    const arr = this.partials.get(selector) || []
+    arr.push(partial)
+    this.partials.set(selector, arr)
+    return this
+  }
+  addFinal(
+    selector: string,
+    scope: Scope,
+    params: IRParam[],
+    head: IRStmt[],
+    body: ParseStmt[]
+  ): this {
+    if (this.handlers.has(selector)) {
+      throw new DuplicateHandlerError(selector)
+    }
+    const partials = this.partials.get(selector) || []
+    this.partials.delete(selector)
+
+    const fullBody = partials
+      .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
+      .flatMap((p) => p.compile(scope))
+
+    this.handlers.set(
+      selector,
+      new IRObjectHandler(params, [...head, ...fullBody])
+    )
+    return this
+  }
   add(selector: string, handler: IRHandler): this {
     if (this.handlers.has(selector)) {
       throw new DuplicateHandlerError(selector)

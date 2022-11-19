@@ -1,7 +1,5 @@
 import { ArgsBuilder, HandlersArg, ValueArg } from "./args"
 import {
-  DuplicateElseHandlerError,
-  DuplicateHandlerError,
   InvalidImportBindingError,
   InvalidSetTargetError,
   InvalidVarBindingError,
@@ -9,8 +7,6 @@ import {
 import {
   Instance,
   IRExpr,
-  IRHandler,
-  IRParam,
   IRStmt,
   ParseArgs,
   ParseBinding,
@@ -18,24 +14,21 @@ import {
   ParseHandler,
   ParseParams,
   ParseStmt,
-  PartialHandler,
   Scope,
   ScopeRecord,
 } from "./interface"
 import {
   IRAssignStmt,
+  IRClassBuilder,
   IRBlockClassBuilder as IRBlockClass,
-  IRElseHandler,
   IRLocalExpr,
   IRModuleExpr,
-  IRObjectHandler,
 } from "./ir"
-import { IRClass, PrimitiveValue, unit } from "./value"
+import { PrimitiveValue, unit } from "./value"
 import { constObject } from "./optimize"
 import { ParamsBuilder } from "./params"
 import { floatClass, intClass, stringClass } from "./primitive"
 import { BasicScope, LocalsImpl, ObjectInstance } from "./scope"
-import { ExprStmt } from "./stmt"
 
 export const Self: ParseExpr = {
   compile(scope) {
@@ -176,55 +169,6 @@ export class ParseParens implements ParseExpr {
   constructor(private expr: ParseExpr) {}
   compile(scope: Scope): IRExpr {
     return this.expr.compile(scope)
-  }
-}
-
-class IRClassBuilder {
-  private partials = new Map<string, PartialHandler[]>()
-  private handlers: Map<string, IRHandler> = new Map()
-  private elseHandler: IRHandler | null = null
-  addPartial(selector: string, partial: PartialHandler): this {
-    const arr = this.partials.get(selector) || []
-    arr.push(partial)
-    this.partials.set(selector, arr)
-    return this
-  }
-  addFinal(
-    selector: string,
-    scope: Scope,
-    params: IRParam[],
-    head: IRStmt[],
-    body: ParseStmt[]
-  ): this {
-    if (this.handlers.has(selector)) {
-      throw new DuplicateHandlerError(selector)
-    }
-    const partials = this.partials.get(selector) || []
-    this.partials.delete(selector)
-
-    const fullBody = partials
-      .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
-      .flatMap((p) => p.compile(scope))
-
-    this.handlers.set(
-      selector,
-      new IRObjectHandler(params, [...head, ...fullBody])
-    )
-    return this
-  }
-  addElse(body: IRStmt[]): this {
-    if (this.elseHandler) {
-      throw new DuplicateElseHandlerError()
-    }
-    this.elseHandler = new IRElseHandler(body)
-    return this
-  }
-  build(): IRClass {
-    if (this.partials.size) {
-      throw "todo: allow partials with no finals"
-    }
-
-    return new IRClass(this.handlers, this.elseHandler)
   }
 }
 
