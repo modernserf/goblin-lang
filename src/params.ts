@@ -1,4 +1,4 @@
-import { ParseIdent, ParseIf } from "./expr"
+import { ParseIdent, ParseIf, ParseSend } from "./expr"
 import {
   DuplicateElseHandlerError,
   DuplicateHandlerError,
@@ -21,15 +21,17 @@ import {
 } from "./interface"
 import {
   IRElseBlockHandler,
+  IRLocalExpr,
   IRObjectHandler,
   IROnBlockHandler,
   IRSendExpr,
   IRUseExpr,
 } from "./ir"
 import { build } from "./message-builder"
-import { LetStmt } from "./stmt"
+import { ExprStmt, LetStmt } from "./stmt"
 import { BasicScope, LocalsImpl } from "./scope"
 import { IRBlockClass } from "./value"
+import { ArgsBuilder, ValueArg } from "./args"
 
 class InvalidParamsError {}
 
@@ -145,6 +147,13 @@ function expandDefaultParams(pairs: Pair[]): ParamWithBindings[] {
   return out
 }
 
+function buildCond(params: ParseParam[]) {
+  params.flatMap((param) => {
+    if (param.cond) {
+    }
+  })
+}
+
 class PairParams implements ParseParams {
   constructor(private pairs: Pair[]) {}
   addToClass(
@@ -161,19 +170,35 @@ class PairParams implements ParseParams {
         build(selector, params) {
           const scope = new BasicScope(instance, new LocalsImpl(params.length))
 
-          cls.addFinal(
-            selector,
-            scope,
-            params.map((p) => p.toIR()),
-            [
-              ...compileSelfBinding(scope, selfBinding),
-              ...params.flatMap((p, i) => p.handler(scope, i)),
-              ...bindings.flatMap(({ binding, value }) =>
-                new LetStmt(binding, value, false).compile(scope)
-              ),
-            ],
-            body
-          )
+          if (params[0] && params[0].cond) {
+            const param = params[0]
+            cls.addPartial(selector, {
+              cond: (ifFalse) =>
+                param.cond?.(
+                  {
+                    compile() {
+                      return new IRLocalExpr(0)
+                    },
+                  },
+                  body,
+                  ifFalse
+                )!,
+            })
+          } else {
+            cls.addFinal(
+              selector,
+              scope,
+              params.map((p) => p.toIR()),
+              [
+                ...compileSelfBinding(scope, selfBinding),
+                ...params.flatMap((p, i) => p.handler(scope, i)),
+                ...bindings.flatMap(({ binding, value }) =>
+                  new LetStmt(binding, value, false).compile(scope)
+                ),
+              ],
+              body
+            )
+          }
         },
       })
     }
@@ -261,6 +286,36 @@ export class DefaultValueParam implements ParseParam {
   /* istanbul ignore next */
   let(scope: Scope, key: string, value: IRExpr): IRStmt[] {
     throw "todo: default params in let bindings"
+  }
+}
+
+export class PartialValueParam implements ParseParam {
+  constructor(private value: ParseExpr) {}
+  cond(arg: ParseExpr, ifTrue: ParseStmt[], ifFalse: ParseStmt[]): ParseStmt[] {
+    const cond = new ParseSend(
+      this.value,
+      new ArgsBuilder().pair("=", new ValueArg(arg)).build()
+    )
+    return [new ExprStmt(new ParseIf(cond, ifTrue, ifFalse))]
+  }
+  handler(scope: Scope, offset: number): IRStmt[] {
+    return []
+  }
+  using(scope: Scope, key: string): IRStmt[] {
+    throw "todo: partial using"
+  }
+  toIR(): IRParam {
+    return { tag: "value" }
+  }
+  /* istanbul ignore next */
+  export(): void {
+    throw new Error("unreachable")
+  }
+  import(): IRStmt[] {
+    throw new InvalidDestructuringError()
+  }
+  let(): IRStmt[] {
+    throw new InvalidDestructuringError()
   }
 }
 

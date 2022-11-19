@@ -20,9 +20,9 @@ export interface ParseBinding {
 }
 
 export interface PartialHandler {
-  cond: ParseExpr
-  ifTrue: ParseStmt[]
+  cond(ifFalse: ParseStmt[]): ParseStmt[]
 }
+
 export interface IRClassBuilder {
   addPartial(selector: string, partial: PartialHandler): this
   addFinal(
@@ -87,6 +87,7 @@ export interface ParseParams {
 
 export interface ParseParam {
   toIR(): IRParam
+  cond?(arg: ParseExpr, ifTrue: ParseStmt[], ifFalse: ParseStmt[]): ParseStmt[]
   handler(scope: Scope, offset: number): IRStmt[]
   defaultPair?(): { binding: ParseBinding; value: ParseExpr }
   using(scope: Scope, key: string): IRStmt[]

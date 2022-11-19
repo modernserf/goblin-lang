@@ -521,3 +521,26 @@ Assert{
   received: ego{sent: "any"}{sequence}{of: [message]}
   expected: ego
 }
+
+# partial handlers
+let obj := [
+  on {count: 0}
+    "no items"
+  on {count: 1}
+    "1 item"
+  on {count: n}
+    n{to String} ++ " items"
+]
+Assert{
+  received: obj{count: 0}
+  expected: "no items"
+}
+Assert{
+  received: obj{count: 1}
+  expected: "1 item"
+}
+Assert{
+  received: obj{count: 10}
+  expected: "10 items"
+}
+

@@ -179,11 +179,7 @@ class IRClassBuilder {
     this.partials.delete(selector)
 
     const fullBody = partials
-      .reduceRight((ifFalse, partial) => {
-        return [
-          new ExprStmt(new ParseIf(partial.cond, partial.ifTrue, ifFalse)),
-        ]
-      }, body)
+      .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
       .flatMap((p) => p.compile(scope))
 
     this.handlers.set(

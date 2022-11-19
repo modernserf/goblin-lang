@@ -129,6 +129,9 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive(">=:", (self, [arg], ctx) => {
     return numericCompare(self, arg, (a, b) => a >= b)
   })
+  .addPrimitive("to String", (self) => {
+    return new PrimitiveValue(stringClass, String(self))
+  })
   .addPrimitive(
     "js debug",
     /* istanbul ignore next */ (self) => {

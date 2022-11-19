@@ -27,6 +27,7 @@ import {
   ValueParam,
   DefaultValueParam,
   ParamsBuilder,
+  PartialValueParam,
 } from "./params"
 import { VarArg, HandlersArg, ValueArg, ArgsBuilder } from "./args"
 import {
@@ -68,7 +69,20 @@ function param(lexer: Lexer): ParseParam {
     case "do":
       lexer.advance()
       return new DoParam(ident(lexer))
-    // TODO: refutable bindings
+    case "string":
+      lexer.advance()
+      return new PartialValueParam(new ParseString(token.value))
+    case "integer":
+      lexer.advance()
+      return new PartialValueParam(new ParseInt(token.value))
+    case "float":
+      lexer.advance()
+      return new PartialValueParam(new ParseFloat(token.value))
+    case "openParen":
+      lexer.advance()
+      const expr = must(lexer, "expr", parseExpr)
+      mustToken(lexer, "closeParen")
+      return new PartialValueParam(expr)
     default:
       const value = must(lexer, "binding", parseBinding)
       if (accept(lexer, "colonEquals")) {
