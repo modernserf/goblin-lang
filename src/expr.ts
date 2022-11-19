@@ -19,13 +19,12 @@ import {
 } from "./interface"
 import {
   IRAssignStmt,
-  IRBlockClass,
-  IRClass,
+  IRBlockClassBuilder as IRBlockClass,
+  IRClassBuilder as IRClass,
   IRLocalExpr,
   IRModuleExpr,
-  PrimitiveValue,
-  unit,
-} from "./interpreter"
+} from "./ir"
+import { PrimitiveValue, unit } from "./value"
 import { constObject } from "./optimize"
 import { ParamsBuilder } from "./params"
 import { floatClass, intClass, stringClass } from "./primitive"

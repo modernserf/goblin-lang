@@ -1,11 +1,7 @@
 const test = require("node:test")
 import assert from "node:assert/strict"
 import { run } from "./index"
-import {
-  ArgMismatchError,
-  NoHandlerError,
-  NoProviderError,
-} from "./interpreter"
+import { ArgMismatchError, NoHandlerError, NoProviderError } from "./error"
 
 test("panic", () => {
   assert.throws(() => {

@@ -4,7 +4,8 @@ import { program as parse } from "./parser"
 import { coreModule } from "./compiler"
 
 import { readFileSync } from "fs"
-import { IRClass, ObjectValue, PrimitiveValue, unit } from "./interpreter"
+import { ObjectValue, PrimitiveValue, unit } from "./value"
+import { IRClassBuilder as IRClass } from "./ir"
 import {
   intClass,
   intValue,
@@ -13,7 +14,7 @@ import {
   falseVal,
   boolValue,
 } from "./primitive"
-import { IRStmt, Value } from "./interface"
+import { IRStmt } from "./interface"
 
 const cellInstance = new IRClass()
   .addPrimitive("get", (self) => self.value)

@@ -12,7 +12,7 @@ import {
   ParseStmt,
   Scope,
 } from "./interface"
-import { IRDeferStmt, IRReturnStmt } from "./interpreter"
+import { IRDeferStmt, IRReturnStmt } from "./ir"
 
 export class ExprStmt implements ParseStmt {
   constructor(private expr: ParseExpr) {}

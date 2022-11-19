@@ -1,5 +1,6 @@
 import { IRExpr, Value } from "./interface"
-import { IRClass, IRObjectExpr, ObjectValue } from "./interpreter"
+import { IRObjectExpr } from "./ir"
+import { IRClass, ObjectValue } from "./value"
 
 export function constObject(cls: IRClass, ivars: IRExpr[]): IRExpr {
   const constIvars: Value[] = []

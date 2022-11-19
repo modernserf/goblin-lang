@@ -14,7 +14,6 @@ import {
   VarDoubleBorrowError,
 } from "./scope"
 import { program } from "./compiler"
-import { NoHandlerError } from "./interpreter"
 import {
   DuplicateElseHandlerError,
   DuplicateHandlerError,
@@ -27,6 +26,7 @@ import {
   InvalidSetTargetError,
   InvalidVarBindingError,
   RedundantTrySendError,
+  NoHandlerError,
 } from "./error"
 
 export function compile(source: string) {

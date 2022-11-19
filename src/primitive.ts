@@ -1,5 +1,6 @@
 import { Value } from "./interface"
-import { IRClass, unit, PrimitiveValue } from "./interpreter"
+import { unit, PrimitiveValue } from "./value"
+import { IRClassBuilder as IRClass } from "./ir"
 
 export class PrimitiveTypeError {
   constructor(readonly expected: string) {}

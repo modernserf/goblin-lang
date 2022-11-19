@@ -1,6 +1,6 @@
 import { IRExpr } from "./interface"
 import {
-  IRClass,
+  IRClassBuilder as IRClass,
   IRIvarExpr,
   IRLocalExpr,
   IRObjectExpr,
@@ -8,7 +8,7 @@ import {
   IRSendDirectExpr,
   IRSendExpr,
   IRValueArg,
-} from "./interpreter"
+} from "./ir"
 import { constObject } from "./optimize"
 
 const $0: IRExpr = new IRLocalExpr(0)

@@ -1,9 +1,5 @@
 import { ParseIdent } from "./expr"
-import {
-  InvalidDestructuringError,
-  InvalidLetBindingError,
-  InvalidProvideBindingError,
-} from "./error"
+import { InvalidDestructuringError, InvalidProvideBindingError } from "./error"
 import {
   Instance,
   IRExpr,
@@ -18,12 +14,12 @@ import {
   Scope,
 } from "./interface"
 import {
-  IRBlockClass,
-  IRClass,
+  IRBlockClassBuilder as IRBlockClass,
+  IRClassBuilder as IRClass,
   IRObjectHandler,
   IRSendExpr,
   IRUseExpr,
-} from "./interpreter"
+} from "./ir"
 import { build } from "./message-builder"
 import { LetStmt } from "./stmt"
 import { BasicScope, LocalsImpl } from "./scope"

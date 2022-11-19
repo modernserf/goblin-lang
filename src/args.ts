@@ -17,7 +17,7 @@ import {
   Scope,
 } from "./interface"
 import {
-  IRBlockClass,
+  IRBlockClassBuilder as IRBlockClass,
   IRDoArg,
   IRProvideStmt,
   IRSelfExpr,
@@ -26,7 +26,7 @@ import {
   IRTrySendExpr,
   IRValueArg,
   IRVarArg,
-} from "./interpreter"
+} from "./ir"
 import { SendScope } from "./scope"
 import { build } from "./message-builder"
 

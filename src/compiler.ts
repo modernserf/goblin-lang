@@ -1,7 +1,6 @@
-import { IRExpr, ParseStmt } from "./interface"
-import { IRAssignStmt } from "./interpreter"
+import { IRStmt, IRExpr, ParseStmt } from "./interface"
+import { IRAssignStmt } from "./ir"
 import { RootScope } from "./scope"
-import { IRStmt } from "./interface"
 
 export function coreModule(stmts: ParseStmt[], nativeValue: IRExpr): IRStmt[] {
   const scope = new RootScope()
