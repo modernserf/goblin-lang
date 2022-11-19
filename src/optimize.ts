@@ -1,16 +1,12 @@
 import { IRExpr, Value } from "./interface"
-import {
-  IRClass,
-  IRObjectExpr,
-  ObjectValue,
-  PrimitiveValue,
-} from "./interpreter"
+import { IRClass, IRObjectExpr, ObjectValue } from "./interpreter"
 
 export function constObject(cls: IRClass, ivars: IRExpr[]): IRExpr {
   const constIvars: Value[] = []
   for (const ivar of ivars) {
-    if (ivar instanceof PrimitiveValue || ivar instanceof ObjectValue) {
-      constIvars.push(ivar)
+    const value = ivar.const?.()
+    if (value) {
+      constIvars.push(value)
     } else {
       return new IRObjectExpr(cls, ivars)
     }

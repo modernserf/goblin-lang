@@ -132,7 +132,6 @@ export interface Value {
     orElse: IRExpr
   ): Value
   instanceof(cls: unknown): boolean
-  // eval(ctx: Interpreter): Value
 }
 export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "do" }
 
@@ -147,6 +146,7 @@ export interface IRBlockHandler {
 }
 export interface IRExpr {
   eval(ctx: Interpreter): Value
+  const?(): Value | null
 }
 
 export interface IRArg {

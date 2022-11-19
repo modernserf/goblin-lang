@@ -124,7 +124,7 @@ export class ParseDestructure implements ParseBinding {
   }
   /* istanbul ignore next */
   set(scope: Scope, expr: ParseExpr): IRStmt[] {
-    throw new InvalidSetTargetError()
+    throw new Error("unreachable")
   }
   selfBinding(scope: Scope): IRStmt[] {
     return []

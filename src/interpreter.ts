@@ -90,6 +90,9 @@ export class ObjectValue implements Value, IRExpr, IRStmt {
   eval(ctx: Interpreter): Value {
     return this
   }
+  const(): Value {
+    return this
+  }
 }
 
 export class PrimitiveValue implements Value, IRExpr, IRStmt {
@@ -118,6 +121,9 @@ export class PrimitiveValue implements Value, IRExpr, IRStmt {
   eval(ctx: Interpreter): Value {
     return this
   }
+  const(): Value {
+    return this
+  }
 }
 
 export class DoValue implements Value {
@@ -143,7 +149,11 @@ export class DoValue implements Value {
   }
   /* istanbul ignore next */
   instanceof(cls: IRClass): boolean {
-    return false
+    throw new Error("unreachable")
+  }
+  /* istanbul ignore next */
+  const(): Value {
+    throw new Error("unreachable")
   }
 }
 
