@@ -1,10 +1,5 @@
-import { ParseIdent, ParseIf, ParseSend } from "./expr"
-import {
-  DuplicateElseHandlerError,
-  DuplicateHandlerError,
-  InvalidDestructuringError,
-  InvalidProvideBindingError,
-} from "./error"
+import { ElseHandler, OnHandler, ParseIdent, ParseIf, ParseSend } from "./expr"
+import { InvalidDestructuringError, InvalidProvideBindingError } from "./error"
 import {
   Instance,
   IRExpr,
@@ -22,18 +17,11 @@ import {
   PartialHandler,
   PartialParseParam,
 } from "./interface"
-import {
-  IRElseBlockHandler,
-  IRLocalExpr,
-  IROnBlockHandler,
-  IRSendExpr,
-  IRUseExpr,
-} from "./ir"
+import { IRLocalExpr, IRSendExpr, IRUseExpr } from "./ir"
 import { build } from "./message-builder"
 import { ExprStmt, LetStmt } from "./stmt"
 import { BasicScope, LocalsImpl } from "./scope"
-import { IRBlockClass } from "./value"
-import { ArgsBuilder, ValueArg } from "./args"
+import { ArgsBuilder, HandlersArg, ValueArg } from "./args"
 
 class InvalidParamsError {}
 
@@ -279,7 +267,45 @@ export class DefaultValueParam implements ParseParam {
   }
 }
 
-export class PartialValueParam implements ParseParam {
+export class PartialPatternParam implements ParseParam, PartialParseParam {
+  constructor(private params: ParseParams) {}
+  cond(arg: ParseExpr, ifTrue: ParseStmt[], ifFalse: ParseStmt[]): ParseStmt[] {
+    const send = new ParseSend(
+      arg,
+      new ArgsBuilder()
+        .pair(
+          "",
+          new HandlersArg([
+            new OnHandler(this.params, ifTrue),
+            new ElseHandler(ifFalse),
+          ])
+        )
+        .build()
+    )
+    return [new ExprStmt(send)]
+  }
+  handler(scope: Scope, offset: number): IRStmt[] {
+    return []
+  }
+  using(scope: Scope, key: string): IRStmt[] {
+    throw "todo: partial using"
+  }
+  toIR(): IRParam {
+    return { tag: "value" }
+  }
+  /* istanbul ignore next */
+  export(): void {
+    throw new Error("unreachable")
+  }
+  import(): IRStmt[] {
+    throw new InvalidDestructuringError()
+  }
+  let(): IRStmt[] {
+    throw new InvalidDestructuringError()
+  }
+}
+
+export class PartialValueParam implements ParseParam, PartialParseParam {
   constructor(private value: ParseExpr) {}
   cond(arg: ParseExpr, ifTrue: ParseStmt[], ifFalse: ParseStmt[]): ParseStmt[] {
     const cond = new ParseSend(

@@ -174,17 +174,6 @@ test("imports", () => {
   }, InvalidImportSourceError)
 })
 
-test("todo: sub-pattern", () => {
-  assert.throws(() => {
-    compile(`
-      let obj := [
-        on {foo: {bar: baz}}
-          baz
-      ]
-    `)
-  })
-})
-
 test("default values", () => {
   assert.throws(() => {
     compile(`

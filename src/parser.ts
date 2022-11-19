@@ -29,6 +29,7 @@ import {
   DefaultValueParam,
   ParamsBuilder,
   PartialValueParam,
+  PartialPatternParam,
 } from "./params"
 import { VarArg, HandlersArg, ValueArg, ArgsBuilder } from "./args"
 import {
@@ -84,6 +85,11 @@ function param(lexer: Lexer): ParseParam {
       const expr = must(lexer, "expr", parseExpr)
       mustToken(lexer, "closeParen")
       return new PartialValueParam(expr)
+    case "openBrace":
+      lexer.advance()
+      const params = parsePattern(lexer, param, new ParamsBuilder())
+      mustToken(lexer, "closeBrace")
+      return new PartialPatternParam(params)
     default:
       const value = must(lexer, "binding", parseBinding)
       if (accept(lexer, "colonEquals")) {

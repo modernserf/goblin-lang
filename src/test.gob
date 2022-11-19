@@ -577,3 +577,20 @@ Assert{received: obj{x: 1 y: 2}  expected: "elsewhere"}
 Assert{received: obj{x: 0 y: 0}  expected: "at origin"}
 Assert{received: obj{x: 1 y: 0}  expected: "on x axis"}
 Assert{received: obj{x: 0 y: 2}  expected: "on y axis"}
+
+# partial patterns
+let optAdd := [
+  on {l: {some: l} r: {some: r}}
+    [some: l + r]
+  on {l: __ r: __ }
+    [none]
+]
+
+Assert{
+  received: optAdd{l: [some: 1] r: [some: 2]}
+  expected: [some: 3]
+}
+Assert{
+  received: optAdd{l: [some: 1] r: [none]}
+  expected: [none]
+}
