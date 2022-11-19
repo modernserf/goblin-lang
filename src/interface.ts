@@ -1,7 +1,6 @@
 // parse
 export interface ParseStmt {
   compile(scope: Scope): IRStmt[]
-  unwrap?(): ParseExpr
 }
 
 export interface ParseExpr {

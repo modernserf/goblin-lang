@@ -29,7 +29,6 @@ import { constObject } from "./optimize"
 import { ParamsBuilder } from "./params"
 import { floatClass, intClass, stringClass } from "./primitive"
 import { BasicScope, LocalsImpl, ObjectInstance } from "./scope"
-import { ExprStmt } from "./stmt"
 
 export const Self: ParseExpr = {
   compile(scope) {
@@ -230,33 +229,25 @@ export class ParseDoBlock implements ParseExpr {
   }
 }
 
-type ParseCond = { value: ParseExpr; body: ParseStmt[] }
-
-export class ParseIf implements ParseExpr {
-  constructor(private conds: ParseCond[], private elseBody: ParseStmt[]) {}
+export class ParseIf {
+  constructor(
+    private cond: ParseExpr,
+    private ifTrue: ParseStmt[],
+    private ifFalse: ParseStmt[]
+  ) {}
   compile(scope: Scope): IRExpr {
-    const res: ParseStmt[] = this.conds.reduceRight((falseBlock, cond) => {
-      const trueBlock = cond.body
-      const send = new ParseSend(
-        cond.value,
-        new ArgsBuilder()
-          .pair(
-            "",
-            new HandlersArg([
-              new OnHandler(new ParamsBuilder().key("true"), trueBlock),
-              new OnHandler(new ParamsBuilder().key("false"), falseBlock),
-            ])
-          )
-          .build()
-      )
-
-      return [new ExprStmt(send)]
-    }, this.elseBody)
-    if (res[0] && res[0].unwrap) {
-      return res[0].unwrap().compile(scope)
-    }
-    /* istanbul ignore next */
-    throw new Error("unreachable")
+    return new ParseSend(
+      this.cond,
+      new ArgsBuilder()
+        .pair(
+          "",
+          new HandlersArg([
+            new OnHandler(new ParamsBuilder().key("true"), this.ifTrue),
+            new OnHandler(new ParamsBuilder().key("false"), this.ifFalse),
+          ])
+        )
+        .build()
+    ).compile(scope)
   }
 }
 

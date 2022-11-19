@@ -208,6 +208,23 @@ function parseBinding(lexer: Lexer): ParseBinding | null {
   return null
 }
 
+function parseIf(lexer: Lexer): ParseExpr {
+  const cond = must(lexer, "expr", parseExpr)
+  mustToken(lexer, "then")
+  const ifTrue = repeat(lexer, parseStmt)
+  if (accept(lexer, "end")) {
+    return new ParseIf(cond, ifTrue, [])
+  }
+  mustToken(lexer, "else")
+  if (accept(lexer, "if")) {
+    const ifFalse = [new ExprStmt(parseIf(lexer))]
+    return new ParseIf(cond, ifTrue, ifFalse)
+  }
+  const ifFalse = repeat(lexer, parseStmt)
+  mustToken(lexer, "end")
+  return new ParseIf(cond, ifTrue, ifFalse)
+}
+
 function baseExpr(lexer: Lexer): ParseExpr | null {
   const token = lexer.peek()
   switch (token.tag) {
@@ -256,26 +273,7 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
     }
     case "if": {
       lexer.advance()
-      const value = must(lexer, "expr", parseExpr)
-      mustToken(lexer, "then")
-      const body = repeat(lexer, parseStmt)
-      const conds = [{ value, body }]
-      while (true) {
-        if (accept(lexer, "end")) {
-          return new ParseIf(conds, [])
-        }
-        mustToken(lexer, "else")
-        if (accept(lexer, "if")) {
-          const value = must(lexer, "expr", parseExpr)
-          mustToken(lexer, "then")
-          const body = repeat(lexer, parseStmt)
-          conds.push({ value, body })
-        } else {
-          const body = repeat(lexer, parseStmt)
-          mustToken(lexer, "end")
-          return new ParseIf(conds, body)
-        }
-      }
+      return parseIf(lexer)
     }
     default:
       return null

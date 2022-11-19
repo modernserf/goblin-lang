@@ -16,9 +16,6 @@ import { IRDeferStmt, IRReturnStmt } from "./ir"
 
 export class ExprStmt implements ParseStmt {
   constructor(private expr: ParseExpr) {}
-  unwrap(): ParseExpr {
-    return this.expr
-  }
   compile(scope: Scope): IRStmt[] {
     return [this.expr.compile(scope)]
   }
