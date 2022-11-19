@@ -4,8 +4,8 @@ import { program as parse } from "./parser"
 import { coreModule } from "./compiler"
 
 import { readFileSync } from "fs"
-import { ObjectValue, PrimitiveValue, unit } from "./value"
-import { IRClassBuilder as IRClass } from "./ir"
+import { IRClass, ObjectValue, PrimitiveValue, unit } from "./value"
+import { IRClassBuilder } from "./ir"
 import {
   intClass,
   intValue,
@@ -16,24 +16,27 @@ import {
 } from "./primitive"
 import { IRStmt } from "./interface"
 
-const cellInstance = new IRClass()
+const cellInstance = new IRClassBuilder()
   .addPrimitive("get", (self) => self.value)
   .addPrimitive("set:", (self, [arg]) => {
     self.value = arg
     return unit
   })
+  .build()
 
 const cellModule = new ObjectValue(
-  new IRClass().addPrimitive(":", (_, [arg]) => {
-    return new PrimitiveValue(cellInstance, { value: arg })
-  }),
+  new IRClassBuilder()
+    .addPrimitive(":", (_, [arg]) => {
+      return new PrimitiveValue(cellInstance, { value: arg })
+    })
+    .build(),
   []
 )
 
 export class IndexOutOfRangeError {}
 export class EmptyArrayError {}
 
-const arrayInstance: IRClass = new IRClass()
+const arrayInstance: IRClass = new IRClassBuilder()
   .addPrimitive("length", (self) => {
     return new PrimitiveValue(intClass, self.length)
   })
@@ -70,16 +73,19 @@ const arrayInstance: IRClass = new IRClass()
     const t = intValue(to)
     return new PrimitiveValue(arrayInstance, self.slice(f, t))
   })
+  .build()
 
 const arrayModule = new ObjectValue(
-  new IRClass().addPrimitive("", () => {
-    return new PrimitiveValue(arrayInstance, [])
-  }),
+  new IRClassBuilder()
+    .addPrimitive("", () => {
+      return new PrimitiveValue(arrayInstance, [])
+    })
+    .build(),
   []
 )
 
 const assertModule = new ObjectValue(
-  new IRClass()
+  new IRClassBuilder()
     .addPrimitive("expected:received:", (_, [exp, recv]) => {
       assert.deepEqual(recv, exp)
       return unit
@@ -91,23 +97,27 @@ const assertModule = new ObjectValue(
     .addPrimitive("false:", (_, [arg]) => {
       assert(boolValue(arg) === false)
       return unit
-    }),
+    })
+    .build(),
   []
 )
 
 const panicModule = new ObjectValue(
-  new IRClass().addPrimitive("message:", (_, [message]) => {
-    throw new Error(strValue(message))
-  }),
+  new IRClassBuilder()
+    .addPrimitive("message:", (_, [message]) => {
+      throw new Error(strValue(message))
+    })
+    .build(),
   []
 )
-const nativeClass = new IRClass()
+const nativeClass = new IRClassBuilder()
   .addPrimitive("Cell", () => cellModule)
   .addPrimitive("Array", () => arrayModule)
   .addPrimitive("Assert", () => assertModule)
   .addPrimitive("Panic", () => panicModule)
   .addPrimitive("true", () => trueVal)
   .addPrimitive("false", () => falseVal)
+  .build()
 
 const native = new PrimitiveValue(nativeClass, null)
 

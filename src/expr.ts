@@ -20,7 +20,7 @@ import {
 import {
   IRAssignStmt,
   IRBlockClassBuilder as IRBlockClass,
-  IRClassBuilder as IRClass,
+  IRClassBuilder,
   IRLocalExpr,
   IRModuleExpr,
 } from "./ir"
@@ -151,13 +151,14 @@ export class ParseParens implements ParseExpr {
 export class ParseObject implements ParseExpr {
   constructor(private handlers: ParseHandler[]) {}
   compile(scope: Scope, selfBinding?: ParseBinding | undefined): IRExpr {
-    const cls = new IRClass()
+    const cls = new IRClassBuilder()
     const instance = new ObjectInstance(scope)
     for (const handler of this.handlers) {
       handler.addToClass(instance, cls, selfBinding)
     }
-    instance.compileSelfHandlers(cls)
-    return constObject(cls, instance.ivars)
+    const builtClass = cls.build()
+    instance.compileSelfHandlers(builtClass)
+    return constObject(builtClass, instance.ivars)
   }
 }
 
@@ -255,7 +256,7 @@ export class OnHandler implements ParseHandler {
   constructor(private params: ParseParams, private body: ParseStmt[]) {}
   addToClass(
     instance: Instance,
-    cls: IRClass,
+    cls: IRClassBuilder,
     selfBinding: ParseBinding | undefined
   ): void {
     return this.params.addToClass(instance, cls, this.body, selfBinding)
@@ -269,7 +270,7 @@ export class ElseHandler implements ParseHandler {
   constructor(private body: ParseStmt[]) {}
   addToClass(
     instance: Instance,
-    cls: IRClass,
+    cls: IRClassBuilder,
     selfBinding: ParseBinding | undefined
   ): void {
     const scope = new BasicScope(instance, new LocalsImpl())

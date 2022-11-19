@@ -12,14 +12,10 @@ import {
   ParseStmt,
   PatternBuilder,
   Scope,
+  IRBlockClassBuilder,
+  IRClassBuilder,
 } from "./interface"
-import {
-  IRBlockClassBuilder as IRBlockClass,
-  IRClassBuilder as IRClass,
-  IRObjectHandler,
-  IRSendExpr,
-  IRUseExpr,
-} from "./ir"
+import { IRObjectHandler, IRSendExpr, IRUseExpr } from "./ir"
 import { build } from "./message-builder"
 import { LetStmt } from "./stmt"
 import { BasicScope, LocalsImpl } from "./scope"
@@ -55,7 +51,7 @@ class KeyParams implements ParseParams {
   }
   addToClass(
     instance: Instance,
-    cls: IRClass,
+    cls: IRClassBuilder,
     body: ParseStmt[],
     selfBinding: ParseBinding | undefined
   ): void {
@@ -71,7 +67,11 @@ class KeyParams implements ParseParams {
       )
     )
   }
-  addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void {
+  addToBlockClass(
+    scope: Scope,
+    cls: IRBlockClassBuilder,
+    body: ParseStmt[]
+  ): void {
     cls.add(
       this.key,
       0,
@@ -123,7 +123,7 @@ class PairParams implements ParseParams {
   constructor(private pairs: Pair[]) {}
   addToClass(
     instance: Instance,
-    cls: IRClass,
+    cls: IRClassBuilder,
     body: ParseStmt[],
     selfBinding: ParseBinding | undefined
   ): void {
@@ -153,7 +153,11 @@ class PairParams implements ParseParams {
       })
     }
   }
-  addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void {
+  addToBlockClass(
+    scope: Scope,
+    cls: IRBlockClassBuilder,
+    body: ParseStmt[]
+  ): void {
     // block params use parent scope, and do not start at zero
     for (const { pairs, bindings } of expandDefaultParams(this.pairs)) {
       const offset = scope.locals.allocate(pairs.length)

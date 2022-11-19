@@ -19,11 +19,11 @@ export interface ParseBinding {
   import(scope: Scope, source: IRExpr): IRStmt[]
 }
 
-interface IRClass {
+export interface IRClassBuilder {
   add(selector: string, handler: IRHandler): this
   addElse(body: IRStmt[]): this
 }
-interface IRBlockClass {
+export interface IRBlockClassBuilder {
   add(selector: string, offset: number, params: IRParam[], body: IRStmt[]): this
   addElse(body: IRStmt[]): this
 }
@@ -31,10 +31,10 @@ interface IRBlockClass {
 export interface ParseHandler {
   addToClass(
     instance: Instance,
-    cls: IRClass,
+    cls: IRClassBuilder,
     selfBinding: ParseBinding | undefined
   ): void
-  addToBlockClass(scope: Scope, cls: IRBlockClass): void
+  addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void
 }
 
 export interface PatternBuilder<Item, Collection> {
@@ -60,11 +60,15 @@ export interface ParseParams {
   using(scope: Scope): IRStmt[]
   addToClass(
     instance: Instance,
-    cls: IRClass,
+    cls: IRClassBuilder,
     body: ParseStmt[],
     selfBinding: ParseBinding | undefined
   ): void
-  addToBlockClass(scope: Scope, cls: IRBlockClass, body: ParseStmt[]): void
+  addToBlockClass(
+    scope: Scope,
+    cls: IRBlockClassBuilder,
+    body: ParseStmt[]
+  ): void
   let(scope: Scope, value: IRExpr): IRStmt[]
   export(scope: Scope): void
   import(scope: Scope, source: IRExpr): IRStmt[]

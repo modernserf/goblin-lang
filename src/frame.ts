@@ -1,15 +1,24 @@
-import { IRExpr } from "./interface"
+import { IRExpr, IRParam, IRStmt } from "./interface"
+import { IRClass } from "./value"
 import {
-  IRClassBuilder as IRClass,
   IRIvarExpr,
   IRLocalExpr,
   IRObjectExpr,
+  IRObjectHandler,
   IRSelfExpr,
   IRSendDirectExpr,
   IRSendExpr,
   IRValueArg,
 } from "./ir"
 import { constObject } from "./optimize"
+
+export class IRClassBuilder extends IRClass {
+  addFrame(selector: string, params: IRParam[], body: IRStmt[]): this {
+    // allow overwriting of methods
+    this.handlers.set(selector, new IRObjectHandler(params, body))
+    return this
+  }
+}
 
 const $0: IRExpr = new IRLocalExpr(0)
 
@@ -22,7 +31,7 @@ export function frame(
   const cachedClass = frameCache.get(selector)
   if (cachedClass) return constObject(cachedClass, ivars)
 
-  const frameClass = new IRClass()
+  const frameClass = new IRClassBuilder()
   // constructor: [x: 1 y: 2]{x: 3 y: 4}
   frameClass.addFrame(
     selector,

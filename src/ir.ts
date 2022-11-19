@@ -15,7 +15,11 @@ import {
 } from "./interface"
 import { IRClass, IRBlockClass, DoValue, ObjectValue, unit } from "./value"
 
-export class IRClassBuilder extends IRClass {
+export class IRClassBuilder {
+  constructor(
+    protected handlers: Map<string, IRHandler> = new Map(),
+    protected elseHandler: IRHandler | null = null
+  ) {}
   add(selector: string, handler: IRHandler): this {
     if (this.handlers.has(selector)) {
       throw new DuplicateHandlerError(selector)
@@ -30,11 +34,6 @@ export class IRClassBuilder extends IRClass {
     this.elseHandler = new IRElseHandler(body)
     return this
   }
-  addFrame(selector: string, params: IRParam[], body: IRStmt[]): this {
-    // allow overwriting of methods
-    this.handlers.set(selector, new IRObjectHandler(params, body))
-    return this
-  }
   addPrimitive(
     selector: string,
     fn: (value: any, args: Value[], ctx: Interpreter) => Value
@@ -45,6 +44,9 @@ export class IRClassBuilder extends IRClass {
     }
     this.handlers.set(selector, new IRPrimitiveHandler(fn))
     return this
+  }
+  build(): IRClass {
+    return new IRClass(this.handlers, this.elseHandler)
   }
 }
 

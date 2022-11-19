@@ -7,8 +7,9 @@ import {
   ScopeRecord,
   ScopeType,
 } from "./interface"
+import { IRClass } from "./value"
 import {
-  IRClassBuilder as IRClass,
+  IRClassBuilder,
   IRIvarExpr,
   IRLazyHandler,
   IRLocalExpr,
@@ -154,13 +155,13 @@ export class RootScope extends ScopeImpl {
     this.exports.set(key, value)
   }
   compileExports(): IRExpr {
-    const exportClass = new IRClass()
+    const exportClass = new IRClassBuilder()
     const ivars: IRExpr[] = []
     for (const [i, [key, value]] of Array.from(this.exports).entries()) {
       ivars[i] = value
       exportClass.add(key, new IRObjectHandler([], [new IRIvarExpr(i)]))
     }
-    return new IRObjectExpr(exportClass, ivars)
+    return new IRObjectExpr(exportClass.build(), ivars)
   }
 }
 

@@ -1,6 +1,6 @@
 import { Value } from "./interface"
-import { unit, PrimitiveValue } from "./value"
-import { IRClassBuilder as IRClass } from "./ir"
+import { unit, PrimitiveValue, IRClass } from "./value"
+import { IRClassBuilder } from "./ir"
 
 export class PrimitiveTypeError {
   constructor(readonly expected: string) {}
@@ -13,7 +13,7 @@ export function boolValue(arg: Value): boolean {
   throw new PrimitiveTypeError("Bool")
 }
 
-export const boolClass: IRClass = new IRClass()
+export const boolClass: IRClass = new IRClassBuilder()
   .addPrimitive(":", (value, [arg], ctx) => {
     const selector = value ? "true" : "false"
     return arg.send(ctx, selector, [])
@@ -34,6 +34,7 @@ export const boolClass: IRClass = new IRClass()
   .addPrimitive("||:", (self, [arg]) => {
     return boolValue(arg) || self ? trueVal : falseVal
   })
+  .build()
 
 export const trueVal = new PrimitiveValue(boolClass, true)
 export const falseVal = new PrimitiveValue(boolClass, false)
@@ -45,7 +46,7 @@ export function strValue(arg: Value): string {
   throw new PrimitiveTypeError("String")
 }
 
-export const stringClass: IRClass = new IRClass()
+export const stringClass: IRClass = new IRClassBuilder()
   .addPrimitive("=:", (self, [arg]) => {
     if (arg.instanceof(stringClass)) {
       return arg.primitiveValue === self ? trueVal : falseVal
@@ -62,6 +63,7 @@ export const stringClass: IRClass = new IRClass()
       return unit
     }
   )
+  .build()
 
 export function intValue(arg: Value): number {
   if (arg.instanceof(intClass)) {
@@ -96,7 +98,7 @@ function numericCompare(
   }
 }
 
-export const intClass: IRClass = new IRClass()
+export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("+:", (self, [arg]) => {
     return numeric(self, arg, (a, b) => a + b)
   })
@@ -134,6 +136,7 @@ export const intClass: IRClass = new IRClass()
       return unit
     }
   )
+  .build()
 
 export function floatValue(arg: Value): number {
   if (arg.instanceof(intClass) || arg.instanceof(floatClass)) {
@@ -143,7 +146,7 @@ export function floatValue(arg: Value): number {
   }
 }
 
-export const floatClass: IRClass = new IRClass()
+export const floatClass: IRClass = new IRClassBuilder()
   .addPrimitive("+:", (self, [arg]) => {
     return new PrimitiveValue(floatClass, self + floatValue(arg))
   })
@@ -171,3 +174,4 @@ export const floatClass: IRClass = new IRClass()
   .addPrimitive(">=:", (self, [arg], ctx) => {
     return numericCompare(self, arg, (a, b) => a >= b)
   })
+  .build()
