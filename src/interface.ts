@@ -139,11 +139,6 @@ export interface IRStmt {
 }
 export interface IRHandler {
   send(sender: Interpreter, target: Value, args: IRArg[]): Value
-  check?(sender: Interpreter, target: Value, args: IRArg[]): Value | null
-  add?(selector: string, handler: IRHandler): IRHandler
-}
-export interface IRPartialHandler extends IRHandler {
-  check(sender: Interpreter, target: Value, args: IRArg[]): Value | null
 }
 export interface IRBlockHandler {
   send(sender: Interpreter, ctx: Interpreter, args: IRArg[]): Value

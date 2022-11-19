@@ -2,7 +2,6 @@ import {
   ArgMismatchError,
   DuplicateElseHandlerError,
   DuplicateHandlerError,
-  NoMatchError,
 } from "./error"
 import {
   Interpreter,
@@ -11,43 +10,17 @@ import {
   IRExpr,
   IRHandler,
   IRParam,
-  IRPartialHandler,
   IRStmt,
   Value,
 } from "./interface"
 import { IRClass, IRBlockClass, DoValue, ObjectValue, unit } from "./value"
 
-export class HandlerSet implements IRHandler {
-  private partialHandlers: IRPartialHandler[] = []
-  private finalHandler: IRHandler | null = null
-  constructor() {}
-  add(selector: string, handler: IRHandler): this {
-    if (handler.check) {
-      this.partialHandlers.push(handler as IRPartialHandler)
-      return this
-    }
-    if (this.finalHandler) throw new DuplicateHandlerError(selector)
-    this.finalHandler = handler
-    return this
-  }
-  send(sender: Interpreter, target: Value, args: IRArg[]): Value {
-    for (const handler of this.partialHandlers) {
-      const res = handler.check(sender, target, args)
-      if (res !== null) return res
-    }
-    if (!this.finalHandler) throw new NoMatchError()
-    return this.finalHandler.send(sender, target, args)
-  }
-}
-
 export class IRClassBuilder extends IRClass {
   add(selector: string, handler: IRHandler): this {
-    const found: IRHandler = this.handlers.get(selector) ?? new HandlerSet()
-    if (found.add) {
-      this.handlers.set(selector, found.add(selector, handler))
-    } else {
+    if (this.handlers.has(selector)) {
       throw new DuplicateHandlerError(selector)
     }
+    this.handlers.set(selector, handler)
     return this
   }
   addElse(body: IRStmt[]): this {
