@@ -18,6 +18,7 @@ import {
   PatternBuilder,
   Scope,
   IRClassBuilder,
+  IRBlockClassBuilder,
   PartialHandler,
   PartialParseParam,
 } from "./interface"
@@ -37,24 +38,6 @@ import { ArgsBuilder, ValueArg } from "./args"
 class InvalidParamsError {}
 
 type Pair = { key: string; value: ParseParam }
-
-class IRBlockClassBuilder extends IRBlockClass {
-  add(
-    selector: string,
-    offset: number,
-    params: IRParam[],
-    body: IRStmt[]
-  ): this {
-    if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
-    this.handlers.set(selector, new IROnBlockHandler(offset, params, body))
-    return this
-  }
-  addElse(body: IRStmt[]): this {
-    if (this.elseHandler) throw new DuplicateElseHandlerError()
-    this.elseHandler = new IRElseBlockHandler(body)
-    return this
-  }
-}
 
 export class ParamsBuilder implements PatternBuilder<ParseParam, ParseParams> {
   private pairs: Pair[] = []
@@ -101,12 +84,7 @@ class KeyParams implements ParseParams {
     cls: IRBlockClassBuilder,
     body: ParseStmt[]
   ): void {
-    cls.add(
-      this.key,
-      0,
-      [],
-      body.flatMap((stmt) => stmt.compile(scope))
-    )
+    cls.addFinal(this.key, 0, scope, [], [], body)
   }
   /* istanbul ignore next */
   export(scope: Scope): void {
@@ -223,18 +201,24 @@ class PairParams implements ParseParams {
         },
         build(selector, params) {
           const paramScope = new BasicScope(scope.instance, scope.locals)
-          cls.add(
-            selector,
-            offset,
-            params.map((p) => p.toIR()),
-            [
-              ...params.flatMap((p, i) => p.handler(paramScope, offset + i)),
-              ...bindings.flatMap(({ binding, value }) =>
-                new LetStmt(binding, value, false).compile(scope)
-              ),
-              ...body.flatMap((stmt) => stmt.compile(scope)),
-            ]
-          )
+          const partial = condParams(params, body)
+          if (partial) {
+            cls.addPartial(selector, partial)
+          } else {
+            cls.addFinal(
+              selector,
+              offset,
+              scope,
+              params.map((p) => p.toIR()),
+              [
+                ...params.flatMap((p, i) => p.handler(paramScope, offset + i)),
+                ...bindings.flatMap(({ binding, value }) =>
+                  new LetStmt(binding, value, false).compile(scope)
+                ),
+              ],
+              body
+            )
+          }
         },
       })
     }

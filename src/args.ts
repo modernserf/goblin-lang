@@ -17,7 +17,7 @@ import {
   Scope,
 } from "./interface"
 import {
-  IRBlockClassBuilder as IRBlockClass,
+  IRBlockClassBuilder,
   IRDoArg,
   IRProvideStmt,
   IRSelfExpr,
@@ -144,11 +144,11 @@ export class VarArg implements ParseArg {
 export class HandlersArg implements ParseArg {
   constructor(private handlers: ParseHandler[]) {}
   sendArg(scope: Scope): IRArg {
-    const cls = new IRBlockClass()
+    const cls = new IRBlockClassBuilder()
     for (const handler of this.handlers) {
       handler.addToBlockClass(scope, cls)
     }
-    return new IRDoArg(cls)
+    return new IRDoArg(cls.build())
   }
   provide(scope: Scope, key: string): IRStmt {
     throw "todo: provide handler"

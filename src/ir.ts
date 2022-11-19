@@ -20,10 +20,8 @@ import { IRClass, IRBlockClass, DoValue, ObjectValue, unit } from "./value"
 
 export class IRClassBuilder {
   private partials = new Map<string, PartialHandler[]>()
-  constructor(
-    protected handlers: Map<string, IRHandler> = new Map(),
-    protected elseHandler: IRHandler | null = null
-  ) {}
+  private handlers = new Map<string, IRHandler>()
+  private elseHandler: IRHandler | null = null
   addPartial(selector: string, partial: PartialHandler): this {
     const arr = this.partials.get(selector) || []
     arr.push(partial)
@@ -83,7 +81,40 @@ export class IRClassBuilder {
   }
 }
 
-export class IRBlockClassBuilder extends IRBlockClass {
+export class IRBlockClassBuilder {
+  private partials = new Map<string, PartialHandler[]>()
+  private handlers = new Map<string, IRBlockHandler>()
+  private elseHandler: IRBlockHandler | null = null
+  addPartial(selector: string, partial: PartialHandler): this {
+    const arr = this.partials.get(selector) || []
+    arr.push(partial)
+    this.partials.set(selector, arr)
+    return this
+  }
+  addFinal(
+    selector: string,
+    offset: number,
+    scope: Scope,
+    params: IRParam[],
+    head: IRStmt[],
+    body: ParseStmt[]
+  ): this {
+    if (this.handlers.has(selector)) {
+      throw new DuplicateHandlerError(selector)
+    }
+    const partials = this.partials.get(selector) || []
+    this.partials.delete(selector)
+
+    const fullBody = partials
+      .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
+      .flatMap((p) => p.compile(scope))
+
+    this.handlers.set(
+      selector,
+      new IROnBlockHandler(offset, params, [...head, ...fullBody])
+    )
+    return this
+  }
   add(
     selector: string,
     offset: number,
@@ -98,6 +129,9 @@ export class IRBlockClassBuilder extends IRBlockClass {
     if (this.elseHandler) throw new DuplicateElseHandlerError()
     this.elseHandler = new IRElseBlockHandler(body)
     return this
+  }
+  build(): IRBlockClass {
+    return new IRBlockClass(this.handlers, this.elseHandler)
   }
 }
 
