@@ -153,18 +153,6 @@ export interface Interpreter {
   resolveDefers(): void
 }
 
-export interface Value {
-  readonly primitiveValue: any
-  getIvar(index: number): Value
-  send(sender: Interpreter, selector: string, args: IRArg[]): Value
-  trySend(
-    sender: Interpreter,
-    selector: string,
-    args: IRArg[],
-    orElse: IRExpr
-  ): Value
-  instanceof(cls: unknown): boolean
-}
 export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "do" }
 
 export interface IRStmt {
@@ -193,6 +181,7 @@ export interface IRExpr {
 
 export interface IRArg {
   value(ctx: Interpreter): Value
+  evalInner(ctx: Interpreter): IRArg
   load(
     sender: Interpreter,
     target: Interpreter,
@@ -200,4 +189,17 @@ export interface IRArg {
     param: IRParam
   ): void
   unload(sender: Interpreter, target: Interpreter, offset: number): void
+}
+
+export interface Value extends IRExpr {
+  readonly primitiveValue: any
+  getIvar(index: number): Value
+  send(sender: Interpreter, selector: string, args: IRArg[]): Value
+  trySend(
+    sender: Interpreter,
+    selector: string,
+    args: IRArg[],
+    orElse: IRExpr
+  ): Value
+  instanceof(cls: unknown): boolean
 }

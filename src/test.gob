@@ -606,4 +606,49 @@ let child := [
 
 Assert{received: child{x}   expected: 3}
 Assert{received: child{y}   expected: 2}
+Assert{received: child{x: 2} expected: [x: 2 y: 2]}
+
+let opt := [none]
+let fallback := [
+  on {some: x} 
+    x
+  on {none} 
+    0
+]
+let res := opt{:
+  on {some: x} 
+    x
+  else {: msg} 
+    msg{: fallback}
+}
+
+Assert{received: res expected: 0}
+
+let res := opt{:
+  on {some: x} 
+    x
+  else {: msg} 
+    msg{: 
+      on {none}
+        1
+    }
+}
+
+Assert{received: res expected: 1}
+
+let value := 1
+let opt := [
+  on{: do rcv}
+    rcv{some: value}
+]
+let fallback := [
+  on {some: x}
+    x
+]
+let msg := opt{:
+  else {: msg}
+    msg
+}
+let res := msg{: fallback}
+Assert{received: res expected: 1}
 

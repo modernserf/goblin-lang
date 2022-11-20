@@ -95,6 +95,9 @@ export class IRValueArg implements IRArg {
   value(ctx: Interpreter): Value {
     return this.expr.eval(ctx)
   }
+  evalInner(ctx: Interpreter): IRArg {
+    return new IRValueArg(this.expr.eval(ctx))
+  }
   load(
     sender: Interpreter,
     target: Interpreter,
@@ -112,6 +115,10 @@ export class IRVarArg implements IRArg {
   /* istanbul ignore next */
   value(ctx: Interpreter): Value {
     throw "todo: handle var args in primitive fns"
+  }
+  evalInner(ctx: Interpreter): IRArg {
+    // TODO: i bet this doesn't work, what should happen here?
+    return this
   }
   load(
     sender: Interpreter,
@@ -132,6 +139,10 @@ export class IRDoArg implements IRArg {
   constructor(private cls: IRBlockClass) {}
   value(ctx: Interpreter): Value {
     return new DoValue(this.cls, ctx)
+  }
+  evalInner(ctx: Interpreter): IRArg {
+    // TODO: wonder if this works
+    return this
   }
   load(
     sender: Interpreter,
@@ -187,13 +198,22 @@ export class IRLazyHandler implements IRHandler {
   }
 }
 
-function messageForwarder(selector: string, args: IRArg[]): IRExpr {
+function messageForwarder(
+  ctx: Interpreter,
+  selector: string,
+  args: IRArg[]
+): IRArg[] {
+  const argsWithValues = args.map((arg) => arg.evalInner(ctx))
   const cls = new IRClassBuilder()
-    .addPrimitive(":", (_, [receiver], ctx) => {
-      return receiver.send(ctx, selector, args)
-    })
+    .add(
+      ":",
+      new IROnHandler(
+        [{ tag: "do" }],
+        [new IRSendExpr(selector, new IRLocalExpr(0), argsWithValues)]
+      )
+    )
     .build()
-  return new ObjectValue(cls, [])
+  return [new IRValueArg(new ObjectValue(cls, []))]
 }
 
 export function elseHandler(
@@ -232,7 +252,7 @@ export class IRForwardHandler implements IRHandler {
     selector: string,
     originalArgs: IRArg[]
   ): Value {
-    const args = [new IRValueArg(messageForwarder(selector, originalArgs))]
+    const args = messageForwarder(sender, selector, originalArgs)
     const child = sender.createChild(target)
     loadArgs(sender, child, 0, this.params, args)
     try {
@@ -305,9 +325,13 @@ export class IRForwardBlockHandler implements IRBlockHandler {
     sender: Interpreter,
     ctx: Interpreter,
     selector: string,
-    args: IRArg[]
+    originalArgs: IRArg[]
   ): Value {
-    throw "todo"
+    const args = messageForwarder(sender, selector, originalArgs)
+    loadArgs(sender, ctx, this.offset, this.params, args)
+    const result = body(ctx, this.body)
+    unloadArgs(sender, ctx, this.offset, args)
+    return result
   }
 }
 

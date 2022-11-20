@@ -125,6 +125,9 @@ export class DoValue implements Value {
   const(): Value {
     throw new Error("unreachable")
   }
+  eval(ctx: Interpreter): Value {
+    return this
+  }
 }
 
 export const unitClass = new IRBaseClass<IRHandler>()
