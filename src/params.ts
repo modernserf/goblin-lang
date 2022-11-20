@@ -56,26 +56,20 @@ class KeyParams implements ParseParams {
     instance: Instance,
     cls: IRClassBuilder,
     body: ParseStmt[],
-    selfBinding: ParseBinding | undefined
+    selfBinding: ParseBinding
   ): void {
     const scope = new BasicScope(instance, new LocalsImpl())
-    cls.addFinal(
-      this.key,
-      scope,
-      [],
-      compileSelfBinding(scope, selfBinding),
-      body
-    )
+    cls.addFinal(this.key, scope, [], selfBinding.selfBinding(scope), body)
   }
   addElseToClass(
     instance: Instance,
     cls: IRClassBuilder,
     body: ParseStmt[],
-    selfBinding: ParseBinding | undefined
+    selfBinding: ParseBinding
   ): void {
     const scope = new BasicScope(instance, new LocalsImpl())
     cls.addElse([
-      ...compileSelfBinding(scope, selfBinding),
+      ...selfBinding.selfBinding(scope),
       ...body.flatMap((s) => s.compile(scope)),
     ])
   }
@@ -155,7 +149,7 @@ class PairParams implements ParseParams {
     instance: Instance,
     cls: IRClassBuilder,
     body: ParseStmt[],
-    selfBinding: ParseBinding | undefined
+    selfBinding: ParseBinding
   ): void {
     for (const { pairs, bindings } of expandDefaultParams(this.pairs)) {
       build<ParseParam, ParseParam, void>(pairs, {
@@ -174,7 +168,7 @@ class PairParams implements ParseParams {
               scope,
               params.map((p) => p.toIR()),
               [
-                ...compileSelfBinding(scope, selfBinding),
+                ...selfBinding.selfBinding(scope),
                 ...params.flatMap((p, i) => p.handler(scope, i)),
                 ...bindings.flatMap(({ binding, value }) =>
                   new LetStmt(binding, value, false).compile(scope)
@@ -191,11 +185,11 @@ class PairParams implements ParseParams {
     instance: Instance,
     cls: IRClassBuilder,
     body: ParseStmt[],
-    selfBinding: ParseBinding | undefined
+    selfBinding: ParseBinding
   ): void {
     const scope = new BasicScope(instance, new LocalsImpl())
     cls.addElse([
-      ...compileSelfBinding(scope, selfBinding),
+      ...selfBinding.selfBinding(scope),
       ...body.flatMap((s) => s.compile(scope)),
     ])
   }
@@ -444,12 +438,4 @@ export class DoParam implements ParseParam {
   let(): IRStmt[] {
     throw new InvalidDestructuringError()
   }
-}
-
-function compileSelfBinding(
-  scope: Scope,
-  binding: ParseBinding | undefined
-): IRStmt[] {
-  if (binding) return binding.selfBinding(scope)
-  return []
 }

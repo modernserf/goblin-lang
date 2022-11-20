@@ -4,7 +4,7 @@ export interface ParseStmt {
 }
 
 export interface ParseExpr {
-  compile(scope: Scope, selfBinding?: ParseBinding | undefined): IRExpr
+  compile(scope: Scope, selfBinding?: ParseBinding): IRExpr
   setInPlace?(scope: Scope, expr: ParseExpr): IRStmt[]
   importSource?(scope: Scope): IRExpr
 }
@@ -51,7 +51,7 @@ export interface ParseHandler {
   addToClass(
     instance: Instance,
     cls: IRClassBuilder,
-    selfBinding: ParseBinding | undefined
+    selfBinding: ParseBinding
   ): void
   addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void
 }
@@ -81,13 +81,13 @@ export interface ParseParams {
     instance: Instance,
     cls: IRClassBuilder,
     body: ParseStmt[],
-    selfBinding: ParseBinding | undefined
+    selfBinding: ParseBinding
   ): void
   addElseToClass(
     instance: Instance,
     cls: IRClassBuilder,
     body: ParseStmt[],
-    selfBinding: ParseBinding | undefined
+    selfBinding: ParseBinding
   ): void
   addToBlockClass(
     scope: Scope,

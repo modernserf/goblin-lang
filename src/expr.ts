@@ -6,7 +6,6 @@ import {
 } from "./error"
 import {
   Instance,
-  IRBlockClassBuilder,
   IRExpr,
   IRStmt,
   ParseArgs,
@@ -175,7 +174,7 @@ export class ParseParens implements ParseExpr {
 
 export class ParseObject implements ParseExpr {
   constructor(private handlers: ParseHandler[]) {}
-  compile(scope: Scope, selfBinding?: ParseBinding | undefined): IRExpr {
+  compile(scope: Scope, selfBinding: ParseBinding = ParsePlaceholder): IRExpr {
     const cls = new IRClassBuilder()
     const instance = new ObjectInstance(scope)
     for (const handler of this.handlers) {
@@ -282,7 +281,7 @@ export class OnHandler implements ParseHandler {
   addToClass(
     instance: Instance,
     cls: IRClassBuilder,
-    selfBinding: ParseBinding | undefined
+    selfBinding: ParseBinding
   ): void {
     return this.params.addToClass(instance, cls, this.body, selfBinding)
   }
@@ -296,7 +295,7 @@ export class ElseHandler implements ParseHandler {
   addToClass(
     instance: Instance,
     cls: IRClassBuilder,
-    selfBinding: ParseBinding | undefined
+    selfBinding: ParseBinding
   ): void {
     this.params.addElseToClass(instance, cls, this.body, selfBinding)
   }
