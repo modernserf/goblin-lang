@@ -300,7 +300,7 @@ export class ElseHandler implements ParseHandler {
     this.params.addElseToClass(instance, cls, this.body, selfBinding)
   }
   addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void {
-    cls.addElse(this.body.flatMap((s) => s.compile(scope)))
+    this.params.addElseToBlockClass(scope, cls, this.body)
   }
 }
 

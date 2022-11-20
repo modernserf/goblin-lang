@@ -40,19 +40,7 @@ export interface IRBaseClassBuilder<Handler> {
   ): this
 }
 export type IRClassBuilder = IRBaseClassBuilder<IRHandler>
-// export type IRBlockClassBuilder = IRBaseClassBuilder<IRBlockHandler>
-export interface IRBlockClassBuilder {
-  addPartial(selector: string, partial: PartialHandler): this
-  addFinal(
-    selector: string,
-    offset: number,
-    scope: Scope,
-    params: IRParam[],
-    head: IRStmt[],
-    body: ParseStmt[]
-  ): this
-  addElse(body: IRStmt[]): this
-}
+export type IRBlockClassBuilder = IRBaseClassBuilder<IRBlockHandler>
 
 export interface ParseHandler {
   addToClass(
@@ -97,6 +85,11 @@ export interface ParseParams {
     selfBinding: ParseBinding
   ): void
   addToBlockClass(
+    scope: Scope,
+    cls: IRBlockClassBuilder,
+    body: ParseStmt[]
+  ): void
+  addElseToBlockClass(
     scope: Scope,
     cls: IRBlockClassBuilder,
     body: ParseStmt[]
