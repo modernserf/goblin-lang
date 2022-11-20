@@ -410,3 +410,26 @@ test("todo: provide/using var/do", () => {
     `)
   })
 })
+
+test("else with params", () => {
+  assert.throws(() => {
+    compile(`
+      [else {foo} 1] 
+    `)
+  })
+  assert.throws(() => {
+    compile(`
+      [else {foo: bar} 1] 
+    `)
+  })
+  assert.doesNotThrow(() => {
+    compile(`
+      [else {} 1] 
+    `)
+  })
+  assert.doesNotThrow(() => {
+    compile(`
+      [else 1] 
+    `)
+  })
+})

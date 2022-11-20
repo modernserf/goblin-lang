@@ -67,11 +67,7 @@ class KeyParams implements ParseParams {
     body: ParseStmt[],
     selfBinding: ParseBinding
   ): void {
-    const scope = new BasicScope(instance, new LocalsImpl())
-    cls.addElse([
-      ...selfBinding.selfBinding(scope),
-      ...body.flatMap((s) => s.compile(scope)),
-    ])
+    throw new Error("invalid add else")
   }
   addToBlockClass(
     scope: Scope,
@@ -187,6 +183,8 @@ class PairParams implements ParseParams {
     body: ParseStmt[],
     selfBinding: ParseBinding
   ): void {
+    if (this.pairs.length) throw new Error("invalid else params")
+
     const scope = new BasicScope(instance, new LocalsImpl())
     cls.addElse([
       ...selfBinding.selfBinding(scope),

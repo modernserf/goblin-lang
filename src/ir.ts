@@ -3,7 +3,6 @@ import {
   DuplicateElseHandlerError,
   DuplicateHandlerError,
 } from "./error"
-import { frame } from "./frame"
 import {
   Interpreter,
   IRArg,
