@@ -14,7 +14,7 @@ import {
   IRLazyHandler,
   IRLocalExpr,
   IRObjectExpr,
-  IRObjectHandler,
+  IROnHandler,
   IRSelfExpr,
 } from "./ir"
 
@@ -159,7 +159,7 @@ export class RootScope extends ScopeImpl {
     const ivars: IRExpr[] = []
     for (const [i, [key, value]] of Array.from(this.exports).entries()) {
       ivars[i] = value
-      exportClass.add(key, new IRObjectHandler([], [new IRIvarExpr(i)]))
+      exportClass.add(key, new IROnHandler([], [new IRIvarExpr(i)]))
     }
     return new IRObjectExpr(exportClass.build(), ivars)
   }

@@ -4,7 +4,7 @@ import {
   IRIvarExpr,
   IRLocalExpr,
   IRObjectExpr,
-  IRObjectHandler,
+  IROnHandler,
   IRSelfExpr,
   IRSendDirectExpr,
   IRSendExpr,
@@ -15,7 +15,7 @@ import { constObject } from "./optimize"
 export class IRClassBuilder extends IRBaseClass<IRHandler> {
   addFrame(selector: string, params: IRParam[], body: IRStmt[]): this {
     // allow overwriting of methods
-    this.handlers.set(selector, new IRObjectHandler(params, body))
+    this.handlers.set(selector, new IROnHandler(params, body))
     return this
   }
 }

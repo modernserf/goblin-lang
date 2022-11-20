@@ -34,9 +34,8 @@ export interface IRBaseClassBuilder<Handler> {
   addElse(
     selector: string,
     scope: Scope,
-    params: IRParam[],
-    head: IRStmt[],
-    body: ParseStmt[]
+    body: ParseStmt[],
+    getHandler: (body: IRStmt[]) => Handler
   ): this
 }
 export type IRClassBuilder = IRBaseClassBuilder<IRHandler>

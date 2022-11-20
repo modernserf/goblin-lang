@@ -17,7 +17,6 @@ import {
   Scope,
   Value,
   IRBaseClassBuilder as IIRBaseClassBuilder,
-  IRBlockClassBuilder as IIRBlockClassBuilder,
 } from "./interface"
 import {
   IRClass,
@@ -33,11 +32,8 @@ export class IRBaseClassBuilder<Handler>
 {
   protected partials = new Map<string, PartialHandler[]>()
   protected handlers = new Map<string, Handler>()
+  protected elsePartials: PartialHandler[] = []
   protected elseHandler: Handler | null = null
-  constructor(
-    private ElseHandler: new (body: IRStmt[]) => Handler,
-    private ForwardHandler: new (params: IRParam[], body: IRStmt[]) => Handler
-  ) {}
   add(selector: string, handler: Handler): this {
     if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
     this.handlers.set(selector, handler)
@@ -67,26 +63,17 @@ export class IRBaseClassBuilder<Handler>
   addElse(
     selector: string,
     scope: Scope,
-    params: IRParam[],
-    head: IRStmt[],
-    body: ParseStmt[]
+    body: ParseStmt[],
+    getHandler: (body: IRStmt[]) => Handler
   ): this {
     if (this.elseHandler) throw new DuplicateElseHandlerError(selector)
-    // TODO: handle partial elses
-    const fullBody = body.flatMap((s) => s.compile(scope))
-    switch (selector) {
-      case "":
-        this.elseHandler = new this.ElseHandler(head.concat(fullBody))
-        return this
-      case ":":
-        this.elseHandler = new this.ForwardHandler(
-          params,
-          head.concat(fullBody)
-        )
-        return this
-      default:
-        throw new InvalidElseParamsError(selector)
-    }
+    const fullBody = this.elsePartials
+      .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
+      .flatMap((p) => p.compile(scope))
+
+    this.elseHandler = getHandler(fullBody)
+
+    return this
   }
   build(): IRBaseClass<Handler> {
     return new IRBaseClass<Handler>(this.handlers, this.elseHandler)
@@ -94,9 +81,6 @@ export class IRBaseClassBuilder<Handler>
 }
 
 export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
-  constructor() {
-    super(IRElseHandler, IRForwardMessageHandler)
-  }
   addPrimitive(
     selector: string,
     fn: (value: any, args: Value[], ctx: Interpreter) => Value
@@ -104,11 +88,7 @@ export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
     return this.add(selector, new IRPrimitiveHandler(fn))
   }
 }
-export class IRBlockClassBuilder extends IRBaseClassBuilder<IRBlockHandler> {
-  constructor() {
-    super(IRElseBlockHandler, IRForwardBlockHandler)
-  }
-}
+export class IRBlockClassBuilder extends IRBaseClassBuilder<IRBlockHandler> {}
 
 export class IRValueArg implements IRArg {
   constructor(private expr: IRExpr) {}
@@ -216,6 +196,21 @@ function messageForwarder(selector: string, args: IRArg[]): IRExpr {
   return new ObjectValue(cls, [])
 }
 
+export function elseHandler(
+  selector: string,
+  params: IRParam[],
+  body: IRStmt[]
+): IRHandler {
+  switch (selector) {
+    case "":
+      return new IRElseHandler(body)
+    case ":":
+      return new IRForwardHandler(params, body)
+    default:
+      throw new InvalidElseParamsError(selector)
+  }
+}
+
 export class IRElseHandler implements IRHandler {
   constructor(private body: IRStmt[]) {}
   send(
@@ -229,7 +224,7 @@ export class IRElseHandler implements IRHandler {
   }
 }
 
-export class IRForwardMessageHandler implements IRHandler {
+export class IRForwardHandler implements IRHandler {
   constructor(private params: IRParam[], private body: IRStmt[]) {}
   send(
     sender: Interpreter,
@@ -248,7 +243,7 @@ export class IRForwardMessageHandler implements IRHandler {
   }
 }
 
-export class IRObjectHandler implements IRHandler {
+export class IROnHandler implements IRHandler {
   constructor(private params: IRParam[], private body: IRStmt[]) {}
   send(
     sender: Interpreter,
@@ -284,8 +279,28 @@ export class IRPrimitiveHandler implements IRHandler {
   }
 }
 
+export function elseBlockHandler(
+  selector: string,
+  offset: number,
+  params: IRParam[],
+  body: IRStmt[]
+): IRBlockHandler {
+  switch (selector) {
+    case "":
+      return new IRElseBlockHandler(body)
+    case ":":
+      return new IRForwardBlockHandler(offset, params, body)
+    default:
+      throw new InvalidElseParamsError(selector)
+  }
+}
+
 export class IRForwardBlockHandler implements IRBlockHandler {
-  constructor(private params: IRParam[], private body: IRStmt[]) {}
+  constructor(
+    private offset: number,
+    private params: IRParam[],
+    private body: IRStmt[]
+  ) {}
   send(
     sender: Interpreter,
     ctx: Interpreter,

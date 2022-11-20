@@ -30,10 +30,12 @@ import {
 } from "./interface"
 import {
   IRLocalExpr,
-  IRObjectHandler,
+  IROnHandler,
   IROnBlockHandler,
   IRSendExpr,
   IRUseExpr,
+  elseHandler,
+  elseBlockHandler,
 } from "./ir"
 import { build } from "./message-builder"
 import { ExprStmt, LetStmt } from "./stmt"
@@ -81,7 +83,7 @@ class KeyParams implements ParseParams {
       this.key,
       scope,
       body,
-      (body) => new IRObjectHandler([], head.concat(body))
+      (body) => new IROnHandler([], head.concat(body))
     )
   }
   addToBlockClass(
@@ -162,7 +164,7 @@ class PairParams implements ParseParams {
               scope,
               body,
               (body) =>
-                new IRObjectHandler(
+                new IROnHandler(
                   params.map((p) => p.toIR()),
                   head.concat(body)
                 )
@@ -183,12 +185,13 @@ class PairParams implements ParseParams {
         pair: (_, param) => param,
         build: (selector, params) => {
           const scope = new BasicScope(instance, new LocalsImpl(params.length))
-          cls.addElse(
-            selector,
-            scope,
-            params.map((p) => p.toIR()),
-            this.handlerHead(scope, selfBinding, params, bindings),
-            body
+          const head = this.handlerHead(scope, selfBinding, params, bindings)
+          cls.addElse(selector, scope, body, (body) =>
+            elseHandler(
+              selector,
+              params.map((p) => p.toIR()),
+              head.concat(body)
+            )
           )
         },
       })
@@ -253,17 +256,17 @@ class PairParams implements ParseParams {
             offset,
             paramScope
           )
-          cls.addElse(
-            selector,
-            scope,
-            params.map((p) => p.toIR()),
-            head,
-            body
+          cls.addElse(selector, scope, body, (body) =>
+            elseBlockHandler(
+              selector,
+              offset,
+              params.map((p) => p.toIR()),
+              head.concat(body)
+            )
           )
         },
       })
     }
-    // cls.addElse(body.flatMap((s) => s.compile(scope)))
   }
   private handlerHead(
     scope: Scope,
