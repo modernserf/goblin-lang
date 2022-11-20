@@ -16,7 +16,7 @@ import {
   PartialHandler,
   Scope,
   Value,
-  IRClassBuilder as IIRClassBuilder,
+  IRBaseClassBuilder as IIRBaseClassBuilder,
   IRBlockClassBuilder as IIRBlockClassBuilder,
 } from "./interface"
 import {
@@ -28,10 +28,21 @@ import {
   IRBaseClass,
 } from "./value"
 
-export class IRClassBuilder implements IIRClassBuilder {
-  private partials = new Map<string, PartialHandler[]>()
-  private handlers = new Map<string, IRHandler>()
-  private elseHandler: IRHandler | null = null
+export class IRBaseClassBuilder<Handler extends IRHandler>
+  implements IIRBaseClassBuilder<Handler>
+{
+  protected partials = new Map<string, PartialHandler[]>()
+  protected handlers = new Map<string, Handler>()
+  protected elseHandler: Handler | null = null
+  constructor(
+    private ElseHandler: new (body: IRStmt[]) => Handler,
+    private ForwardHandler: new (params: IRParam[], body: IRStmt[]) => Handler
+  ) {}
+  add(selector: string, handler: Handler): this {
+    if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
+    this.handlers.set(selector, handler)
+    return this
+  }
   addPartial(selector: string, partial: PartialHandler): this {
     const arr = this.partials.get(selector) || []
     arr.push(partial)
@@ -42,9 +53,8 @@ export class IRClassBuilder implements IIRClassBuilder {
     selector: string,
     scope: Scope,
     body: ParseStmt[],
-    getHandler: (body: IRStmt[]) => IRHandler
+    getHandler: (body: IRStmt[]) => Handler
   ): this {
-    if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
     const partials = this.partials.get(selector) || []
     this.partials.delete(selector)
 
@@ -52,15 +62,7 @@ export class IRClassBuilder implements IIRClassBuilder {
       .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
       .flatMap((p) => p.compile(scope))
 
-    this.handlers.set(selector, getHandler(fullBody))
-    return this
-  }
-  add(selector: string, handler: IRHandler): this {
-    if (this.handlers.has(selector)) {
-      throw new DuplicateHandlerError(selector)
-    }
-    this.handlers.set(selector, handler)
-    return this
+    return this.add(selector, getHandler(fullBody))
   }
   addElse(
     selector: string,
@@ -74,10 +76,10 @@ export class IRClassBuilder implements IIRClassBuilder {
     const fullBody = body.flatMap((s) => s.compile(scope))
     switch (selector) {
       case "":
-        this.elseHandler = new IRElseHandler(head.concat(fullBody))
+        this.elseHandler = new this.ElseHandler(head.concat(fullBody))
         return this
       case ":":
-        this.elseHandler = new IRForwardMessageHandler(
+        this.elseHandler = new this.ForwardHandler(
           params,
           head.concat(fullBody)
         )
@@ -86,19 +88,20 @@ export class IRClassBuilder implements IIRClassBuilder {
         throw new InvalidElseParamsError(selector)
     }
   }
+  build(): IRClass {
+    return new IRBaseClass<Handler>(this.handlers, this.elseHandler)
+  }
+}
+
+export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
+  constructor() {
+    super(IRElseHandler, IRForwardMessageHandler)
+  }
   addPrimitive(
     selector: string,
     fn: (value: any, args: Value[], ctx: Interpreter) => Value
   ): this {
-    /* istanbul ignore next */
-    if (this.handlers.has(selector)) {
-      throw new DuplicateHandlerError(selector)
-    }
-    this.handlers.set(selector, new IRPrimitiveHandler(fn))
-    return this
-  }
-  build(): IRClass {
-    return new IRBaseClass<IRHandler>(this.handlers, this.elseHandler)
+    return this.add(selector, new IRPrimitiveHandler(fn))
   }
 }
 

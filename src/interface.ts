@@ -23,13 +23,13 @@ export interface PartialHandler {
   cond(ifFalse: ParseStmt[]): ParseStmt[]
 }
 
-export interface IRClassBuilder {
+export interface IRBaseClassBuilder<Handler> {
   addPartial(selector: string, partial: PartialHandler): this
   addFinal(
     selector: string,
     scope: Scope,
     body: ParseStmt[],
-    getHandler: (body: IRStmt[]) => IRHandler
+    getHandler: (body: IRStmt[]) => Handler
   ): this
   addElse(
     selector: string,
@@ -39,6 +39,8 @@ export interface IRClassBuilder {
     body: ParseStmt[]
   ): this
 }
+export type IRClassBuilder = IRBaseClassBuilder<IRHandler>
+// export type IRBlockClassBuilder = IRBaseClassBuilder<IRBlockHandler>
 export interface IRBlockClassBuilder {
   addPartial(selector: string, partial: PartialHandler): this
   addFinal(
