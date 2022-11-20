@@ -6,7 +6,11 @@ import {
   ParsePlaceholder,
   ParseSend,
 } from "./expr"
-import { InvalidDestructuringError, InvalidProvideBindingError } from "./error"
+import {
+  InvalidDestructuringError,
+  InvalidProvideBindingError,
+  InvalidElseParamsError,
+} from "./error"
 import {
   Instance,
   IRExpr,
@@ -69,7 +73,7 @@ class KeyParams implements ParseParams {
     cls.addFinal(this.key, scope, [], selfBinding.selfBinding(scope), body)
   }
   addElseToClass(): void {
-    throw new Error("invalid add else")
+    throw new InvalidElseParamsError(this.key)
   }
   addToBlockClass(
     scope: Scope,

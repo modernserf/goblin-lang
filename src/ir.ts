@@ -2,6 +2,7 @@ import {
   ArgMismatchError,
   DuplicateElseHandlerError,
   DuplicateHandlerError,
+  InvalidElseParamsError,
 } from "./error"
 import {
   Interpreter,
@@ -67,7 +68,7 @@ export class IRClassBuilder implements IIRClassBuilder {
     head: IRStmt[],
     body: ParseStmt[]
   ): this {
-    if (this.elseHandler) throw new DuplicateElseHandlerError()
+    if (this.elseHandler) throw new DuplicateElseHandlerError(selector)
     // TODO: handle partial elses
     const fullBody = body.flatMap((s) => s.compile(scope))
     switch (selector) {
@@ -81,7 +82,7 @@ export class IRClassBuilder implements IIRClassBuilder {
         )
         return this
       default:
-        throw new Error("invalid else params")
+        throw new InvalidElseParamsError(selector)
     }
   }
   addPrimitive(
@@ -145,7 +146,7 @@ export class IRBlockClassBuilder implements IIRBlockClassBuilder {
     return this
   }
   addElse(body: IRStmt[]): this {
-    if (this.elseHandler) throw new DuplicateElseHandlerError()
+    if (this.elseHandler) throw new DuplicateElseHandlerError("")
     this.elseHandler = new IRElseBlockHandler(body)
     return this
   }

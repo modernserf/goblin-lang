@@ -10,7 +10,9 @@ export class InvalidProvideBindingError {}
 export class DuplicateHandlerError {
   constructor(readonly selector: string) {}
 }
-export class DuplicateElseHandlerError {}
+export class DuplicateElseHandlerError {
+  constructor(readonly selector: string) {}
+}
 export class DuplicateKeyError {
   constructor(readonly key: string) {}
 }
@@ -25,4 +27,7 @@ export class NoProviderError {
 }
 export class ArgMismatchError {
   constructor(readonly paramType: string, readonly argType: string) {}
+}
+export class InvalidElseParamsError {
+  constructor(readonly selector: string) {}
 }
