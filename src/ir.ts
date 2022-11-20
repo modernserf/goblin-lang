@@ -3,6 +3,7 @@ import {
   DuplicateElseHandlerError,
   DuplicateHandlerError,
 } from "./error"
+import { frame } from "./frame"
 import {
   Interpreter,
   IRArg,
@@ -221,15 +222,58 @@ export class IRLazyHandler implements IRHandler {
   replace(handler: IRHandler) {
     this.handler = handler
   }
-  send(sender: Interpreter, target: Value, args: IRArg[]): Value {
+  send(
+    sender: Interpreter,
+    target: Value,
+    selector: string,
+    args: IRArg[]
+  ): Value {
     if (!this.handler) throw new Error("missing lazy handler")
-    return this.handler.send(sender, target, args)
+    return this.handler.send(sender, target, selector, args)
+  }
+}
+
+function messageForwarder(selector: string, args: IRArg[]): IRExpr {
+  const cls = new IRClassBuilder()
+    .add(
+      ":",
+      new IRObjectHandler(
+        [{ tag: "do" }],
+        [new IRSendExpr(selector, new IRLocalExpr(0), args)]
+      )
+    )
+    .build()
+  return new ObjectValue(cls, [])
+}
+
+export class IRForwardMessageHandler implements IRHandler {
+  constructor(private body: IRStmt[]) {}
+  send(
+    sender: Interpreter,
+    target: Value,
+    selector: string,
+    originalArgs: IRArg[]
+  ): Value {
+    const args = [new IRValueArg(messageForwarder(selector, originalArgs))]
+    const child = sender.createChild(target)
+    loadArgs(sender, child, 0, [{ tag: "value" }], args)
+    try {
+      const result = Return.handleReturn(child, () => body(child, this.body))
+      return result
+    } finally {
+      unloadArgs(sender, child, 0, args)
+    }
   }
 }
 
 export class IRElseHandler implements IRHandler {
   constructor(private body: IRStmt[]) {}
-  send(sender: Interpreter, target: Value, args: IRArg[]): Value {
+  send(
+    sender: Interpreter,
+    target: Value,
+    selector: string,
+    args: IRArg[]
+  ): Value {
     const child = sender.createChild(target)
     return Return.handleReturn(child, () => body(child, this.body))
   }
@@ -237,7 +281,12 @@ export class IRElseHandler implements IRHandler {
 
 export class IRObjectHandler implements IRHandler {
   constructor(private params: IRParam[], private body: IRStmt[]) {}
-  send(sender: Interpreter, target: Value, args: IRArg[]): Value {
+  send(
+    sender: Interpreter,
+    target: Value,
+    selector: string,
+    args: IRArg[]
+  ): Value {
     const child = sender.createChild(target)
     loadArgs(sender, child, 0, this.params, args)
     try {
@@ -253,7 +302,12 @@ export class IRPrimitiveHandler implements IRHandler {
   constructor(
     private fn: (value: any, args: Value[], ctx: Interpreter) => Value
   ) {}
-  send(sender: Interpreter, target: Value, args: IRArg[]): Value {
+  send(
+    sender: Interpreter,
+    target: Value,
+    selector: string,
+    args: IRArg[]
+  ): Value {
     return this.fn(
       target.primitiveValue,
       args.map((arg) => arg.value(sender)),
@@ -264,7 +318,12 @@ export class IRPrimitiveHandler implements IRHandler {
 
 export class IRElseBlockHandler implements IRBlockHandler {
   constructor(private body: IRStmt[]) {}
-  send(sender: Interpreter, ctx: Interpreter, args: IRArg[]): Value {
+  send(
+    sender: Interpreter,
+    ctx: Interpreter,
+    selector: string,
+    args: IRArg[]
+  ): Value {
     return body(ctx, this.body)
   }
 }
@@ -275,7 +334,12 @@ export class IROnBlockHandler implements IRBlockHandler {
     private params: IRParam[],
     private body: IRStmt[]
   ) {}
-  send(sender: Interpreter, ctx: Interpreter, args: IRArg[]): Value {
+  send(
+    sender: Interpreter,
+    ctx: Interpreter,
+    selector: string,
+    args: IRArg[]
+  ): Value {
     loadArgs(sender, ctx, this.offset, this.params, args)
     const result = body(ctx, this.body)
     unloadArgs(sender, ctx, this.offset, args)
@@ -340,12 +404,18 @@ export class IRTrySendExpr implements IRExpr, IRStmt {
 
 export class IRSendDirectExpr implements IRExpr, IRStmt {
   constructor(
+    private selector: string,
     private handler: IRHandler,
     private target: IRExpr,
     private args: IRArg[]
   ) {}
   eval(ctx: Interpreter): Value {
-    return this.handler.send(ctx, this.target.eval(ctx), this.args)
+    return this.handler.send(
+      ctx,
+      this.target.eval(ctx),
+      this.selector,
+      this.args
+    )
   }
 }
 

@@ -32,29 +32,6 @@ export function frame(
   if (cachedClass) return constObject(cachedClass, ivars)
 
   const frameClass = new IRClassBuilder()
-  // constructor: [x: 1 y: 2]{x: 3 y: 4}
-  frameClass.addFrame(
-    selector,
-    args.map(() => ({ tag: "value" })),
-    [
-      new IRObjectExpr(
-        frameClass,
-        args.map((_, index) => new IRLocalExpr(index))
-      ),
-    ]
-  )
-  // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
-  frameClass.addFrame(
-    ":",
-    [{ tag: "do" }],
-    [
-      new IRSendExpr(
-        selector,
-        $0,
-        args.map((_, index) => new IRValueArg(new IRIvarExpr(index)))
-      ),
-    ]
-  )
   for (const [index, { key }] of args.entries()) {
     const ivar: IRExpr = new IRIvarExpr(index)
     // getter: [x: 1 y: 2]{x}
@@ -82,12 +59,39 @@ export function frame(
       `-> ${key}:`,
       [{ tag: "do" }],
       [
-        new IRSendDirectExpr(frameClass.get(`${key}:`), new IRSelfExpr(), [
-          new IRValueArg(new IRSendExpr(":", $0, [new IRValueArg(ivar)])),
-        ]),
+        new IRSendDirectExpr(
+          `-> ${key}:`,
+          frameClass.get(`${key}:`),
+          new IRSelfExpr(),
+          [new IRValueArg(new IRSendExpr(":", $0, [new IRValueArg(ivar)]))]
+        ),
       ]
     )
   }
+  // constructor: [x: 1 y: 2]{x: 3 y: 4}
+  frameClass.addFrame(
+    selector,
+    args.map(() => ({ tag: "value" })),
+    [
+      new IRObjectExpr(
+        frameClass,
+        args.map((_, index) => new IRLocalExpr(index))
+      ),
+    ]
+  )
+  // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
+  frameClass.addFrame(
+    ":",
+    [{ tag: "do" }],
+    [
+      new IRSendExpr(
+        selector,
+        $0,
+        args.map((_, index) => new IRValueArg(new IRIvarExpr(index)))
+      ),
+    ]
+  )
+
   frameCache.set(selector, frameClass)
   return constObject(frameClass, ivars)
 }

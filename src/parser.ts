@@ -199,7 +199,7 @@ function parseHandlers(lexer: Lexer): ParseHandler[] {
   while (true) {
     if (accept(lexer, "else")) {
       const body = repeat(lexer, parseStmt)
-      out.push(new ElseHandler(body))
+      out.push(new ElseHandler(new ParamsBuilder().build(), body))
     } else if (accept(lexer, "on")) {
       const messages = repeat1(lexer, "handler", parseParams)
       const body = repeat(lexer, parseStmt)

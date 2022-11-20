@@ -67,6 +67,18 @@ class KeyParams implements ParseParams {
       body
     )
   }
+  addElseToClass(
+    instance: Instance,
+    cls: IRClassBuilder,
+    body: ParseStmt[],
+    selfBinding: ParseBinding | undefined
+  ): void {
+    const scope = new BasicScope(instance, new LocalsImpl())
+    cls.addElse([
+      ...compileSelfBinding(scope, selfBinding),
+      ...body.flatMap((s) => s.compile(scope)),
+    ])
+  }
   addToBlockClass(
     scope: Scope,
     cls: IRBlockClassBuilder,
@@ -175,6 +187,18 @@ class PairParams implements ParseParams {
       })
     }
   }
+  addElseToClass(
+    instance: Instance,
+    cls: IRClassBuilder,
+    body: ParseStmt[],
+    selfBinding: ParseBinding | undefined
+  ): void {
+    const scope = new BasicScope(instance, new LocalsImpl())
+    cls.addElse([
+      ...compileSelfBinding(scope, selfBinding),
+      ...body.flatMap((s) => s.compile(scope)),
+    ])
+  }
   addToBlockClass(
     scope: Scope,
     cls: IRBlockClassBuilder,
@@ -277,7 +301,7 @@ export class PartialPatternParam implements ParseParam, PartialParseParam {
           "",
           new HandlersArg([
             new OnHandler(this.params, ifTrue),
-            new ElseHandler(ifFalse),
+            new ElseHandler(new PairParams([]), ifFalse),
           ])
         )
         .build()

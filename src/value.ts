@@ -58,7 +58,7 @@ export class ObjectValue implements Value, IRExpr, IRStmt {
   }
   send(sender: Interpreter, selector: string, args: IRArg[]): Value {
     const handler = this.cls.get(selector)
-    return handler.send(sender, this, args)
+    return handler.send(sender, this, selector, args)
   }
   trySend(
     sender: Interpreter,
@@ -67,7 +67,7 @@ export class ObjectValue implements Value, IRExpr, IRStmt {
     orElse: IRExpr
   ): Value {
     const handler = this.cls.try(selector)
-    if (handler) return handler.send(sender, this, args)
+    if (handler) return handler.send(sender, this, selector, args)
     return orElse.eval(sender)
   }
   instanceof(cls: IRClass): boolean {
@@ -89,7 +89,7 @@ export class PrimitiveValue implements Value, IRExpr, IRStmt {
   }
   send(sender: Interpreter, selector: string, args: IRArg[]): Value {
     const handler = this.cls.get(selector)
-    return handler.send(sender, this, args)
+    return handler.send(sender, this, selector, args)
   }
   trySend(
     sender: Interpreter,
@@ -98,7 +98,7 @@ export class PrimitiveValue implements Value, IRExpr, IRStmt {
     orElse: IRExpr
   ): Value {
     const handler = this.cls.try(selector)
-    if (handler) return handler.send(sender, this, args)
+    if (handler) return handler.send(sender, this, selector, args)
     return orElse.eval(sender)
   }
   instanceof(cls: IRClass): boolean {
@@ -121,7 +121,7 @@ export class DoValue implements Value {
   }
   send(sender: Interpreter, selector: string, args: IRArg[]): Value {
     const handler = this.cls.get(selector)
-    return handler.send(sender, this.ctx, args)
+    return handler.send(sender, this.ctx, selector, args)
   }
   trySend(
     sender: Interpreter,
@@ -130,7 +130,7 @@ export class DoValue implements Value {
     orElse: IRExpr
   ): Value {
     const handler = this.cls.try(selector)
-    if (handler) return handler.send(sender, this.ctx, args)
+    if (handler) return handler.send(sender, this.ctx, selector, args)
     return orElse.eval(sender)
   }
   /* istanbul ignore next */

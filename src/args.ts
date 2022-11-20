@@ -174,7 +174,7 @@ function compileSend(
       // TODO: make this a "warning" rather than an "error"
       throw new RedundantTrySendError()
     }
-    return new IRSendDirectExpr(handler, new IRSelfExpr(), irArgs)
+    return new IRSendDirectExpr(selector, handler, new IRSelfExpr(), irArgs)
   } else {
     if (orElse) {
       return new IRTrySendExpr(

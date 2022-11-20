@@ -6,6 +6,7 @@ import {
 } from "./error"
 import {
   Instance,
+  IRBlockClassBuilder,
   IRExpr,
   IRStmt,
   ParseArgs,
@@ -291,31 +292,17 @@ export class OnHandler implements ParseHandler {
 }
 
 export class ElseHandler implements ParseHandler {
-  constructor(private body: ParseStmt[]) {}
+  constructor(private params: ParseParams, private body: ParseStmt[]) {}
   addToClass(
     instance: Instance,
     cls: IRClassBuilder,
     selfBinding: ParseBinding | undefined
   ): void {
-    const scope = new BasicScope(instance, new LocalsImpl())
-    cls.addElse([
-      ...compileSelfBinding(scope, selfBinding),
-      ...this.body.flatMap((s) => s.compile(scope)),
-    ])
+    this.params.addElseToClass(instance, cls, this.body, selfBinding)
   }
   addToBlockClass(scope: Scope, cls: IRBlockClass): void {
     cls.addElse(this.body.flatMap((s) => s.compile(scope)))
   }
-}
-
-function compileSelfBinding(
-  scope: Scope,
-  binding: ParseBinding | undefined
-): IRStmt[] {
-  if (binding && binding.selfBinding) {
-    return binding.selfBinding(scope)
-  }
-  return []
 }
 
 function useAs(scope: Scope, as: string | null): ScopeRecord {

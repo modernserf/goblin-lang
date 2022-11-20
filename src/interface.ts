@@ -83,6 +83,12 @@ export interface ParseParams {
     body: ParseStmt[],
     selfBinding: ParseBinding | undefined
   ): void
+  addElseToClass(
+    instance: Instance,
+    cls: IRClassBuilder,
+    body: ParseStmt[],
+    selfBinding: ParseBinding | undefined
+  ): void
   addToBlockClass(
     scope: Scope,
     cls: IRBlockClassBuilder,
@@ -166,10 +172,20 @@ export interface IRStmt {
   eval(ctx: Interpreter): void | Value
 }
 export interface IRHandler {
-  send(sender: Interpreter, target: Value, args: IRArg[]): Value
+  send(
+    sender: Interpreter,
+    target: Value,
+    selector: string,
+    args: IRArg[]
+  ): Value
 }
 export interface IRBlockHandler {
-  send(sender: Interpreter, ctx: Interpreter, args: IRArg[]): Value
+  send(
+    sender: Interpreter,
+    ctx: Interpreter,
+    selector: string,
+    args: IRArg[]
+  ): Value
 }
 export interface IRExpr {
   eval(ctx: Interpreter): Value
