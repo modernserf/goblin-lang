@@ -28,7 +28,7 @@ import {
   PartialHandler,
   PartialParseParam,
 } from "./interface"
-import { IRLocalExpr, IRSendExpr, IRUseExpr } from "./ir"
+import { IRLocalExpr, IRObjectHandler, IRSendExpr, IRUseExpr } from "./ir"
 import { build } from "./message-builder"
 import { ExprStmt, LetStmt } from "./stmt"
 import { BasicScope, LocalsImpl } from "./scope"
@@ -70,7 +70,13 @@ class KeyParams implements ParseParams {
     selfBinding: ParseBinding
   ): void {
     const scope = new BasicScope(instance, new LocalsImpl())
-    cls.addFinal(this.key, scope, [], selfBinding.selfBinding(scope), body)
+    const head = selfBinding.selfBinding(scope)
+    cls.addFinal(
+      this.key,
+      scope,
+      body,
+      (body) => new IRObjectHandler([], head.concat(body))
+    )
   }
   addElseToClass(): void {
     throw new InvalidElseParamsError(this.key)
@@ -136,13 +142,24 @@ class PairParams implements ParseParams {
           if (partial) {
             cls.addPartial(selector, partial)
           } else {
+            const head = this.handlerHead(scope, selfBinding, params, bindings)
             cls.addFinal(
               selector,
               scope,
-              params.map((p) => p.toIR()),
-              this.handlerHead(scope, selfBinding, params, bindings),
-              body
+              body,
+              (body) =>
+                new IRObjectHandler(
+                  params.map((p) => p.toIR()),
+                  head.concat(body)
+                )
             )
+            // cls.addFinal(
+            //   selector,
+            //   scope,
+            //   params.map((p) => p.toIR()),
+            //   this.handlerHead(scope, selfBinding, params, bindings),
+            //   body
+            // )
           }
         },
       })

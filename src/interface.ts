@@ -28,9 +28,8 @@ export interface IRClassBuilder {
   addFinal(
     selector: string,
     scope: Scope,
-    params: IRParam[],
-    head: IRStmt[],
-    body: ParseStmt[]
+    body: ParseStmt[],
+    getHandler: (body: IRStmt[]) => IRHandler
   ): this
   addElse(
     selector: string,

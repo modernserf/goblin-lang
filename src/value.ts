@@ -9,18 +9,18 @@ import {
   Value,
 } from "./interface"
 
-export class IRClass {
+export class IRBaseClass<Handler> {
   constructor(
-    protected handlers: Map<string, IRHandler> = new Map(),
-    protected elseHandler: IRHandler | null = null
+    protected handlers: Map<string, Handler> = new Map(),
+    protected elseHandler: Handler | null = null
   ) {}
-  try(selector: string): IRHandler | null {
+  try(selector: string): Handler | null {
     const handler = this.handlers.get(selector)
     if (handler) return handler
     if (this.elseHandler) return this.elseHandler
     return null
   }
-  get(selector: string): IRHandler {
+  get(selector: string): Handler {
     const handler = this.handlers.get(selector)
     if (handler) return handler
     if (this.elseHandler) return this.elseHandler
@@ -28,24 +28,8 @@ export class IRClass {
   }
 }
 
-export class IRBlockClass {
-  constructor(
-    protected handlers: Map<string, IRBlockHandler> = new Map(),
-    protected elseHandler: IRBlockHandler | null = null
-  ) {}
-  get(selector: string): IRBlockHandler {
-    const handler = this.handlers.get(selector)
-    if (handler) return handler
-    if (this.elseHandler) return this.elseHandler
-    throw new NoHandlerError(selector)
-  }
-  try(selector: string): IRBlockHandler | null {
-    const handler = this.handlers.get(selector)
-    if (handler) return handler
-    if (this.elseHandler) return this.elseHandler
-    return null
-  }
-}
+export type IRClass = IRBaseClass<IRHandler>
+export type IRBlockClass = IRBaseClass<IRBlockHandler>
 
 export class ObjectValue implements Value, IRExpr, IRStmt {
   readonly primitiveValue = null
@@ -143,5 +127,5 @@ export class DoValue implements Value {
   }
 }
 
-export const unitClass: IRClass = new IRClass()
+export const unitClass = new IRBaseClass<IRHandler>()
 export const unit = new ObjectValue(unitClass, [])

@@ -19,7 +19,14 @@ import {
   IRClassBuilder as IIRClassBuilder,
   IRBlockClassBuilder as IIRBlockClassBuilder,
 } from "./interface"
-import { IRClass, IRBlockClass, DoValue, ObjectValue, unit } from "./value"
+import {
+  IRClass,
+  IRBlockClass,
+  DoValue,
+  ObjectValue,
+  unit,
+  IRBaseClass,
+} from "./value"
 
 export class IRClassBuilder implements IIRClassBuilder {
   private partials = new Map<string, PartialHandler[]>()
@@ -34,13 +41,10 @@ export class IRClassBuilder implements IIRClassBuilder {
   addFinal(
     selector: string,
     scope: Scope,
-    params: IRParam[],
-    head: IRStmt[],
-    body: ParseStmt[]
+    body: ParseStmt[],
+    getHandler: (body: IRStmt[]) => IRHandler
   ): this {
-    if (this.handlers.has(selector)) {
-      throw new DuplicateHandlerError(selector)
-    }
+    if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
     const partials = this.partials.get(selector) || []
     this.partials.delete(selector)
 
@@ -48,10 +52,7 @@ export class IRClassBuilder implements IIRClassBuilder {
       .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
       .flatMap((p) => p.compile(scope))
 
-    this.handlers.set(
-      selector,
-      new IRObjectHandler(params, [...head, ...fullBody])
-    )
+    this.handlers.set(selector, getHandler(fullBody))
     return this
   }
   add(selector: string, handler: IRHandler): this {
@@ -97,7 +98,7 @@ export class IRClassBuilder implements IIRClassBuilder {
     return this
   }
   build(): IRClass {
-    return new IRClass(this.handlers, this.elseHandler)
+    return new IRBaseClass<IRHandler>(this.handlers, this.elseHandler)
   }
 }
 
@@ -151,7 +152,7 @@ export class IRBlockClassBuilder implements IIRBlockClassBuilder {
     return this
   }
   build(): IRBlockClass {
-    return new IRBlockClass(this.handlers, this.elseHandler)
+    return new IRBaseClass<IRBlockHandler>(this.handlers, this.elseHandler)
   }
 }
 

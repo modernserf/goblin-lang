@@ -1,5 +1,5 @@
-import { IRExpr, IRParam, IRStmt } from "./interface"
-import { IRClass } from "./value"
+import { IRExpr, IRHandler, IRParam, IRStmt } from "./interface"
+import { IRClass, IRBaseClass } from "./value"
 import {
   IRIvarExpr,
   IRLocalExpr,
@@ -12,7 +12,7 @@ import {
 } from "./ir"
 import { constObject } from "./optimize"
 
-export class IRClassBuilder extends IRClass {
+export class IRClassBuilder extends IRBaseClass<IRHandler> {
   addFrame(selector: string, params: IRParam[], body: IRStmt[]): this {
     // allow overwriting of methods
     this.handlers.set(selector, new IRObjectHandler(params, body))
