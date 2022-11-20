@@ -1,4 +1,11 @@
-import { ElseHandler, OnHandler, ParseIdent, ParseIf, ParseSend } from "./expr"
+import {
+  ElseHandler,
+  OnHandler,
+  ParseIdent,
+  ParseIf,
+  ParsePlaceholder,
+  ParseSend,
+} from "./expr"
 import { InvalidDestructuringError, InvalidProvideBindingError } from "./error"
 import {
   Instance,
@@ -61,12 +68,7 @@ class KeyParams implements ParseParams {
     const scope = new BasicScope(instance, new LocalsImpl())
     cls.addFinal(this.key, scope, [], selfBinding.selfBinding(scope), body)
   }
-  addElseToClass(
-    instance: Instance,
-    cls: IRClassBuilder,
-    body: ParseStmt[],
-    selfBinding: ParseBinding
-  ): void {
+  addElseToClass(): void {
     throw new Error("invalid add else")
   }
   addToBlockClass(
@@ -86,34 +88,6 @@ class KeyParams implements ParseParams {
   let(scope: Scope, value: IRExpr): IRStmt[] {
     throw new InvalidDestructuringError()
   }
-}
-
-type ParamWithBindings = {
-  pairs: Pair[]
-  bindings: { binding: ParseBinding; value: ParseExpr }[]
-}
-function expandDefaultParams(pairs: Pair[]): ParamWithBindings[] {
-  const out: ParamWithBindings[] = [{ pairs: [], bindings: [] }]
-  for (const pair of pairs) {
-    if (pair.value.defaultPair) {
-      const copy = out.map((x) => ({
-        pairs: x.pairs.slice(),
-        bindings: x.bindings.slice(),
-      }))
-      for (const item of out) {
-        item.pairs.push(pair)
-      }
-      for (const item of copy) {
-        item.bindings.push(pair.value.defaultPair())
-      }
-      out.push(...copy)
-    } else {
-      for (const item of out) {
-        item.pairs.push(pair)
-      }
-    }
-  }
-  return out
 }
 
 class ParseLocal implements ParseExpr {
@@ -139,6 +113,7 @@ function condParams(
   }, null)
 }
 
+type ParamBinding = { binding: ParseBinding; value: ParseExpr }
 class PairParams implements ParseParams {
   constructor(private pairs: Pair[]) {}
   addToClass(
@@ -147,12 +122,10 @@ class PairParams implements ParseParams {
     body: ParseStmt[],
     selfBinding: ParseBinding
   ): void {
-    for (const { pairs, bindings } of expandDefaultParams(this.pairs)) {
+    for (const { pairs, bindings } of this.expandDefaultParams()) {
       build<ParseParam, ParseParam, void>(pairs, {
-        pair(_, param) {
-          return param
-        },
-        build(selector, params) {
+        pair: (_, param) => param,
+        build: (selector, params) => {
           const scope = new BasicScope(instance, new LocalsImpl(params.length))
 
           const partial = condParams(params, body)
@@ -163,13 +136,7 @@ class PairParams implements ParseParams {
               selector,
               scope,
               params.map((p) => p.toIR()),
-              [
-                ...selfBinding.selfBinding(scope),
-                ...params.flatMap((p, i) => p.handler(scope, i)),
-                ...bindings.flatMap(({ binding, value }) =>
-                  new LetStmt(binding, value, false).compile(scope)
-                ),
-              ],
+              this.handlerHead(scope, selfBinding, params, bindings),
               body
             )
           }
@@ -183,27 +150,34 @@ class PairParams implements ParseParams {
     body: ParseStmt[],
     selfBinding: ParseBinding
   ): void {
-    if (this.pairs.length) throw new Error("invalid else params")
-
-    const scope = new BasicScope(instance, new LocalsImpl())
-    cls.addElse([
-      ...selfBinding.selfBinding(scope),
-      ...body.flatMap((s) => s.compile(scope)),
-    ])
+    for (const { pairs, bindings } of this.expandDefaultParams()) {
+      build<ParseParam, ParseParam, void>(pairs, {
+        pair: (_, param) => param,
+        build: (selector, params) => {
+          const scope = new BasicScope(instance, new LocalsImpl(params.length))
+          cls.addElse(
+            selector,
+            scope,
+            params.map((p) => p.toIR()),
+            this.handlerHead(scope, selfBinding, params, bindings),
+            body
+          )
+        },
+      })
+    }
   }
+
   addToBlockClass(
     scope: Scope,
     cls: IRBlockClassBuilder,
     body: ParseStmt[]
   ): void {
     // block params use parent scope, and do not start at zero
-    for (const { pairs, bindings } of expandDefaultParams(this.pairs)) {
+    for (const { pairs, bindings } of this.expandDefaultParams()) {
       const offset = scope.locals.allocate(pairs.length)
       build<ParseParam, ParseParam, void>(pairs, {
-        pair(_, param) {
-          return param
-        },
-        build(selector, params) {
+        pair: (_, param) => param,
+        build: (selector, params) => {
           const paramScope = new BasicScope(scope.instance, scope.locals)
           const partial = condParams(params, body)
           if (partial) {
@@ -214,18 +188,63 @@ class PairParams implements ParseParams {
               offset,
               scope,
               params.map((p) => p.toIR()),
-              [
-                ...params.flatMap((p, i) => p.handler(paramScope, offset + i)),
-                ...bindings.flatMap(({ binding, value }) =>
-                  new LetStmt(binding, value, false).compile(scope)
-                ),
-              ],
+              this.handlerHead(
+                scope,
+                ParsePlaceholder,
+                params,
+                bindings,
+                offset,
+                paramScope
+              ),
               body
             )
           }
         },
       })
     }
+  }
+  private handlerHead(
+    scope: Scope,
+    selfBinding: ParseBinding,
+    params: ParseParam[],
+    bindings: ParamBinding[],
+    offset: number = 0,
+    paramScope: Scope = scope
+  ): IRStmt[] {
+    return [
+      ...selfBinding.selfBinding(scope),
+      ...params.flatMap((p, i) => p.handler(paramScope, offset + i)),
+      ...bindings.flatMap(({ binding, value }) =>
+        new LetStmt(binding, value, false).compile(scope)
+      ),
+    ]
+  }
+  private expandDefaultParams() {
+    type ParamWithBindings = {
+      pairs: Pair[]
+      bindings: { binding: ParseBinding; value: ParseExpr }[]
+    }
+    const out: ParamWithBindings[] = [{ pairs: [], bindings: [] }]
+    for (const pair of this.pairs) {
+      if (pair.value.defaultPair) {
+        const copy = out.map((x) => ({
+          pairs: x.pairs.slice(),
+          bindings: x.bindings.slice(),
+        }))
+        for (const item of out) {
+          item.pairs.push(pair)
+        }
+        for (const item of copy) {
+          item.bindings.push(pair.value.defaultPair())
+        }
+        out.push(...copy)
+      } else {
+        for (const item of out) {
+          item.pairs.push(pair)
+        }
+      }
+    }
+    return out
   }
   using(scope: Scope): IRStmt[] {
     return build<ParseParam, { key: string; value: ParseParam }, IRStmt[]>(

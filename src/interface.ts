@@ -32,7 +32,13 @@ export interface IRClassBuilder {
     head: IRStmt[],
     body: ParseStmt[]
   ): this
-  addElse(body: IRStmt[]): this
+  addElse(
+    selector: string,
+    scope: Scope,
+    params: IRParam[],
+    head: IRStmt[],
+    body: ParseStmt[]
+  ): this
 }
 export interface IRBlockClassBuilder {
   addPartial(selector: string, partial: PartialHandler): this

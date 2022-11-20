@@ -20,7 +20,7 @@ import {
 import {
   IRAssignStmt,
   IRClassBuilder,
-  IRBlockClassBuilder as IRBlockClass,
+  IRBlockClassBuilder,
   IRLocalExpr,
   IRModuleExpr,
 } from "./ir"
@@ -28,7 +28,7 @@ import { PrimitiveValue, unit } from "./value"
 import { constObject } from "./optimize"
 import { ParamsBuilder } from "./params"
 import { floatClass, intClass, stringClass } from "./primitive"
-import { BasicScope, LocalsImpl, ObjectInstance } from "./scope"
+import { ObjectInstance } from "./scope"
 
 export const Self: ParseExpr = {
   compile(scope) {
@@ -283,9 +283,9 @@ export class OnHandler implements ParseHandler {
     cls: IRClassBuilder,
     selfBinding: ParseBinding
   ): void {
-    return this.params.addToClass(instance, cls, this.body, selfBinding)
+    this.params.addToClass(instance, cls, this.body, selfBinding)
   }
-  addToBlockClass(scope: Scope, cls: IRBlockClass): void {
+  addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void {
     return this.params.addToBlockClass(scope, cls, this.body)
   }
 }
@@ -299,7 +299,7 @@ export class ElseHandler implements ParseHandler {
   ): void {
     this.params.addElseToClass(instance, cls, this.body, selfBinding)
   }
-  addToBlockClass(scope: Scope, cls: IRBlockClass): void {
+  addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void {
     cls.addElse(this.body.flatMap((s) => s.compile(scope)))
   }
 }

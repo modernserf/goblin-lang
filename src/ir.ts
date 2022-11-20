@@ -15,10 +15,12 @@ import {
   PartialHandler,
   Scope,
   Value,
+  IRClassBuilder as IIRClassBuilder,
+  IRBlockClassBuilder as IIRBlockClassBuilder,
 } from "./interface"
 import { IRClass, IRBlockClass, DoValue, ObjectValue, unit } from "./value"
 
-export class IRClassBuilder {
+export class IRClassBuilder implements IIRClassBuilder {
   private partials = new Map<string, PartialHandler[]>()
   private handlers = new Map<string, IRHandler>()
   private elseHandler: IRHandler | null = null
@@ -58,12 +60,29 @@ export class IRClassBuilder {
     this.handlers.set(selector, handler)
     return this
   }
-  addElse(body: IRStmt[]): this {
-    if (this.elseHandler) {
-      throw new DuplicateElseHandlerError()
+  addElse(
+    selector: string,
+    scope: Scope,
+    params: IRParam[],
+    head: IRStmt[],
+    body: ParseStmt[]
+  ): this {
+    if (this.elseHandler) throw new DuplicateElseHandlerError()
+    // TODO: handle partial elses
+    const fullBody = body.flatMap((s) => s.compile(scope))
+    switch (selector) {
+      case "":
+        this.elseHandler = new IRElseHandler(head.concat(fullBody))
+        return this
+      case ":":
+        this.elseHandler = new IRForwardMessageHandler(
+          params,
+          head.concat(fullBody)
+        )
+        return this
+      default:
+        throw new Error("invalid else params")
     }
-    this.elseHandler = new IRElseHandler(body)
-    return this
   }
   addPrimitive(
     selector: string,
@@ -81,7 +100,7 @@ export class IRClassBuilder {
   }
 }
 
-export class IRBlockClassBuilder {
+export class IRBlockClassBuilder implements IIRBlockClassBuilder {
   private partials = new Map<string, PartialHandler[]>()
   private handlers = new Map<string, IRBlockHandler>()
   private elseHandler: IRBlockHandler | null = null
@@ -234,35 +253,11 @@ export class IRLazyHandler implements IRHandler {
 
 function messageForwarder(selector: string, args: IRArg[]): IRExpr {
   const cls = new IRClassBuilder()
-    .add(
-      ":",
-      new IRObjectHandler(
-        [{ tag: "do" }],
-        [new IRSendExpr(selector, new IRLocalExpr(0), args)]
-      )
-    )
+    .addPrimitive(":", (_, [receiver], ctx) => {
+      return receiver.send(ctx, selector, args)
+    })
     .build()
   return new ObjectValue(cls, [])
-}
-
-export class IRForwardMessageHandler implements IRHandler {
-  constructor(private body: IRStmt[]) {}
-  send(
-    sender: Interpreter,
-    target: Value,
-    selector: string,
-    originalArgs: IRArg[]
-  ): Value {
-    const args = [new IRValueArg(messageForwarder(selector, originalArgs))]
-    const child = sender.createChild(target)
-    loadArgs(sender, child, 0, [{ tag: "value" }], args)
-    try {
-      const result = Return.handleReturn(child, () => body(child, this.body))
-      return result
-    } finally {
-      unloadArgs(sender, child, 0, args)
-    }
-  }
 }
 
 export class IRElseHandler implements IRHandler {
@@ -278,6 +273,25 @@ export class IRElseHandler implements IRHandler {
   }
 }
 
+export class IRForwardMessageHandler implements IRHandler {
+  constructor(private params: IRParam[], private body: IRStmt[]) {}
+  send(
+    sender: Interpreter,
+    target: Value,
+    selector: string,
+    originalArgs: IRArg[]
+  ): Value {
+    const args = [new IRValueArg(messageForwarder(selector, originalArgs))]
+    const child = sender.createChild(target)
+    loadArgs(sender, child, 0, this.params, args)
+    try {
+      return Return.handleReturn(child, () => body(child, this.body))
+    } finally {
+      unloadArgs(sender, child, 0, args)
+    }
+  }
+}
+
 export class IRObjectHandler implements IRHandler {
   constructor(private params: IRParam[], private body: IRStmt[]) {}
   send(
@@ -289,8 +303,7 @@ export class IRObjectHandler implements IRHandler {
     const child = sender.createChild(target)
     loadArgs(sender, child, 0, this.params, args)
     try {
-      const result = Return.handleReturn(child, () => body(child, this.body))
-      return result
+      return Return.handleReturn(child, () => body(child, this.body))
     } finally {
       unloadArgs(sender, child, 0, args)
     }
