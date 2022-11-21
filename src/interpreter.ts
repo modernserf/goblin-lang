@@ -1,6 +1,6 @@
 import { NoProviderError } from "./error"
 import { Interpreter, IRStmt, Value } from "./interface"
-import { body } from "./ir"
+import { body } from "./ir-stmt"
 import { unit } from "./value"
 
 export type IRModules = Map<string, IRStmt[]>

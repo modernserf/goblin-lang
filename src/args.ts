@@ -17,16 +17,14 @@ import {
   Scope,
 } from "./interface"
 import {
-  IRBlockClassBuilder,
-  IRDoArg,
-  IRProvideStmt,
   IRSelfExpr,
   IRSendDirectExpr,
   IRSendExpr,
   IRTrySendExpr,
-  IRValueArg,
-  IRVarArg,
-} from "./ir"
+} from "./ir-expr"
+import { IRProvideStmt } from "./ir-stmt"
+import { IRDoArg, IRValueArg, IRVarArg } from "./ir-handler"
+import { IRBlockClassBuilder } from "./ir-builder"
 import { build } from "./message-builder"
 
 export class InvalidArgsError {}

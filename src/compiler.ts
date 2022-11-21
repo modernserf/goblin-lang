@@ -1,5 +1,5 @@
 import { IRStmt, IRExpr, ParseStmt } from "./interface"
-import { IRAssignStmt } from "./ir"
+import { IRAssignStmt } from "./ir-stmt"
 import { rootScope } from "./scope"
 
 export function coreModule(stmts: ParseStmt[], nativeValue: IRExpr): IRStmt[] {

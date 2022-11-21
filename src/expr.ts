@@ -17,13 +17,9 @@ import {
   Scope,
   ScopeRecord,
 } from "./interface"
-import {
-  IRAssignStmt,
-  IRClassBuilder,
-  IRBlockClassBuilder,
-  IRLocalExpr,
-  IRModuleExpr,
-} from "./ir"
+import { IRAssignStmt } from "./ir-stmt"
+import { IRLocalExpr, IRModuleExpr } from "./ir-expr"
+import { IRClassBuilder, IRBlockClassBuilder } from "./ir-builder"
 import { PrimitiveValue, unit } from "./value"
 import { constObject } from "./optimize"
 import { ParamsBuilder } from "./params"

@@ -5,7 +5,7 @@ import { coreModule } from "./compiler"
 
 import { readFileSync } from "fs"
 import { IRClass, ObjectValue, PrimitiveValue, unit } from "./value"
-import { IRClassBuilder } from "./ir"
+import { IRClassBuilder } from "./ir-builder"
 import {
   intClass,
   intValue,

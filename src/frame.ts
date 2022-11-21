@@ -1,16 +1,14 @@
 import { IRExpr, IRHandler, IRParam, IRStmt } from "./interface"
 import { IRClass, IRBaseClass } from "./value"
 import {
-  IRGetterHandler,
   IRIvarExpr,
   IRLocalExpr,
   IRObjectExpr,
-  IROnHandler,
   IRSelfExpr,
   IRSendDirectExpr,
   IRSendExpr,
-  IRValueArg,
-} from "./ir"
+} from "./ir-expr"
+import { IRGetterHandler, IROnHandler, IRValueArg } from "./ir-handler"
 import { constObject } from "./optimize"
 
 export class IRClassBuilder extends IRBaseClass<IRHandler> {

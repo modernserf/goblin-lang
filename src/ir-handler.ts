@@ -1,103 +1,18 @@
-import {
-  ArgMismatchError,
-  DuplicateElseHandlerError,
-  DuplicateHandlerError,
-  InvalidElseParamsError,
-} from "./error"
+import { ArgMismatchError, InvalidElseParamsError } from "./error"
 import {
   Interpreter,
   IRArg,
   IRBlockHandler,
-  IRExpr,
   IRHandler,
   IRParam,
   IRStmt,
-  ParseStmt,
-  PartialHandler,
-  Scope,
   Value,
-  IRBaseClassBuilder as IIRBaseClassBuilder,
   ParseParam,
+  IRExpr,
 } from "./interface"
-import {
-  IRClass,
-  IRBlockClass,
-  DoValue,
-  ObjectValue,
-  unit,
-  IRBaseClass,
-  PrimitiveValue,
-} from "./value"
-
-// classes
-
-export class IRBaseClassBuilder<Handler>
-  implements IIRBaseClassBuilder<Handler>
-{
-  protected partials = new Map<string, PartialHandler[]>()
-  protected handlers = new Map<string, Handler>()
-  protected elsePartials: PartialHandler[] = []
-  protected elseHandler: Handler | null = null
-  add(selector: string, handler: Handler): this {
-    if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
-    this.handlers.set(selector, handler)
-    return this
-  }
-  addPartial(selector: string, partial: PartialHandler): this {
-    const arr = this.partials.get(selector) || []
-    arr.push(partial)
-    this.partials.set(selector, arr)
-    return this
-  }
-  addFinal(
-    selector: string,
-    scope: Scope,
-    body: ParseStmt[],
-    getHandler: (body: IRStmt[]) => Handler
-  ): this {
-    const partials = this.partials.get(selector) || []
-    this.partials.delete(selector)
-
-    const fullBody = partials
-      .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
-      .flatMap((p) => p.compile(scope))
-
-    return this.add(selector, getHandler(fullBody))
-  }
-  addElse(
-    selector: string,
-    scope: Scope,
-    body: ParseStmt[],
-    getHandler: (body: IRStmt[]) => Handler
-  ): this {
-    if (this.elseHandler) throw new DuplicateElseHandlerError(selector)
-    const fullBody = this.elsePartials
-      .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
-      .flatMap((p) => p.compile(scope))
-
-    this.elseHandler = getHandler(fullBody)
-
-    return this
-  }
-  build(): IRBaseClass<Handler> {
-    return new IRBaseClass<Handler>(this.handlers, this.elseHandler)
-  }
-}
-
-export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
-  addPrimitive(
-    selector: string,
-    fn: (value: any, args: Value[], ctx: Interpreter) => Value
-  ): this {
-    return this.add(selector, new IRPrimitiveHandler(fn))
-  }
-  addConst(selector: string, value: Value): this {
-    return this.add(selector, new IRConstHandler(value))
-  }
-}
-export class IRBlockClassBuilder extends IRBaseClassBuilder<IRBlockHandler> {}
-
-// args
+import { IRLocalExpr, IRSendExpr } from "./ir-expr"
+import { body, Return } from "./ir-stmt"
+import { ObjectValue, unit, IRBaseClass, IRBlockClass, DoValue } from "./value"
 
 export class IRValueArg implements IRArg {
   constructor(private expr: IRExpr) {}
@@ -164,8 +79,6 @@ export class IRDoArg implements IRArg {
   }
   unload() {} // noop
 }
-
-// handlers
 
 function loadArgs(
   sender: Interpreter,
@@ -310,15 +223,17 @@ function messageForwarder(
   args: IRArg[]
 ): IRArg[] {
   const argsWithValues = args.map((arg) => arg.evalInner(ctx))
-  const cls = new IRClassBuilder()
-    .add(
-      ":",
-      new IROnHandler(
-        [{ tag: "do" }],
-        [new IRSendExpr(selector, new IRLocalExpr(0), argsWithValues)]
-      )
-    )
-    .build()
+  const cls = new IRBaseClass(
+    new Map([
+      [
+        ":",
+        new IROnHandler(
+          [{ tag: "do" }],
+          [new IRSendExpr(selector, new IRLocalExpr(0), argsWithValues)]
+        ),
+      ],
+    ])
+  )
   return [new IRValueArg(new ObjectValue(cls, []))]
 }
 
@@ -407,153 +322,5 @@ export class IRElseBlockHandler implements IRBlockHandler {
     args: IRArg[]
   ): Value {
     return body(ctx, this.body)
-  }
-}
-
-// Exprs
-
-export class IRSelfExpr implements IRExpr, IRStmt {
-  eval(ctx: Interpreter): Value {
-    return ctx.self
-  }
-}
-
-export class IRIvarExpr implements IRExpr, IRStmt {
-  constructor(private index: number) {}
-  eval(ctx: Interpreter): Value {
-    return ctx.getIvar(this.index)
-  }
-  toHandler() {
-    return new IRGetterHandler(this.index)
-  }
-}
-
-export class IRLocalExpr implements IRExpr, IRStmt {
-  constructor(private index: number) {}
-  eval(ctx: Interpreter): Value {
-    return ctx.getLocal(this.index)
-  }
-}
-
-export class IRObjectExpr implements IRExpr, IRStmt {
-  constructor(private cls: IRClass, private ivars: IRExpr[]) {}
-  eval(ctx: Interpreter): Value {
-    return new ObjectValue(
-      this.cls,
-      this.ivars.map((ivar) => ivar.eval(ctx))
-    )
-  }
-}
-
-export class IRSendExpr implements IRExpr, IRStmt {
-  constructor(
-    private selector: string,
-    private target: IRExpr,
-    private args: IRArg[]
-  ) {}
-  eval(ctx: Interpreter): Value {
-    const target = this.target.eval(ctx)
-    return target.send(ctx, this.selector, this.args, null)
-  }
-}
-
-export class IRTrySendExpr implements IRExpr, IRStmt {
-  constructor(
-    private selector: string,
-    private target: IRExpr,
-    private args: IRArg[],
-    private orElse: IRExpr
-  ) {}
-  eval(ctx: Interpreter): Value {
-    const target = this.target.eval(ctx)
-    return target.send(ctx, this.selector, this.args, this.orElse)
-  }
-}
-
-export class IRSendDirectExpr implements IRExpr, IRStmt {
-  constructor(
-    private selector: string,
-    private handler: IRHandler,
-    private target: IRExpr,
-    private args: IRArg[]
-  ) {}
-  eval(ctx: Interpreter): Value {
-    return this.handler.send(
-      ctx,
-      this.target.eval(ctx),
-      this.selector,
-      this.args
-    )
-  }
-}
-
-export class IRUseExpr implements IRExpr, IRStmt {
-  constructor(private key: string) {}
-  eval(ctx: Interpreter): Value {
-    return ctx.use(this.key)
-  }
-}
-
-export class IRModuleExpr implements IRExpr, IRStmt {
-  constructor(private key: string) {}
-  eval(ctx: Interpreter): Value {
-    return ctx.getModule(this.key)
-  }
-}
-
-// Statements
-
-class Return {
-  constructor(private ctx: object, private value: Value) {}
-  static handleReturn(ctx: object, fn: () => Value): Value {
-    try {
-      return fn()
-    } catch (e) {
-      if (e instanceof Return && e.ctx === ctx) {
-        return e.value
-      } else {
-        throw e
-      }
-    }
-  }
-}
-
-export class IRAssignStmt implements IRStmt {
-  constructor(private index: number, private value: IRExpr) {}
-  eval(ctx: Interpreter): void | Value {
-    ctx.setLocal(this.index, this.value.eval(ctx))
-  }
-}
-
-export class IRReturnStmt implements IRStmt {
-  constructor(private value: IRExpr) {}
-  eval(ctx: Interpreter): void | Value {
-    throw new Return(ctx, this.value.eval(ctx))
-  }
-}
-
-export class IRProvideStmt implements IRStmt {
-  constructor(private key: string, private value: IRExpr) {}
-  eval(ctx: Interpreter): void | Value {
-    ctx.provide(this.key, this.value.eval(ctx))
-  }
-}
-
-export class IRDeferStmt implements IRStmt {
-  constructor(private body: IRStmt[]) {}
-  eval(ctx: Interpreter): void | Value {
-    ctx.defer(this.body)
-  }
-}
-
-export function body(ctx: Interpreter, stmts: IRStmt[]): Value {
-  let result: Value = unit
-  try {
-    for (const stmt of stmts) {
-      result = stmt.eval(ctx) || unit
-    }
-    return result
-  } finally {
-    ctx.resolveDefers()
   }
 }

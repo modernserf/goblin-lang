@@ -28,15 +28,13 @@ import {
   PartialHandler,
   PartialParseParam,
 } from "./interface"
+import { IRLocalExpr, IRSendExpr, IRUseExpr } from "./ir-expr"
 import {
-  IRLocalExpr,
-  IROnBlockHandler,
-  IRSendExpr,
-  IRUseExpr,
   elseHandler,
   elseBlockHandler,
   onHandler,
-} from "./ir"
+  IROnBlockHandler,
+} from "./ir-handler"
 import { build } from "./message-builder"
 import { ExprStmt, LetStmt } from "./stmt"
 import { ArgsBuilder, HandlersArg, ValueArg } from "./args"

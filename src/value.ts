@@ -8,7 +8,7 @@ import {
   IRStmt,
   Value,
 } from "./interface"
-import { IRConstHandler } from "./ir"
+import { IRConstHandler } from "./ir-handler"
 
 export class IRBaseClass<Handler> {
   constructor(

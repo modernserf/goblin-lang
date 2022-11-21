@@ -1,5 +1,5 @@
 import { IRExpr, Value } from "./interface"
-import { IRObjectExpr } from "./ir"
+import { IRObjectExpr } from "./ir-expr"
 import { IRClass, ObjectValue } from "./value"
 
 export function constObject(cls: IRClass, ivars: IRExpr[]): IRExpr {

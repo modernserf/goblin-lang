@@ -8,15 +8,9 @@ import {
   ScopeType,
 } from "./interface"
 import { IRClass } from "./value"
-import {
-  IRClassBuilder,
-  IRGetterHandler,
-  IRIvarExpr,
-  IRLazyHandler,
-  IRLocalExpr,
-  IRObjectExpr,
-  IRSelfExpr,
-} from "./ir"
+import { IRIvarExpr, IRLocalExpr, IRObjectExpr, IRSelfExpr } from "./ir-expr"
+import { IRGetterHandler, IRLazyHandler } from "./ir-handler"
+import { IRClassBuilder } from "./ir-builder"
 
 export class ReferenceError {
   constructor(readonly key: string) {}
