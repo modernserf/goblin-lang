@@ -17,6 +17,7 @@ import {
   Scope,
   Value,
   IRBaseClassBuilder as IIRBaseClassBuilder,
+  ParseParam,
 } from "./interface"
 import {
   IRClass,
@@ -25,7 +26,10 @@ import {
   ObjectValue,
   unit,
   IRBaseClass,
+  PrimitiveValue,
 } from "./value"
+
+// classes
 
 export class IRBaseClassBuilder<Handler>
   implements IIRBaseClassBuilder<Handler>
@@ -87,8 +91,13 @@ export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
   ): this {
     return this.add(selector, new IRPrimitiveHandler(fn))
   }
+  addConst(selector: string, value: Value): this {
+    return this.add(selector, new IRConstHandler(value))
+  }
 }
 export class IRBlockClassBuilder extends IRBaseClassBuilder<IRBlockHandler> {}
+
+// args
 
 export class IRValueArg implements IRArg {
   constructor(private expr: IRExpr) {}
@@ -156,6 +165,8 @@ export class IRDoArg implements IRArg {
   unload() {} // noop
 }
 
+// handlers
+
 function loadArgs(
   sender: Interpreter,
   target: Interpreter,
@@ -182,6 +193,73 @@ function unloadArgs(
   })
 }
 
+export function onHandler(
+  params: ParseParam[],
+  head: IRStmt[],
+  body: IRStmt[]
+) {
+  // ignore head (which contains maybe unused self-binding & params), just look at body
+  if (body.length === 0) return NilHandler
+  if (body[0].toHandler) return body[0].toHandler()
+
+  return new IROnHandler(
+    params.map((p) => p.toIR()),
+    head.concat(body)
+  )
+}
+
+export class IROnHandler implements IRHandler {
+  constructor(private params: IRParam[], private body: IRStmt[]) {}
+  send(
+    sender: Interpreter,
+    target: Value,
+    selector: string,
+    args: IRArg[]
+  ): Value {
+    const child = sender.createChild(target)
+    loadArgs(sender, child, 0, this.params, args)
+    try {
+      return Return.handleReturn(child, () => body(child, this.body))
+    } finally {
+      unloadArgs(sender, child, 0, args)
+    }
+  }
+}
+
+export class IRGetterHandler implements IRHandler {
+  constructor(private index: number) {}
+  send(_: Interpreter, target: Value): Value {
+    return target.getIvar(this.index)
+  }
+}
+
+export class IRConstHandler implements IRHandler {
+  constructor(private value: Value) {}
+  send(): Value {
+    return this.value
+  }
+}
+
+const NilHandler = new IRConstHandler(unit)
+
+export class IRPrimitiveHandler implements IRHandler {
+  constructor(
+    private fn: (value: any, args: Value[], ctx: Interpreter) => Value
+  ) {}
+  send(
+    sender: Interpreter,
+    target: Value,
+    selector: string,
+    args: IRArg[]
+  ): Value {
+    return this.fn(
+      target.primitiveValue,
+      args.map((arg) => arg.value(sender)),
+      sender
+    )
+  }
+}
+
 export class IRLazyHandler implements IRHandler {
   private handler: IRHandler | null = null
   replace(handler: IRHandler) {
@@ -196,24 +274,6 @@ export class IRLazyHandler implements IRHandler {
     if (!this.handler) throw new Error("missing lazy handler")
     return this.handler.send(sender, target, selector, args)
   }
-}
-
-function messageForwarder(
-  ctx: Interpreter,
-  selector: string,
-  args: IRArg[]
-): IRArg[] {
-  const argsWithValues = args.map((arg) => arg.evalInner(ctx))
-  const cls = new IRClassBuilder()
-    .add(
-      ":",
-      new IROnHandler(
-        [{ tag: "do" }],
-        [new IRSendExpr(selector, new IRLocalExpr(0), argsWithValues)]
-      )
-    )
-    .build()
-  return [new IRValueArg(new ObjectValue(cls, []))]
 }
 
 export function elseHandler(
@@ -244,6 +304,24 @@ export class IRElseHandler implements IRHandler {
   }
 }
 
+function messageForwarder(
+  ctx: Interpreter,
+  selector: string,
+  args: IRArg[]
+): IRArg[] {
+  const argsWithValues = args.map((arg) => arg.evalInner(ctx))
+  const cls = new IRClassBuilder()
+    .add(
+      ":",
+      new IROnHandler(
+        [{ tag: "do" }],
+        [new IRSendExpr(selector, new IRLocalExpr(0), argsWithValues)]
+      )
+    )
+    .build()
+  return [new IRValueArg(new ObjectValue(cls, []))]
+}
+
 export class IRForwardHandler implements IRHandler {
   constructor(private params: IRParam[], private body: IRStmt[]) {}
   send(
@@ -263,39 +341,24 @@ export class IRForwardHandler implements IRHandler {
   }
 }
 
-export class IROnHandler implements IRHandler {
-  constructor(private params: IRParam[], private body: IRStmt[]) {}
-  send(
-    sender: Interpreter,
-    target: Value,
-    selector: string,
-    args: IRArg[]
-  ): Value {
-    const child = sender.createChild(target)
-    loadArgs(sender, child, 0, this.params, args)
-    try {
-      return Return.handleReturn(child, () => body(child, this.body))
-    } finally {
-      unloadArgs(sender, child, 0, args)
-    }
-  }
-}
+// Block handlers
 
-export class IRPrimitiveHandler implements IRHandler {
+export class IROnBlockHandler implements IRBlockHandler {
   constructor(
-    private fn: (value: any, args: Value[], ctx: Interpreter) => Value
+    private offset: number,
+    private params: IRParam[],
+    private body: IRStmt[]
   ) {}
   send(
     sender: Interpreter,
-    target: Value,
+    ctx: Interpreter,
     selector: string,
     args: IRArg[]
   ): Value {
-    return this.fn(
-      target.primitiveValue,
-      args.map((arg) => arg.value(sender)),
-      sender
-    )
+    loadArgs(sender, ctx, this.offset, this.params, args)
+    const result = body(ctx, this.body)
+    unloadArgs(sender, ctx, this.offset, args)
+    return result
   }
 }
 
@@ -347,24 +410,7 @@ export class IRElseBlockHandler implements IRBlockHandler {
   }
 }
 
-export class IROnBlockHandler implements IRBlockHandler {
-  constructor(
-    private offset: number,
-    private params: IRParam[],
-    private body: IRStmt[]
-  ) {}
-  send(
-    sender: Interpreter,
-    ctx: Interpreter,
-    selector: string,
-    args: IRArg[]
-  ): Value {
-    loadArgs(sender, ctx, this.offset, this.params, args)
-    const result = body(ctx, this.body)
-    unloadArgs(sender, ctx, this.offset, args)
-    return result
-  }
-}
+// Exprs
 
 export class IRSelfExpr implements IRExpr, IRStmt {
   eval(ctx: Interpreter): Value {
@@ -376,6 +422,9 @@ export class IRIvarExpr implements IRExpr, IRStmt {
   constructor(private index: number) {}
   eval(ctx: Interpreter): Value {
     return ctx.getIvar(this.index)
+  }
+  toHandler() {
+    return new IRGetterHandler(this.index)
   }
 }
 
@@ -451,6 +500,8 @@ export class IRModuleExpr implements IRExpr, IRStmt {
     return ctx.getModule(this.key)
   }
 }
+
+// Statements
 
 class Return {
   constructor(private ctx: object, private value: Value) {}

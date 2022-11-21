@@ -36,6 +36,7 @@ import {
   IRUseExpr,
   elseHandler,
   elseBlockHandler,
+  onHandler,
 } from "./ir"
 import { build } from "./message-builder"
 import { ExprStmt, LetStmt } from "./stmt"
@@ -79,12 +80,7 @@ class KeyParams implements ParseParams {
   ): void {
     const scope = new BasicScope(instance, new LocalsImpl())
     const head = selfBinding.selfBinding(scope)
-    cls.addFinal(
-      this.key,
-      scope,
-      body,
-      (body) => new IROnHandler([], head.concat(body))
-    )
+    cls.addFinal(this.key, scope, body, (body) => onHandler([], head, body))
   }
   addToBlockClass(
     scope: Scope,
@@ -159,15 +155,8 @@ class PairParams implements ParseParams {
             cls.addPartial(selector, partial)
           } else {
             const head = this.handlerHead(scope, selfBinding, params, bindings)
-            cls.addFinal(
-              selector,
-              scope,
-              body,
-              (body) =>
-                new IROnHandler(
-                  params.map((p) => p.toIR()),
-                  head.concat(body)
-                )
+            cls.addFinal(selector, scope, body, (body) =>
+              onHandler(params, head, body)
             )
           }
         },

@@ -111,12 +111,12 @@ const panicModule = new ObjectValue(
   []
 )
 const nativeClass = new IRClassBuilder()
-  .addPrimitive("Cell", () => cellModule)
-  .addPrimitive("Array", () => arrayModule)
-  .addPrimitive("Assert", () => assertModule)
-  .addPrimitive("Panic", () => panicModule)
-  .addPrimitive("true", () => trueVal)
-  .addPrimitive("false", () => falseVal)
+  .addConst("Cell", cellModule)
+  .addConst("Array", arrayModule)
+  .addConst("Assert", assertModule)
+  .addConst("Panic", panicModule)
+  .addConst("true", trueVal)
+  .addConst("false", falseVal)
   .build()
 
 const native = new PrimitiveValue(nativeClass, null)

@@ -10,6 +10,7 @@ import {
 import { IRClass } from "./value"
 import {
   IRClassBuilder,
+  IRGetterHandler,
   IRIvarExpr,
   IRLazyHandler,
   IRLocalExpr,
@@ -156,11 +157,10 @@ export class RootScope extends ScopeImpl {
   }
   compileExports(): IRExpr {
     const exportClass = new IRClassBuilder()
-    const ivars: IRExpr[] = []
-    for (const [i, [key, value]] of Array.from(this.exports).entries()) {
-      ivars[i] = value
-      exportClass.add(key, new IROnHandler([], [new IRIvarExpr(i)]))
-    }
+    const ivars = Array.from(this.exports).map(([key, value], i) => {
+      exportClass.add(key, new IRGetterHandler(i))
+      return value
+    })
     return new IRObjectExpr(exportClass.build(), ivars)
   }
 }

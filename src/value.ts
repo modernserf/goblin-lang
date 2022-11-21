@@ -8,6 +8,7 @@ import {
   IRStmt,
   Value,
 } from "./interface"
+import { IRConstHandler } from "./ir"
 
 export class IRBaseClass<Handler> {
   constructor(
@@ -63,6 +64,9 @@ export class ObjectValue implements Value, IRExpr, IRStmt {
   const(): Value {
     return this
   }
+  toHandler(): IRHandler {
+    return new IRConstHandler(this)
+  }
 }
 
 export class PrimitiveValue implements Value, IRExpr, IRStmt {
@@ -93,6 +97,9 @@ export class PrimitiveValue implements Value, IRExpr, IRStmt {
   }
   const(): Value {
     return this
+  }
+  toHandler(): IRHandler {
+    return new IRConstHandler(this)
   }
 }
 

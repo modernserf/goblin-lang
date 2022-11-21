@@ -1,6 +1,7 @@
 import { IRExpr, IRHandler, IRParam, IRStmt } from "./interface"
 import { IRClass, IRBaseClass } from "./value"
 import {
+  IRGetterHandler,
   IRIvarExpr,
   IRLocalExpr,
   IRObjectExpr,
@@ -18,6 +19,10 @@ export class IRClassBuilder extends IRBaseClass<IRHandler> {
     this.handlers.set(selector, new IROnHandler(params, body))
     return this
   }
+  addGetter(selector: string, index: number): this {
+    this.handlers.set(selector, new IRGetterHandler(index))
+    return this
+  }
 }
 
 const $0: IRExpr = new IRLocalExpr(0)
@@ -33,9 +38,8 @@ export function frame(
 
   const frameClass = new IRClassBuilder()
   for (const [index, { key }] of args.entries()) {
-    const ivar: IRExpr = new IRIvarExpr(index)
     // getter: [x: 1 y: 2]{x}
-    frameClass.addFrame(key, [], [ivar])
+    frameClass.addGetter(key, index)
     // setter: [x: 1 y: 2]{x: 3}
     frameClass.addFrame(
       `${key}:`,
@@ -63,7 +67,11 @@ export function frame(
           `-> ${key}:`,
           frameClass.get(`${key}:`),
           new IRSelfExpr(),
-          [new IRValueArg(new IRSendExpr(":", $0, [new IRValueArg(ivar)]))]
+          [
+            new IRValueArg(
+              new IRSendExpr(":", $0, [new IRValueArg(new IRIvarExpr(index))])
+            ),
+          ]
         ),
       ]
     )

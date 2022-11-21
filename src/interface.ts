@@ -157,6 +157,7 @@ export type IRParam = { tag: "value" } | { tag: "var" } | { tag: "do" }
 
 export interface IRStmt {
   eval(ctx: Interpreter): void | Value
+  toHandler?(): IRHandler
 }
 export interface IRHandler {
   send(
@@ -165,6 +166,7 @@ export interface IRHandler {
     selector: string,
     args: IRArg[]
   ): Value
+  optimize?(): IRHandler
 }
 export interface IRBlockHandler {
   send(
