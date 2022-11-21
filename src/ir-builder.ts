@@ -10,8 +10,13 @@ import {
   Value,
   IRBaseClassBuilder as IIRBaseClassBuilder,
 } from "./interface"
-import { IRSelfExpr, IRSendDirectExpr } from "./ir-expr"
-import { IRConstHandler, IROnHandler, IRPrimitiveHandler } from "./ir-handler"
+import { IRLocalExpr, IRSelfExpr, IRSendDirectExpr } from "./ir-expr"
+import {
+  IRConstHandler,
+  IROnHandler,
+  IRPrimitiveHandler,
+  IRValueArg,
+} from "./ir-handler"
 import { IRBaseClass } from "./value"
 
 // classes
@@ -85,14 +90,15 @@ export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
       const elseHandler = this.elseHandler
       for (const [key, [value]] of this.partials.entries()) {
         const params = value.params.map((p) => p.toIR())
+        // TODO:is there aa better way to do this?
+        const args = params.map((_, i) => new IRValueArg(new IRLocalExpr(i)))
         this.addFinal(
           key,
           scope,
           [
             {
-              // TODO:
               compile: () => [
-                new IRSendDirectExpr(key, elseHandler, new IRSelfExpr(), []),
+                new IRSendDirectExpr(key, elseHandler, new IRSelfExpr(), args),
               ],
             },
           ],

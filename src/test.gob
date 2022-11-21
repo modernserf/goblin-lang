@@ -607,6 +607,20 @@ Assert{
   expected: [none]
 }
 
+let optAdd := [
+  on {l: {some: l} r: {some: r}}
+    [some: l + r]
+  else {: msg}
+    msg{: 
+      on {l: l r: r}
+        [l: l r: r]
+    }
+]
+Assert{
+  received: optAdd{l: [some: 1] r: [none]}
+  expected: [l: [some: 1] r: [none]]
+}
+
 # else message
 let parent := [x: 1 y: 2]
 let child := [
@@ -684,4 +698,5 @@ let sender := [
 ]
 var x := 0
 sender{set: var x into: {: var x} ()}
+
 
