@@ -453,7 +453,7 @@ export class IRSendExpr implements IRExpr, IRStmt {
   ) {}
   eval(ctx: Interpreter): Value {
     const target = this.target.eval(ctx)
-    return target.send(ctx, this.selector, this.args)
+    return target.send(ctx, this.selector, this.args, null)
   }
 }
 
@@ -466,7 +466,7 @@ export class IRTrySendExpr implements IRExpr, IRStmt {
   ) {}
   eval(ctx: Interpreter): Value {
     const target = this.target.eval(ctx)
-    return target.trySend(ctx, this.selector, this.args, this.orElse)
+    return target.send(ctx, this.selector, this.args, this.orElse)
   }
 }
 

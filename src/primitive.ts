@@ -16,7 +16,7 @@ export function boolValue(arg: Value): boolean {
 export const boolClass: IRClass = new IRClassBuilder()
   .addPrimitive(":", (value, [arg], ctx) => {
     const selector = value ? "true" : "false"
-    return arg.send(ctx, selector, [])
+    return arg.send(ctx, selector, [], null)
   })
   .addPrimitive("=:", (self, [arg]) => {
     if (arg.instanceof(boolClass)) {

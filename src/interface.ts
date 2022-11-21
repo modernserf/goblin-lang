@@ -200,12 +200,11 @@ export interface IRArg {
 export interface Value extends IRExpr {
   readonly primitiveValue: any
   getIvar(index: number): Value
-  send(sender: Interpreter, selector: string, args: IRArg[]): Value
-  trySend(
+  send(
     sender: Interpreter,
     selector: string,
     args: IRArg[],
-    orElse: IRExpr
+    orElse: IRExpr | null
   ): Value
   instanceof(cls: unknown): boolean
 }

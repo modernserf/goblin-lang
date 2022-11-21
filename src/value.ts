@@ -41,19 +41,17 @@ export class ObjectValue implements Value, IRExpr, IRStmt {
     if (!value) throw new Error(`Missing ivar ${index}`)
     return value
   }
-  send(sender: Interpreter, selector: string, args: IRArg[]): Value {
-    const handler = this.cls.get(selector)
-    return handler.send(sender, this, selector, args)
-  }
-  trySend(
+
+  send(
     sender: Interpreter,
     selector: string,
     args: IRArg[],
-    orElse: IRExpr
+    orElse: IRExpr | null
   ): Value {
     const handler = this.cls.try(selector)
     if (handler) return handler.send(sender, this, selector, args)
-    return orElse.eval(sender)
+    if (orElse) return orElse.eval(sender)
+    throw new NoHandlerError(selector)
   }
   instanceof(cls: IRClass): boolean {
     return this.cls === cls
@@ -75,19 +73,16 @@ export class PrimitiveValue implements Value, IRExpr, IRStmt {
   getIvar(index: number): Value {
     throw new Error("primitive value has no ivars")
   }
-  send(sender: Interpreter, selector: string, args: IRArg[]): Value {
-    const handler = this.cls.get(selector)
-    return handler.send(sender, this, selector, args)
-  }
-  trySend(
+  send(
     sender: Interpreter,
     selector: string,
     args: IRArg[],
-    orElse: IRExpr
+    orElse: IRExpr | null
   ): Value {
     const handler = this.cls.try(selector)
     if (handler) return handler.send(sender, this, selector, args)
-    return orElse.eval(sender)
+    if (orElse) return orElse.eval(sender)
+    throw new NoHandlerError(selector)
   }
   instanceof(cls: IRClass): boolean {
     return this.cls === cls
@@ -110,19 +105,16 @@ export class DoValue implements Value {
   getIvar(index: number): Value {
     throw new Error("do value has no ivars")
   }
-  send(sender: Interpreter, selector: string, args: IRArg[]): Value {
-    const handler = this.cls.get(selector)
-    return handler.send(sender, this.ctx, selector, args)
-  }
-  trySend(
+  send(
     sender: Interpreter,
     selector: string,
     args: IRArg[],
-    orElse: IRExpr
+    orElse: IRExpr | null
   ): Value {
     const handler = this.cls.try(selector)
     if (handler) return handler.send(sender, this.ctx, selector, args)
-    return orElse.eval(sender)
+    if (orElse) return orElse.eval(sender)
+    throw new NoHandlerError(selector)
   }
   /* istanbul ignore next */
   instanceof(cls: IRClass): boolean {
