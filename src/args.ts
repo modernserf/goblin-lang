@@ -55,51 +55,33 @@ class KeyArgs implements ParseArgs {
   }
 }
 
+type PairItem = { key: string; value: ParseArg }
+type FramePair = { key: string; value: ParseExpr }
 class PairArgs implements ParseArgs {
   constructor(private pairs: Pair[]) {}
   provide(scope: Scope): IRStmt[] {
-    return build<ParseArg, { key: string; value: ParseArg }, IRStmt[]>(
-      this.pairs,
-      {
-        pair(key, arg) {
-          return { key, value: arg }
-        },
-        build(_, args) {
-          return args.map((arg) => {
-            return arg.value.provide(scope, arg.key)
-          })
-        },
-      }
-    )
+    return build<ParseArg, PairItem, IRStmt[]>(this.pairs, {
+      pair: (key, arg) => ({ key, value: arg }),
+      build: (_, args) => args.map((arg) => arg.value.provide(scope, arg.key)),
+    })
   }
   send(): IRSendBuilder {
     return build<ParseArg, ParseArg, IRSendBuilder>(this.pairs, {
-      pair(_, arg) {
-        return arg
-      },
-      build(selector, args) {
-        return new IRSendBuilder(selector, args)
-      },
+      pair: (_, arg) => arg,
+      build: (selector, args) => new IRSendBuilder(selector, args),
     })
   }
   frame(scope: Scope): IRExpr {
-    return build<ParseArg, { key: string; value: ParseExpr }, IRExpr>(
-      this.pairs,
-      {
-        pair(key, arg) {
-          return { key, value: arg.frameArg() }
-        },
-        build(selector, args) {
-          return frame(
-            selector,
-            args.map((arg) => ({
-              key: arg.key,
-              value: arg.value.compile(scope),
-            }))
-          )
-        },
-      }
-    )
+    return build<ParseArg, FramePair, IRExpr>(this.pairs, {
+      pair: (key, arg) => ({ key, value: arg.frameArg() }),
+      build: (selector, args) => {
+        const mapped = args.map((arg) => ({
+          key: arg.key,
+          value: arg.value.compile(scope),
+        }))
+        return frame(selector, mapped)
+      },
+    })
   }
 }
 
