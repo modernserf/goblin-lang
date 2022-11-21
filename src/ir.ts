@@ -125,9 +125,9 @@ export class IRVarArg implements IRArg {
   value(ctx: Interpreter): Value {
     throw "todo: handle var args in primitive fns"
   }
+  /* istanbul ignore next */
   evalInner(ctx: Interpreter): IRArg {
-    // TODO: i bet this doesn't work, what should happen here?
-    return this
+    throw "todo: handle var args in message propagation"
   }
   load(
     sender: Interpreter,
@@ -149,9 +149,9 @@ export class IRDoArg implements IRArg {
   value(ctx: Interpreter): Value {
     return new DoValue(this.cls, ctx)
   }
+  /* istanbul ignore next */
   evalInner(ctx: Interpreter): IRArg {
-    // TODO: wonder if this works
-    return this
+    throw new Error("unreachable, maybe")
   }
   load(
     sender: Interpreter,

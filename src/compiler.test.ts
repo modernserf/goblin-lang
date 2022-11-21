@@ -27,6 +27,7 @@ import {
   InvalidVarBindingError,
   RedundantTrySendError,
   NoHandlerError,
+  InvalidElseParamsError,
 } from "./error"
 
 export function compile(source: string) {
@@ -416,12 +417,12 @@ test("else with params", () => {
     compile(`
       [else {foo} 1] 
     `)
-  })
+  }, InvalidElseParamsError)
   assert.throws(() => {
     compile(`
       [else {foo: bar} 1] 
     `)
-  })
+  }, InvalidElseParamsError)
   assert.doesNotThrow(() => {
     compile(`
       [else {} 1] 
@@ -430,6 +431,26 @@ test("else with params", () => {
   assert.doesNotThrow(() => {
     compile(`
       [else 1] 
+    `)
+  })
+  assert.throws(() => {
+    compile(`
+      []{:else {foo} 1}
+    `)
+  }, InvalidElseParamsError)
+  assert.throws(() => {
+    compile(`
+      []{:else {foo: bar} 1}
+    `)
+  }, InvalidElseParamsError)
+  assert.doesNotThrow(() => {
+    compile(`
+      []{:else {} 1}
+    `)
+  })
+  assert.doesNotThrow(() => {
+    compile(`
+      []{:else 1}
     `)
   })
 })

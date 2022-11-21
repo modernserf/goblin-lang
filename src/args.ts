@@ -27,7 +27,6 @@ import {
   IRValueArg,
   IRVarArg,
 } from "./ir"
-import { SendScope } from "./scope"
 import { build } from "./message-builder"
 
 export class InvalidArgsError {}
@@ -165,8 +164,8 @@ function compileSend(
   astArgs: ParseArg[],
   orElse: ParseExpr | null
 ) {
-  const scope = new SendScope(inScope.instance, inScope.locals)
-
+  // shared between args to track borrows
+  const scope: Scope = inScope.sendScope()
   const irArgs = astArgs.map((v) => v.sendArg(scope))
   if (target === Self) {
     const handler = scope.instance.getPlaceholderHandler(selector)

@@ -652,3 +652,23 @@ let msg := opt{:
 let res := msg{: fallback}
 Assert{received: res expected: 1}
 
+
+# scope
+[{} 
+  let x := 1
+  []{: {} let x := 2}
+  Assert{received: x expected: 1}
+]{}
+
+[{}
+  var x := 1
+  []{: {} set x := 2}
+  Assert{received: x expected: 2}
+]{}
+
+let sender := [
+  on {set: var x into: do receiver}
+    receiver{: var x}
+]
+var x := 0
+sender{set: var x into: {: var x} ()}

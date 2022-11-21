@@ -30,7 +30,6 @@ import {
 } from "./interface"
 import {
   IRLocalExpr,
-  IROnHandler,
   IROnBlockHandler,
   IRSendExpr,
   IRUseExpr,
@@ -40,7 +39,6 @@ import {
 } from "./ir"
 import { build } from "./message-builder"
 import { ExprStmt, LetStmt } from "./stmt"
-import { BasicScope, LocalsImpl } from "./scope"
 import { ArgsBuilder, HandlersArg, ValueArg } from "./args"
 
 class InvalidParamsError {}
@@ -78,7 +76,7 @@ class KeyParams implements ParseParams {
     body: ParseStmt[],
     selfBinding: ParseBinding
   ): void {
-    const scope = new BasicScope(instance, new LocalsImpl())
+    const scope = instance.handlerScope(0)
     const head = selfBinding.selfBinding(scope)
     cls.addFinal(this.key, scope, body, (body) => onHandler([], head, body))
   }
@@ -148,7 +146,7 @@ class PairParams implements ParseParams {
       build<ParseParam, ParseParam, void>(pairs, {
         pair: (_, param) => param,
         build: (selector, params) => {
-          const scope = new BasicScope(instance, new LocalsImpl(params.length))
+          const scope = instance.handlerScope(params.length)
 
           const partial = condParams(params, body)
           if (partial) {
@@ -173,7 +171,7 @@ class PairParams implements ParseParams {
       build<ParseParam, ParseParam, void>(pairs, {
         pair: (_, param) => param,
         build: (selector, params) => {
-          const scope = new BasicScope(instance, new LocalsImpl(params.length))
+          const scope = instance.handlerScope(params.length)
           const head = this.handlerHead(scope, selfBinding, params, bindings)
           cls.addElse(selector, scope, body, (body) =>
             elseHandler(
@@ -187,17 +185,18 @@ class PairParams implements ParseParams {
     }
   }
   addToBlockClass(
-    scope: Scope,
+    inScope: Scope,
     cls: IRBlockClassBuilder,
     body: ParseStmt[]
   ): void {
     // block params use parent scope, and do not start at zero
     for (const { pairs, bindings } of this.expandDefaultParams()) {
+      const scope = inScope.blockBodyScope()
+      const paramScope = scope.blockParamsScope()
       const offset = scope.locals.allocate(pairs.length)
       build<ParseParam, ParseParam, void>(pairs, {
         pair: (_, param) => param,
         build: (selector, params) => {
-          const paramScope = new BasicScope(scope.instance, scope.locals)
           const partial = condParams(params, body)
           if (partial) {
             cls.addPartial(selector, partial)
@@ -236,7 +235,7 @@ class PairParams implements ParseParams {
       build<ParseParam, ParseParam, void>(pairs, {
         pair: (_, param) => param,
         build: (selector, params) => {
-          const paramScope = new BasicScope(scope.instance, scope.locals)
+          const paramScope = scope.blockParamsScope()
           const head = this.handlerHead(
             scope,
             ParsePlaceholder,

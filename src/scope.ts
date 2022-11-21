@@ -15,7 +15,6 @@ import {
   IRLazyHandler,
   IRLocalExpr,
   IRObjectExpr,
-  IROnHandler,
   IRSelfExpr,
 } from "./ir"
 
@@ -34,9 +33,16 @@ export class BlockReferenceError {
 }
 export class VarDoubleBorrowError {}
 
-export class LocalsImpl implements Locals {
-  private locals = new Map<string, ScopeRecord>()
-  constructor(private localsIndex = 0) {}
+export class ScopedExportError {
+  constructor(readonly key: string) {}
+}
+export class DuplicateExportError {
+  constructor(readonly key: string) {}
+}
+
+class LocalsImpl implements Locals {
+  protected locals = new Map<string, ScopeRecord>()
+  constructor(protected localsIndex = 0) {}
   get(key: string): ScopeRecord | undefined {
     return this.locals.get(key)
   }
@@ -54,7 +60,22 @@ export class LocalsImpl implements Locals {
   }
 }
 
-export class NilInstance implements Instance {
+class BlockLocals extends LocalsImpl implements Locals {
+  constructor(private parent: Locals) {
+    super(parent.allocate(0))
+  }
+  get(key: string): ScopeRecord | undefined {
+    const res = this.locals.get(key)
+    if (res) return res
+    return this.parent.get(key)
+  }
+}
+
+export function createInstance(scope: Scope): ObjectInstance {
+  return new ObjectInstance(scope)
+}
+
+class NilInstance implements Instance {
   lookup(key: string): IRExpr {
     throw new ReferenceError(key)
   }
@@ -64,9 +85,13 @@ export class NilInstance implements Instance {
   getPlaceholderHandler(selector: string): IRHandler {
     throw new NoModuleSelfError()
   }
+  /* istanbul ignore next */
+  handlerScope(arity: number): Scope {
+    throw new Error("unreachable")
+  }
 }
 
-export class ObjectInstance implements Instance {
+class ObjectInstance implements Instance {
   private ivarMap = new Map<string, ScopeRecord>()
   private placeholderHandlers: { selector: string; handler: IRLazyHandler }[] =
     []
@@ -95,16 +120,12 @@ export class ObjectInstance implements Instance {
       placeholder.handler.replace(handler)
     }
   }
+  handlerScope(arity: number): Scope {
+    return new BasicScope(this, new LocalsImpl(arity))
+  }
 }
 
-export class ScopedExportError {
-  constructor(readonly key: string) {}
-}
-export class DuplicateExportError {
-  constructor(readonly key: string) {}
-}
-
-class ScopeImpl implements Scope {
+class BasicScope implements Scope {
   constructor(readonly instance: Instance, readonly locals: Locals) {}
   lookup(key: string): IRExpr {
     const res = this.locals.get(key)
@@ -143,9 +164,18 @@ class ScopeImpl implements Scope {
   addExport(key: string) {
     throw new ScopedExportError(key)
   }
+  sendScope(): Scope {
+    return new SendScope(this.instance, new BlockLocals(this.locals))
+  }
+  blockParamsScope(): Scope {
+    throw new Error("unreachable")
+  }
+  blockBodyScope(): Scope {
+    throw new Error("unreachable")
+  }
 }
 
-export class RootScope extends ScopeImpl {
+class RootScope extends BasicScope {
   private exports = new Map<string, IRExpr>()
   constructor() {
     super(new NilInstance(), new LocalsImpl())
@@ -165,12 +195,16 @@ export class RootScope extends ScopeImpl {
   }
 }
 
-export class BasicScope extends ScopeImpl {}
-
 // - allow do-blocks to be message args & targets
 // - track var borrows
-export class SendScope extends ScopeImpl {
-  private borrows = new Set<string>()
+class SendScope extends BasicScope {
+  constructor(
+    instance: Instance,
+    locals: Locals,
+    private borrows = new Set<string>()
+  ) {
+    super(instance, locals)
+  }
   lookup(key: string): IRExpr {
     const res = this.locals.get(key)
     if (!res) return this.instance.lookup(key)
@@ -189,4 +223,18 @@ export class SendScope extends ScopeImpl {
     this.borrows.add(key)
     return super.lookupVarIndex(key)
   }
+  blockBodyScope(): Scope {
+    return new SendScope(
+      this.instance,
+      new BlockLocals(this.locals),
+      this.borrows
+    )
+  }
+  blockParamsScope(): Scope {
+    return new BasicScope(this.instance, this.locals)
+  }
+}
+
+export function rootScope(): RootScope {
+  return new RootScope()
 }

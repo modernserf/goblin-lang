@@ -118,6 +118,7 @@ export interface Instance {
   lookup(key: string): IRExpr
   self(): IRExpr
   getPlaceholderHandler(selector: string): IRHandler
+  handlerScope(arity: number): Scope
 }
 export type ScopeType = "let" | "var" | "do"
 export type ScopeRecord = { index: number; type: ScopeType }
@@ -136,6 +137,9 @@ export interface Scope {
   lookupOuterLet(key: string): IRExpr
   lookupVarIndex(key: string): number
   addExport(key: string): void
+  sendScope(): Scope
+  blockBodyScope(): Scope
+  blockParamsScope(): Scope
 }
 
 // interpret

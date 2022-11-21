@@ -28,7 +28,7 @@ import { PrimitiveValue, unit } from "./value"
 import { constObject } from "./optimize"
 import { ParamsBuilder } from "./params"
 import { floatClass, intClass, stringClass } from "./primitive"
-import { ObjectInstance } from "./scope"
+import { createInstance } from "./scope"
 
 export const Self: ParseExpr = {
   compile(scope) {
@@ -176,7 +176,7 @@ export class ParseObject implements ParseExpr {
   constructor(private handlers: ParseHandler[]) {}
   compile(scope: Scope, selfBinding: ParseBinding = ParsePlaceholder): IRExpr {
     const cls = new IRClassBuilder()
-    const instance = new ObjectInstance(scope)
+    const instance = createInstance(scope)
     for (const handler of this.handlers) {
       handler.addToClass(instance, cls, selfBinding)
     }

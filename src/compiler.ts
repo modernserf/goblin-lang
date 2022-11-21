@@ -1,9 +1,9 @@
 import { IRStmt, IRExpr, ParseStmt } from "./interface"
 import { IRAssignStmt } from "./ir"
-import { RootScope } from "./scope"
+import { rootScope } from "./scope"
 
 export function coreModule(stmts: ParseStmt[], nativeValue: IRExpr): IRStmt[] {
-  const scope = new RootScope()
+  const scope = rootScope()
   const rec = scope.locals.set("native", scope.locals.create("let"))
   return [
     new IRAssignStmt(rec.index, nativeValue),
@@ -13,6 +13,6 @@ export function coreModule(stmts: ParseStmt[], nativeValue: IRExpr): IRStmt[] {
 }
 
 export function program(stmts: ParseStmt[]): IRStmt[] {
-  const scope = new RootScope()
+  const scope = rootScope()
   return stmts.flatMap((stmt) => stmt.compile(scope))
 }
