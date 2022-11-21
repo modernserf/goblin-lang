@@ -499,8 +499,10 @@ Assert{
   expected: 2
 }
 
+let a := []
+
 Assert{
-  received: 1{foo} ? 1
+  received: a{foo} ? 1
   expected: 1
 }
 

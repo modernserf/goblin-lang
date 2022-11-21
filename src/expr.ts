@@ -7,6 +7,7 @@ import {
 import {
   Instance,
   IRExpr,
+  IRHandler,
   IRStmt,
   ParseArgs,
   ParseBinding,
@@ -46,12 +47,18 @@ export class ParseInt implements ParseExpr {
   compile(): IRExpr {
     return new PrimitiveValue(intClass, this.value)
   }
+  getHandler(scope: Scope, selector: string): IRHandler {
+    return intClass.get(selector)
+  }
 }
 
 export class ParseFloat implements ParseExpr {
   constructor(private value: number) {}
   compile(): IRExpr {
     return new PrimitiveValue(floatClass, this.value)
+  }
+  getHandler(scope: Scope, selector: string): IRHandler {
+    return floatClass.get(selector)
   }
 }
 
@@ -62,6 +69,9 @@ export class ParseString implements ParseExpr {
   }
   importSource(scope: Scope): IRExpr {
     return new IRModuleExpr(this.value)
+  }
+  getHandler(scope: Scope, selector: string): IRHandler {
+    return stringClass.get(selector)
   }
 }
 

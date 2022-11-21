@@ -3,7 +3,6 @@ import {
   DuplicateHandlerError,
   RedundantTrySendError,
 } from "./error"
-import { Self } from "./expr"
 import {
   Interpreter,
   IRBlockHandler,
@@ -129,33 +128,29 @@ export class IRBlockClassBuilder extends IRBaseClassBuilder<IRBlockHandler> {}
 export class IRSendBuilder {
   constructor(private selector: string, private args: ParseArg[]) {}
   compile(inScope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr {
-    return compileSend(inScope, this.selector, target, this.args, orElse)
-  }
-}
-
-function compileSend(
-  inScope: Scope,
-  selector: string,
-  target: ParseExpr,
-  astArgs: ParseArg[],
-  orElse: ParseExpr | null
-) {
-  // shared between target & args to track borrows
-  const argScope = inScope.sendScope()
-  const irArgs = astArgs.map((v) => v.sendArg(argScope))
-  if (target.getHandler) {
-    const handler = target.getHandler(argScope, selector)
-    // TODO: should this be a warning rather than an error?
-    if (orElse) throw new RedundantTrySendError(target, selector)
-    return new IRSendDirectExpr(selector, handler, new IRSelfExpr(), irArgs)
-  } else if (orElse) {
-    return new IRTrySendExpr(
-      selector,
-      target.compile(argScope),
-      irArgs,
-      orElse.compile(inScope)
-    )
-  } else {
-    return new IRSendExpr(selector, target.compile(argScope), irArgs)
+    // shared between target & args to track borrows
+    const argScope = inScope.sendScope()
+    const irArgs = this.args.map((v) => v.sendArg(argScope))
+    const compiledTarget = target.compile(argScope)
+    if (target.getHandler) {
+      const handler = target.getHandler(argScope, this.selector)
+      // TODO: should this be a warning rather than an error?
+      if (orElse) throw new RedundantTrySendError(target, this.selector)
+      return new IRSendDirectExpr(
+        this.selector,
+        handler,
+        compiledTarget,
+        irArgs
+      )
+    } else if (orElse) {
+      return new IRTrySendExpr(
+        this.selector,
+        compiledTarget,
+        irArgs,
+        orElse.compile(inScope)
+      )
+    } else {
+      return new IRSendExpr(this.selector, compiledTarget, irArgs)
+    }
   }
 }
