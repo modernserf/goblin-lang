@@ -11,13 +11,7 @@ import {
   IRBaseClassBuilder as IIRBaseClassBuilder,
 } from "./interface"
 import { IRSelfExpr, IRSendDirectExpr } from "./ir-expr"
-import {
-  IRConstHandler,
-  IROnHandler,
-  IRPrimitiveHandler,
-  onHandler,
-  VoidHandler,
-} from "./ir-handler"
+import { IRConstHandler, IROnHandler, IRPrimitiveHandler } from "./ir-handler"
 import { IRBaseClass } from "./value"
 
 // classes
@@ -87,22 +81,26 @@ export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
     return this.add(selector, new IRConstHandler(value))
   }
   buildAndClosePartials(scope: Scope): IRBaseClass<IRHandler> {
-    const elseHandler = this.elseHandler || VoidHandler
-    for (const [key, [value]] of this.partials.entries()) {
-      const params = value.params.map((p) => p.toIR())
-      this.addFinal(
-        key,
-        scope,
-        [
-          {
-            compile: () => [
-              new IRSendDirectExpr(key, elseHandler, new IRSelfExpr(), []),
-            ],
-          },
-        ],
-        (body) => new IROnHandler(params, body)
-      )
+    if (this.elseHandler) {
+      const elseHandler = this.elseHandler
+      for (const [key, [value]] of this.partials.entries()) {
+        const params = value.params.map((p) => p.toIR())
+        this.addFinal(
+          key,
+          scope,
+          [
+            {
+              // TODO:
+              compile: () => [
+                new IRSendDirectExpr(key, elseHandler, new IRSelfExpr(), []),
+              ],
+            },
+          ],
+          (body) => new IROnHandler(params, body)
+        )
+      }
     }
+
     return this.build()
   }
 }

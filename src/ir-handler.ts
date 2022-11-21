@@ -143,12 +143,6 @@ export class IROnHandler implements IRHandler {
   }
 }
 
-export const VoidHandler: IRHandler = {
-  send(sender: Interpreter, target: Value, selector: string) {
-    throw new NoHandlerError(selector)
-  },
-}
-
 export class IRGetterHandler implements IRHandler {
   constructor(private index: number) {}
   send(_: Interpreter, target: Value): Value {

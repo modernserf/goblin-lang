@@ -88,26 +88,3 @@ test("arg/param mismatch", () => {
     `)
   }, ArgMismatchError)
 })
-
-test("partial bindings", () => {
-  assert.throws(() => {
-    run(`
-      let optAdd := [
-        on {l: {some: l} r: {some: r}}
-          [some: l + r]
-      ]
-      optAdd{l: [some: 1] r: [none]}
-    `)
-  }, NoHandlerError)
-  assert.doesNotThrow(() => {
-    run(`
-      let optAdd := [
-        on {l: {some: l} r: {some: r}}
-          [some: l + r]
-        else
-          [none]
-      ]
-      optAdd{l: [some: 1] r: [none]}
-    `)
-  })
-})
