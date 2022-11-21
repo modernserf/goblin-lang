@@ -1,146 +1,84 @@
-# More pattern-matching / method-dispatch features
+# Introduction
 
-## refutable patterns in bindings
+Goblin is a postmodern take on a 90s scripting language. It features:
 
-- Patterns with same selector must be grouped together
-- checked in order using `=`
-- irrefutable binding should be last in sequence
-- use parens to distinguish between bindings & exprs when ambiguous
+- dynamic types
+- immutable by default
+- lightweight objects, without classes or inheritance
+- pattern matching
+- novel syntax
+
+Goblin is "research language" in the sense that it is really more intended to be an object of study and discussion, rather than a tool one uses to actually make software. But it is a real language with an implementation that does more or less everything that is described in this document.
+
+# Core concepts & guiding philosophy
+
+## Objects for everything
+
+Where other languages would use a function, Goblin uses an object with one handler. Where other languages would use a class, Goblin uses an object with a handler that produces another object.
+
+Where other languages would use a `switch` or `match` statement, Goblin uses an object with handlers for each match case. Goblin message handlers support most of the pattern matching features one has come to expect from functional languages.
+
+Control flow is also object-y: Goblin uses special control-flow capturing objects (similar to Ruby's blocks) where other languages use loops & conditionals.
+
+# Language overview
+
+Literals for numbers & strings, like you would expect.
 
 ```goblin
-value{:
-	do {count: 0}
-		"No items"
-	do {count: 1}
-		"1 item"
-	do {count: n}
-		n{to String} ++ " items"
-}
-# becomes
-value{:
-	do {count: n}
-		if n = 0 then
-			"No items"
-		else if n = 1 then
-			"1 item"
-		else
-			n{to String} ++ " items"
-		end
-}
+1 							# an integer
+1.0 						# a float
+"Hello, world!" # a string
 ```
 
-## fuzzy matching
-
-- Checked with `~=` instead of `=`
+You can send values messages.
 
 ```goblin
-value{:
-	do {item: Range{from: 1 to: 10} as x}
-		x
-	do {item: x}
-		"many items"
-}
-# becomes
-value{
-	do {item: x}
-		if Range{from: 1 to: 10} ~= x then
-			x
-		else
-		 	"many items"
-		end
-}
+"Hello, world!"{uppercase} # "HELLO, WORLD!"
 ```
 
-# nested patterns / exact destructuring
-
-basically matching in reverse
-
-If this is 'normal' destructuring...
+Operators are syntactic sugar for sending messages.
 
 ```goblin
-let [x: x y: y] := foo{bar}
-# becomes
-let _$1_ := foo{bar}
-let x := _$1_{x}
-let y := _$1_{y}
+1 + 2 	# 1{+: 2}
+-1 			# 1{-}
 ```
 
-Then how about...
+Bindings use `let`:
 
 ```goblin
-let {x: x y: y} := foo{bar}
-# becomes (approximately)
-var _$1_ := []
-foo{bar}{:
-	on {x: x' y: y'}
-		set _$1_ := [x: x y: y]
-}
-let [x: x y: y] := _$1_
+let a := 1
+let b := a + 2 # 3
 ```
 
-This, combined with pattern matching, gets you something like
+Objects are collections of handlers that can receive messages:
 
 ```goblin
-pair{:
-	on {0: {some: l} 1: {some: r}}
-		# ...
-	on {0: {some: l} 1: {none}}
-		# ...
-	on {0: {none} 	 1: {some: r}}
-		# ...
-	on {0: {none} 	 1: {none}}
-		# ...
-}
-```
-
-# reflection / oop features
-
-I am sort of philosophically opposed to these; part of the 'joke' of this language is that its a very pedantic functional language that is merely disguised as a loose OOP one
-
-`else` on its own gets you a surprising way there if you're willing to distinguish between direct & indirect sends
-
-```goblin
-let obj := [
-	do {: msg}
-		msg{:
-			do {known method}
-				# ...
-			else
-				delegate{: msg}
-		}
+let point := [
+	on {x} 1
+	on {y} 2
 ]
+
+point{x} + point{y} # 3
 ```
 
-## inheritance / mixins / traits
-
-I could probably come up with a weird take on this
-
-## conditional sends
-
-check if an object responds to a message before sending it
-
-One _specific, limited_ implementation of this that might be nice would be something like "optional params" for do-patterns
+Frames are a shorthand for creating objects with getters, setters, updaters & and pattern matching:
 
 ```goblin
-let Vec := [
-	on {map: do f}
-		# ...
-		f{: val ?index: i}
+let a := [x: 1 y: 2]
+a{x} # 1
+let b := a{x: 2} # [x: 2 y: 2]
+
+let update := [
+	on {: value} value + 1
 ]
-```
+let c := a{->y: update} # [x: 1 y: 3]
 
-works with either `list{map: {: val} ...}` or `list{map: {: val index: i} ...}`
-seems not all that worthwhile, especially vs `list{map: {: val} ...}` & `list{map index: {: val index: i} ...}`
-
-## more else handlers
-
-```goblin
-let obj := [
-	on {foo}
-		#...
-	else {: msg}
-		# `msg` is frame of orignal message
-		msg{: delegate}
-		# ...
+let pattern := [
+	on {x: x y: y}
+		x + y
+	on {x: x y: y z: z}
+		x + y + z
 ]
+
+a{:pattern} # 3
 ```
