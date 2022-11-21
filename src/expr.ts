@@ -30,6 +30,9 @@ export const Self: ParseExpr = {
   compile(scope) {
     return scope.instance.self()
   },
+  getHandler(scope, selector) {
+    return scope.instance.getPlaceholderHandler(selector)
+  },
 }
 
 export const Unit: ParseExpr = {

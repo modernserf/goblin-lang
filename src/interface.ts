@@ -13,6 +13,7 @@ export interface ParseExpr {
   compile(scope: Scope, selfBinding?: ParseBinding): IRExpr
   setInPlace?(scope: Scope, expr: ParseExpr): IRStmt[]
   importSource?(scope: Scope): IRExpr
+  getHandler?(scope: Scope, selector: string): IRHandler
 }
 
 export interface ParseBinding {

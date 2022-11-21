@@ -140,26 +140,22 @@ function compileSend(
   astArgs: ParseArg[],
   orElse: ParseExpr | null
 ) {
-  // shared between args to track borrows
-  const scope: Scope = inScope.sendScope()
-  const irArgs = astArgs.map((v) => v.sendArg(scope))
-  if (target === Self) {
-    const handler = scope.instance.getPlaceholderHandler(selector)
-    if (orElse) {
-      // TODO: make this a "warning" rather than an "error"
-      throw new RedundantTrySendError()
-    }
+  // shared between target & args to track borrows
+  const argScope = inScope.sendScope()
+  const irArgs = astArgs.map((v) => v.sendArg(argScope))
+  if (target.getHandler) {
+    const handler = target.getHandler(argScope, selector)
+    // TODO: should this be a warning rather than an error?
+    if (orElse) throw new RedundantTrySendError(target, selector)
     return new IRSendDirectExpr(selector, handler, new IRSelfExpr(), irArgs)
+  } else if (orElse) {
+    return new IRTrySendExpr(
+      selector,
+      target.compile(argScope),
+      irArgs,
+      orElse.compile(inScope)
+    )
   } else {
-    if (orElse) {
-      return new IRTrySendExpr(
-        selector,
-        target.compile(scope),
-        irArgs,
-        orElse.compile(scope)
-      )
-    } else {
-      return new IRSendExpr(selector, target.compile(scope), irArgs)
-    }
+    return new IRSendExpr(selector, target.compile(argScope), irArgs)
   }
 }

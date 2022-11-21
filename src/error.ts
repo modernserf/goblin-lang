@@ -1,3 +1,5 @@
+import { ParseExpr } from "./interface"
+
 export class InvalidBlockArgError {}
 export class InvalidLetBindingError {}
 export class InvalidSetTargetError {}
@@ -16,7 +18,9 @@ export class DuplicateElseHandlerError {
 export class DuplicateKeyError {
   constructor(readonly key: string) {}
 }
-export class RedundantTrySendError {}
+export class RedundantTrySendError {
+  constructor(readonly target: ParseExpr, selector: string) {}
+}
 
 // TODO: RuntimeError base class
 export class NoHandlerError {
