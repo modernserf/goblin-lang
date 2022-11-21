@@ -161,13 +161,6 @@ export class ParseDestructure implements ParseBinding {
   }
 }
 
-export class ParseParens implements ParseExpr {
-  constructor(private expr: ParseExpr) {}
-  compile(scope: Scope): IRExpr {
-    return this.expr.compile(scope)
-  }
-}
-
 export class ParseObject implements ParseExpr {
   constructor(private handlers: ParseHandler[]) {}
   compile(scope: Scope, selfBinding: ParseBinding = ParsePlaceholder): IRExpr {

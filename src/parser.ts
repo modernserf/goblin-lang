@@ -9,7 +9,6 @@ import {
   ParseFloat,
   ParseString,
   ParseIdent,
-  ParseParens,
   Unit,
   ParseObject,
   ParseFrame,
@@ -281,7 +280,7 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
       const value = parseExpr(lexer)
       mustToken(lexer, "closeParen")
       if (value) {
-        return new ParseParens(value)
+        return value
       } else {
         return Unit
       }
