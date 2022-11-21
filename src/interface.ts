@@ -20,6 +20,7 @@ export interface ParseBinding {
 }
 
 export interface PartialHandler {
+  params: ParseParam[]
   cond(ifFalse: ParseStmt[]): ParseStmt[]
 }
 

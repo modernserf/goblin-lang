@@ -10,7 +10,14 @@ import {
   Value,
   IRBaseClassBuilder as IIRBaseClassBuilder,
 } from "./interface"
-import { IRConstHandler, IRPrimitiveHandler } from "./ir-handler"
+import { IRSelfExpr, IRSendDirectExpr } from "./ir-expr"
+import {
+  IRConstHandler,
+  IROnHandler,
+  IRPrimitiveHandler,
+  onHandler,
+  VoidHandler,
+} from "./ir-handler"
 import { IRBaseClass } from "./value"
 
 // classes
@@ -64,6 +71,7 @@ export class IRBaseClassBuilder<Handler>
     return this
   }
   build(): IRBaseClass<Handler> {
+    if (this.partials.size) throw new Error("incomplete partials")
     return new IRBaseClass<Handler>(this.handlers, this.elseHandler)
   }
 }
@@ -77,6 +85,25 @@ export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
   }
   addConst(selector: string, value: Value): this {
     return this.add(selector, new IRConstHandler(value))
+  }
+  buildAndClosePartials(scope: Scope): IRBaseClass<IRHandler> {
+    const elseHandler = this.elseHandler || VoidHandler
+    for (const [key, [value]] of this.partials.entries()) {
+      const params = value.params.map((p) => p.toIR())
+      this.addFinal(
+        key,
+        scope,
+        [
+          {
+            compile: () => [
+              new IRSendDirectExpr(key, elseHandler, new IRSelfExpr(), []),
+            ],
+          },
+        ],
+        (body) => new IROnHandler(params, body)
+      )
+    }
+    return this.build()
   }
 }
 export class IRBlockClassBuilder extends IRBaseClassBuilder<IRBlockHandler> {}

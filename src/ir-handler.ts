@@ -1,4 +1,8 @@
-import { ArgMismatchError, InvalidElseParamsError } from "./error"
+import {
+  ArgMismatchError,
+  InvalidElseParamsError,
+  NoHandlerError,
+} from "./error"
 import {
   Interpreter,
   IRArg,
@@ -137,6 +141,12 @@ export class IROnHandler implements IRHandler {
       unloadArgs(sender, child, 0, args)
     }
   }
+}
+
+export const VoidHandler: IRHandler = {
+  send(sender: Interpreter, target: Value, selector: string) {
+    throw new NoHandlerError(selector)
+  },
 }
 
 export class IRGetterHandler implements IRHandler {

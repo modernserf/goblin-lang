@@ -123,6 +123,7 @@ function condParams(
     if (!param.cond) return coll
     const p = param as PartialParseParam
     return {
+      params,
       cond: (ifFalse) => {
         const ifTrue = coll ? coll.cond(ifFalse) : body
         return p.cond(new ParseLocal(index), ifTrue, ifFalse)

@@ -176,7 +176,7 @@ export class ParseObject implements ParseExpr {
     for (const handler of this.handlers) {
       handler.addToClass(instance, cls, selfBinding)
     }
-    const builtClass = cls.build()
+    const builtClass = cls.buildAndClosePartials(scope)
     instance.compileSelfHandlers(builtClass)
     return constObject(builtClass, instance.ivars)
   }

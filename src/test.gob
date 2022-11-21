@@ -595,6 +595,18 @@ Assert{
   expected: [none]
 }
 
+# partials without irrefutable bindings
+let optAdd := [
+  on {l: {some: l} r: {some: r}}
+    [some: l + r]
+  else
+    [none]
+]
+Assert{
+  received: optAdd{l: [some: 1] r: [none]}
+  expected: [none]
+}
+
 # else message
 let parent := [x: 1 y: 2]
 let child := [
@@ -672,3 +684,4 @@ let sender := [
 ]
 var x := 0
 sender{set: var x into: {: var x} ()}
+
