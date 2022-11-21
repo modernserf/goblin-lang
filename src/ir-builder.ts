@@ -1,4 +1,9 @@
-import { DuplicateElseHandlerError, DuplicateHandlerError } from "./error"
+import {
+  DuplicateElseHandlerError,
+  DuplicateHandlerError,
+  RedundantTrySendError,
+} from "./error"
+import { Self } from "./expr"
 import {
   Interpreter,
   IRBlockHandler,
@@ -9,8 +14,17 @@ import {
   Scope,
   Value,
   IRBaseClassBuilder as IIRBaseClassBuilder,
+  ParseExpr,
+  ParseArg,
+  IRExpr,
 } from "./interface"
-import { IRLocalExpr, IRSelfExpr, IRSendDirectExpr } from "./ir-expr"
+import {
+  IRLocalExpr,
+  IRSelfExpr,
+  IRSendDirectExpr,
+  IRSendExpr,
+  IRTrySendExpr,
+} from "./ir-expr"
 import {
   IRConstHandler,
   IROnHandler,
@@ -111,3 +125,41 @@ export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
   }
 }
 export class IRBlockClassBuilder extends IRBaseClassBuilder<IRBlockHandler> {}
+
+export class IRSendBuilder {
+  constructor(private selector: string, private args: ParseArg[]) {}
+  compile(inScope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr {
+    return compileSend(inScope, this.selector, target, this.args, orElse)
+  }
+}
+
+function compileSend(
+  inScope: Scope,
+  selector: string,
+  target: ParseExpr,
+  astArgs: ParseArg[],
+  orElse: ParseExpr | null
+) {
+  // shared between args to track borrows
+  const scope: Scope = inScope.sendScope()
+  const irArgs = astArgs.map((v) => v.sendArg(scope))
+  if (target === Self) {
+    const handler = scope.instance.getPlaceholderHandler(selector)
+    if (orElse) {
+      // TODO: make this a "warning" rather than an "error"
+      throw new RedundantTrySendError()
+    }
+    return new IRSendDirectExpr(selector, handler, new IRSelfExpr(), irArgs)
+  } else {
+    if (orElse) {
+      return new IRTrySendExpr(
+        selector,
+        target.compile(scope),
+        irArgs,
+        orElse.compile(scope)
+      )
+    } else {
+      return new IRSendExpr(selector, target.compile(scope), irArgs)
+    }
+  }
+}

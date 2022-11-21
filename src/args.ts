@@ -1,9 +1,5 @@
-import { ParseIdent, Self } from "./expr"
-import {
-  InvalidFrameArgError,
-  InvalidProvideBindingError,
-  RedundantTrySendError,
-} from "./error"
+import { ParseIdent } from "./expr"
+import { InvalidFrameArgError, InvalidProvideBindingError } from "./error"
 import { frame } from "./frame"
 import {
   IRArg,
@@ -16,15 +12,9 @@ import {
   PatternBuilder,
   Scope,
 } from "./interface"
-import {
-  IRSelfExpr,
-  IRSendDirectExpr,
-  IRSendExpr,
-  IRTrySendExpr,
-} from "./ir-expr"
 import { IRProvideStmt } from "./ir-stmt"
 import { IRDoArg, IRValueArg, IRVarArg } from "./ir-handler"
-import { IRBlockClassBuilder } from "./ir-builder"
+import { IRBlockClassBuilder, IRSendBuilder } from "./ir-builder"
 import { build } from "./message-builder"
 
 export class InvalidArgsError {}
@@ -56,8 +46,9 @@ class KeyArgs implements ParseArgs {
   provide(): IRStmt[] {
     throw new InvalidProvideBindingError()
   }
-  send(scope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr {
-    return compileSend(scope, this.key, target, [], orElse)
+  send(): IRSendBuilder {
+    // return compileSend(scope, this.key, target, [], orElse)
+    return new IRSendBuilder(this.key, [])
   }
   frame(scope: Scope): IRExpr {
     return frame(this.key, [])
@@ -81,13 +72,13 @@ class PairArgs implements ParseArgs {
       }
     )
   }
-  send(scope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr {
-    return build<ParseArg, ParseArg, IRExpr>(this.pairs, {
+  send(): IRSendBuilder {
+    return build<ParseArg, ParseArg, IRSendBuilder>(this.pairs, {
       pair(_, arg) {
         return arg
       },
       build(selector, args) {
-        return compileSend(scope, selector, target, args, orElse)
+        return new IRSendBuilder(selector, args)
       },
     })
   }
@@ -152,36 +143,5 @@ export class HandlersArg implements ParseArg {
   }
   frameArg(): ParseExpr {
     throw new InvalidFrameArgError()
-  }
-}
-
-function compileSend(
-  inScope: Scope,
-  selector: string,
-  target: ParseExpr,
-  astArgs: ParseArg[],
-  orElse: ParseExpr | null
-) {
-  // shared between args to track borrows
-  const scope: Scope = inScope.sendScope()
-  const irArgs = astArgs.map((v) => v.sendArg(scope))
-  if (target === Self) {
-    const handler = scope.instance.getPlaceholderHandler(selector)
-    if (orElse) {
-      // TODO: make this a "warning" rather than an "error"
-      throw new RedundantTrySendError()
-    }
-    return new IRSendDirectExpr(selector, handler, new IRSelfExpr(), irArgs)
-  } else {
-    if (orElse) {
-      return new IRTrySendExpr(
-        selector,
-        target.compile(scope),
-        irArgs,
-        orElse.compile(scope)
-      )
-    } else {
-      return new IRSendExpr(selector, target.compile(scope), irArgs)
-    }
   }
 }

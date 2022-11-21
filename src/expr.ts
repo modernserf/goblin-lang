@@ -192,7 +192,7 @@ export class ParseFrame implements ParseExpr {
 export class ParseSend implements ParseExpr {
   constructor(private target: ParseExpr, private args: ParseArgs) {}
   compile(scope: Scope): IRExpr {
-    return this.args.send(scope, this.target, null)
+    return this.args.send().compile(scope, this.target, null)
   }
   setInPlace(scope: Scope, expr: ParseExpr): IRStmt[] {
     if (!this.target.setInPlace) throw new InvalidSetTargetError()
@@ -207,14 +207,17 @@ export class ParseTrySend implements ParseExpr {
     private orElse: ParseExpr
   ) {}
   compile(scope: Scope): IRExpr {
-    return this.args.send(scope, this.target, this.orElse)
+    return this.args.send().compile(scope, this.target, this.orElse)
   }
 }
 
 export class ParseUnaryOp implements ParseExpr {
   constructor(private target: ParseExpr, private operator: string) {}
   compile(scope: Scope): IRExpr {
-    return new ArgsBuilder().key(this.operator).send(scope, this.target, null)
+    return new ArgsBuilder()
+      .key(this.operator)
+      .send()
+      .compile(scope, this.target, null)
   }
 }
 
@@ -228,7 +231,8 @@ export class ParseBinaryOp implements ParseExpr {
     return new ArgsBuilder()
       .pair(this.operator, new ValueArg(this.operand))
       .build()
-      .send(scope, this.target, null)
+      .send()
+      .compile(scope, this.target, null)
   }
 }
 

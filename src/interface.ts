@@ -1,3 +1,9 @@
+// builders
+
+export interface IRSendBuilder {
+  compile(inScope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr
+}
+
 // parse
 export interface ParseStmt {
   compile(scope: Scope): IRStmt[]
@@ -60,7 +66,7 @@ export interface PatternBuilder<Item, Collection> {
 
 export interface ParseArgs {
   provide(scope: Scope): IRStmt[]
-  send(scope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr
+  send(): IRSendBuilder
   frame(scope: Scope): IRExpr
 }
 
