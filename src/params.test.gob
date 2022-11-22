@@ -1,0 +1,150 @@
+import [_Assert_] := "core"
+
+# basic handlers
+let target := [
+  on {key} 
+    1
+  on {key: value}
+    value + 2
+  on {a: a b: b}
+    a + b + 3
+]
+Assert{received: target{key}        expected: 1}
+Assert{received: target{key: 2}     expected: 4}
+Assert{received: target{a: 1 b: 2}  expected: 6}
+Assert{received: target{b: 2 a: 1}  expected: 6}
+
+# punned parameters
+let target := [
+  on {_a_ b: b'}
+    a + b' + 3
+]
+Assert{received: target{a: 1 b: 2}  expected: 6}
+Assert{received: target{b: 2 a: 1}  expected: 6}
+
+# destructured parameters
+let target := [
+  on {a: [_x_ _y_] b: [x: x' y: y'] }
+    [x: x + x' y: y + y']
+]
+Assert{
+  received: target{a: [x: 1 y: 2] b: [x: 3 y: 4]}
+  expected: [x: 4 y: 6]
+}
+
+# aliases
+let target := [
+  on {foo}
+    {bar: __} 
+    1
+  on {a: x b: y}
+    {x: x y: y z: __}
+    x + y + 3
+]
+Assert{received: target{foo}            expected: 1}
+Assert{received: target{bar: 2}         expected: 1}
+Assert{received: target{a: 1 b: 2}      expected: 6}
+Assert{received: target{x: 1 y: 2 z: 3} expected: 6}
+
+# default values
+let target := [
+  on {x: x y: y := 0}
+    x + y + 2
+  on {a: a := 0 b: b := 0}
+    a + b + 3
+]
+Assert{received: target{x: 1 y: 2}  expected: 5}
+Assert{received: target{x: 1}       expected: 3}
+Assert{received: target{a: 1 b: 2}  expected: 6}
+Assert{received: target{a: 1}       expected: 4}
+Assert{received: target{b: 2}       expected: 5}
+Assert{received: target{}           expected: 3}
+
+# refutable bindings
+let target := [
+  on {count: 0}
+    "no items"
+  on {count: 1}
+    "1 item"
+  on {count: n}
+    n{to String} ++ " items"
+]
+Assert{received: target{count: 0}   expected: "no items"}
+Assert{received: target{count: 1}   expected: "1 item"}
+Assert{received: target{count: 10}  expected: "10 items"}
+
+let target := [
+  on {x: 0 y: 0}
+    "at origin"
+  on {x: 0 y: __}
+    "on y axis"
+  on {x: __ y: 0}
+    "on x axis"
+  on {x: __ y: __}
+    "elsewhere"
+]
+Assert{received: target{x: 1 y: 2}  expected: "elsewhere"}
+Assert{received: target{x: 0 y: 0}  expected: "at origin"}
+Assert{received: target{x: 1 y: 0}  expected: "on x axis"}
+Assert{received: target{x: 0 y: 2}  expected: "on y axis"}
+
+# refutable pattern bindings
+let target := [
+  on {l: {some: l} r: {some: r}}
+    [some: l + r]
+  on {l: __ r: __ }
+    [none]
+]
+Assert{
+  received: target{l: [some: 1] r: [some: 2]}
+  expected: [some: 3]
+}
+Assert{
+  received: target{l: [some: 1] r: [none]}
+  expected: [none]
+}
+
+# else
+let target := [
+  on {foo: x} x
+  on {bar} 2
+  else 3
+]
+Assert{received: target{foo: 1}     expected: 1}
+Assert{received: target{bar}        expected: 2}
+Assert{received: target{baz}        expected: 3}
+Assert{received: target{x: 1 y: 2}  expected: 3}
+
+# else with refutable patterns
+let target := [
+  on {l: {some: l} r: {some: r}}
+    [some: l + r]
+  else
+    [none]
+]
+Assert{
+  received: target{l: [some: 1] r: [some: 2]}
+  expected: [some: 3]
+}
+Assert{
+  received: target{l: [some: 1] r: [none]}
+  expected: [none]
+}
+
+# else with message
+let parent := [
+  on {baz} 
+    3
+  on {x: x y: y}
+    x + y
+]
+let target := [
+  on {foo: x} x
+  on {bar} 2
+  else {: msg}
+    msg{: parent}
+]
+Assert{received: target{foo: 1}     expected: 1}
+Assert{received: target{bar}        expected: 2}
+Assert{received: target{baz}        expected: 3}
+Assert{received: target{x: 2 y: 3}  expected: 5}

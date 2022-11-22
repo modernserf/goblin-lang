@@ -1,8 +1,4 @@
-import {
-  ArgMismatchError,
-  InvalidElseParamsError,
-  NoHandlerError,
-} from "./error"
+import { ArgMismatchError, InvalidElseParamsError } from "./error"
 import {
   Interpreter,
   IRArg,
@@ -13,10 +9,197 @@ import {
   Value,
   ParseParam,
   IRExpr,
+  IHandlerBuilder,
+  Instance,
+  IRClassBuilder,
+  ParseStmt,
+  ParseBinding,
+  ParamBinding,
+  Scope,
+  IRBlockClassBuilder,
+  ParseExpr,
+  PartialHandler,
+  PartialParseParam,
 } from "./interface"
 import { IRLocalExpr, IRSendExpr } from "./ir-expr"
 import { body, Return } from "./ir-stmt"
+import { LetStmt } from "./stmt"
 import { ObjectValue, unit, IRBaseClass, IRBlockClass, DoValue } from "./value"
+
+export class HandlerBuilder implements IHandlerBuilder {
+  constructor(
+    private instance: Instance,
+    private cls: IRClassBuilder,
+    private body: ParseStmt[],
+    private selfBinding: ParseBinding
+  ) {}
+  addOn(
+    selector: string,
+    params: ParseParam[],
+    bindings: ParamBinding[]
+  ): void {
+    const partial = condParams(params, this.body)
+    if (partial) {
+      this.cls.addPartial(selector, partial)
+    } else {
+      const { scope, head } = this.scopeHead(params, bindings)
+      this.cls.addFinal(selector, scope, this.body, (body) =>
+        this.onHandler(params, head, body)
+      )
+    }
+  }
+  addElse(
+    selector: string,
+    params: ParseParam[],
+    bindings: ParamBinding[]
+  ): void {
+    const { scope, head } = this.scopeHead(params, bindings)
+    this.cls.addElse(selector, scope, this.body, (body) =>
+      this.elseHandler(
+        selector,
+        params.map((p) => p.toIR()),
+        head.concat(body)
+      )
+    )
+  }
+  private scopeHead(params: ParseParam[], bindings: ParamBinding[]) {
+    const scope = this.instance.handlerScope(params.length)
+    const head = [
+      ...this.selfBinding.selfBinding(scope),
+      ...params.flatMap((p, i) => p.handler(scope, i)),
+      ...bindings.flatMap(({ binding, value }) =>
+        new LetStmt(binding, value, false).compile(scope)
+      ),
+    ]
+    return { scope, head }
+  }
+  private onHandler(params: ParseParam[], head: IRStmt[], body: IRStmt[]) {
+    // ignore head (which contains maybe unused self-binding & params), just look at body
+    if (body.length === 0) return NilHandler
+    if (body[0].toHandler) return body[0].toHandler()
+
+    return new IROnHandler(
+      params.map((p) => p.toIR()),
+      head.concat(body)
+    )
+  }
+  private elseHandler(
+    selector: string,
+    params: IRParam[],
+    body: IRStmt[]
+  ): IRHandler {
+    switch (selector) {
+      case "":
+        return new IRElseHandler(body)
+      case ":":
+        return new IRForwardHandler(params, body)
+      default:
+        throw new InvalidElseParamsError(selector)
+    }
+  }
+}
+
+export class BlockHandlerBuilder implements IHandlerBuilder {
+  private scope = this.inScope.blockBodyScope()
+  private paramScope = this.scope.blockParamsScope()
+  constructor(
+    private inScope: Scope,
+    private cls: IRBlockClassBuilder,
+    private body: ParseStmt[]
+  ) {}
+  addOn(
+    selector: string,
+    params: ParseParam[],
+    bindings: ParamBinding[]
+  ): void {
+    const partial = condParams(params, this.body)
+    if (partial) {
+      this.cls.addPartial(selector, partial)
+    } else {
+      const { offset, head } = this.offsetHead(params, bindings)
+      this.cls.addFinal(selector, this.scope, this.body, (body) =>
+        this.onHandler(
+          offset,
+          params.map((p) => p.toIR()),
+          head,
+          body
+        )
+      )
+    }
+  }
+  addElse(
+    selector: string,
+    params: ParseParam[],
+    bindings: ParamBinding[]
+  ): void {
+    const { offset, head } = this.offsetHead(params, bindings)
+    this.cls.addElse(selector, this.scope, this.body, (body) =>
+      this.elseHandler(
+        selector,
+        offset,
+        params.map((p) => p.toIR()),
+        head.concat(body)
+      )
+    )
+  }
+  private offsetHead(params: ParseParam[], bindings: ParamBinding[]) {
+    const offset = this.scope.locals.allocate(params.length)
+    const head = [
+      ...params.flatMap((p, i) => p.handler(this.paramScope, offset + i)),
+      ...bindings.flatMap(({ binding, value }) =>
+        new LetStmt(binding, value, false).compile(this.scope)
+      ),
+    ]
+    return { offset, head }
+  }
+  private onHandler(
+    offset: number,
+    params: IRParam[],
+    head: IRStmt[],
+    body: IRStmt[]
+  ) {
+    return new IROnBlockHandler(offset, params, head.concat(body))
+  }
+  private elseHandler(
+    selector: string,
+    offset: number,
+    params: IRParam[],
+    body: IRStmt[]
+  ): IRBlockHandler {
+    switch (selector) {
+      case "":
+        return new IRElseBlockHandler(body)
+      case ":":
+        return new IRForwardBlockHandler(offset, params, body)
+      default:
+        throw new InvalidElseParamsError(selector)
+    }
+  }
+}
+
+class ParseLocal implements ParseExpr {
+  constructor(private index: number) {}
+  compile(): IRExpr {
+    return new IRLocalExpr(this.index)
+  }
+}
+
+function condParams(
+  params: ParseParam[],
+  body: ParseStmt[]
+): PartialHandler | null {
+  return params.reduceRight((coll: PartialHandler | null, param, index) => {
+    if (!param.cond) return coll
+    const p = param as PartialParseParam
+    return {
+      params,
+      cond: (ifFalse) => {
+        const ifTrue = coll ? coll.cond(ifFalse) : body
+        return p.cond(new ParseLocal(index), ifTrue, ifFalse)
+      },
+    }
+  }, null)
+}
 
 export class IRValueArg implements IRArg {
   constructor(private expr: IRExpr) {}
@@ -110,21 +293,6 @@ function unloadArgs(
   })
 }
 
-export function onHandler(
-  params: ParseParam[],
-  head: IRStmt[],
-  body: IRStmt[]
-) {
-  // ignore head (which contains maybe unused self-binding & params), just look at body
-  if (body.length === 0) return NilHandler
-  if (body[0].toHandler) return body[0].toHandler()
-
-  return new IROnHandler(
-    params.map((p) => p.toIR()),
-    head.concat(body)
-  )
-}
-
 export class IROnHandler implements IRHandler {
   constructor(private params: IRParam[], private body: IRStmt[]) {}
   send(
@@ -190,21 +358,6 @@ export class IRLazyHandler implements IRHandler {
   ): Value {
     if (!this.handler) throw new Error("missing lazy handler")
     return this.handler.send(sender, target, selector, args)
-  }
-}
-
-export function elseHandler(
-  selector: string,
-  params: IRParam[],
-  body: IRStmt[]
-): IRHandler {
-  switch (selector) {
-    case "":
-      return new IRElseHandler(body)
-    case ":":
-      return new IRForwardHandler(params, body)
-    default:
-      throw new InvalidElseParamsError(selector)
   }
 }
 
@@ -278,22 +431,6 @@ export class IROnBlockHandler implements IRBlockHandler {
     const result = body(ctx, this.body)
     unloadArgs(sender, ctx, this.offset, args)
     return result
-  }
-}
-
-export function elseBlockHandler(
-  selector: string,
-  offset: number,
-  params: IRParam[],
-  body: IRStmt[]
-): IRBlockHandler {
-  switch (selector) {
-    case "":
-      return new IRElseBlockHandler(body)
-    case ":":
-      return new IRForwardBlockHandler(offset, params, body)
-    default:
-      throw new InvalidElseParamsError(selector)
   }
 }
 

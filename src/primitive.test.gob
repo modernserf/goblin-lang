@@ -42,12 +42,12 @@ Assert{received: n{abs}   expected: 1}
 
 # floats
 Assert{received: 1.0 + 1.0  expected: 2.0}
-let n := 1.0
-Assert{received: -n         expected: -1.0}
 Assert{received: 0.2 - 0.1  expected: 0.1}
 Assert{received: 0.5 * 0.5  expected: 0.25}
-let n := -1.0
-Assert{received: n{abs}   expected: 1.0}
+
+let n := 1.0
+Assert{received: -n         expected: -1.0}
+Assert{received: n{abs}     expected: 1.0}
 
 # int->float conversion
 Assert{received: 1 + 1.0  expected: 2.0}
