@@ -18,8 +18,6 @@ import {
   ParseUnaryOp,
   ParseBinaryOp,
   ParseTrySend,
-  ParseDestructure,
-  ParsePlaceholder,
 } from "./expr"
 import {
   VarParam,
@@ -54,6 +52,7 @@ import {
   PatternBuilder,
   ParseBinding,
 } from "./interface"
+import { ParseDestructure, ParsePlaceholder, ParseBindIdent } from "./binding"
 
 export class ParseError {
   constructor(readonly expected: string, readonly received: string) {}
@@ -221,7 +220,7 @@ function parseBinding(lexer: Lexer): ParseBinding | null {
     case "identifier":
     case "quotedIdent":
       lexer.advance()
-      return new ParseIdent(token.value)
+      return new ParseBindIdent(token.value)
     case "placeholder":
       lexer.advance()
       return ParsePlaceholder
@@ -390,7 +389,7 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
         // ugh
         if (place instanceof ParseIdent) {
           const expr = must(lexer, "expr", parseExpr)
-          return new SetStmt(place, expr)
+          return new SetStmt(place.toBinding(), expr)
         } else {
           throw new ParseError("binding", "expr")
         }

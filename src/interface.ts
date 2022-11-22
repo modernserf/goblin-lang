@@ -27,13 +27,13 @@ export interface ParseExpr {
 }
 
 export interface ParseBinding {
-  var(scope: Scope, expr: ParseExpr): IRStmt[]
-  set(scope: Scope, expr: ParseExpr): IRStmt[]
-  export(scope: Scope): void
+  var(scope: Scope, value: IRExpr): IRStmt[]
+  set(scope: Scope, value: IRExpr): IRStmt[]
   let(scope: Scope, value: IRExpr): IRStmt[]
-  handler(scope: Scope, offset: number): IRStmt[]
-  selfBinding(scope: Scope): IRStmt[]
   import(scope: Scope, source: IRExpr): IRStmt[]
+  export(scope: Scope): void
+  param(scope: Scope, offset: number): IRStmt[]
+  selfBinding(scope: Scope): IRStmt[]
 }
 
 export interface PartialHandler {

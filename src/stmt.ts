@@ -62,7 +62,7 @@ export class VarStmt implements ParseStmt {
   constructor(private binding: ParseBinding, private expr: ParseExpr) {}
   compile(scope: Scope): IRStmt[] {
     if (!this.binding.var) throw new InvalidVarBindingError()
-    return this.binding.var(scope, this.expr)
+    return this.binding.var(scope, this.expr.compile(scope))
   }
 }
 
@@ -89,7 +89,7 @@ export class SetStmt implements ParseStmt {
   constructor(private binding: ParseBinding, private expr: ParseExpr) {}
   compile(scope: Scope): IRStmt[] {
     if (!this.binding.set) throw new InvalidSetTargetError()
-    return this.binding.set(scope, this.expr)
+    return this.binding.set(scope, this.expr.compile(scope))
   }
 }
 

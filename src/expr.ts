@@ -1,9 +1,5 @@
 import { ArgsBuilder, HandlersArg, ValueArg } from "./args"
-import {
-  InvalidImportBindingError,
-  InvalidSetTargetError,
-  InvalidVarBindingError,
-} from "./error"
+import { InvalidSetTargetError } from "./error"
 import {
   IHandlerBuilder,
   Instance,
@@ -21,7 +17,6 @@ import {
   PartialHandler,
   PartialParseParam,
   Scope,
-  ScopeRecord,
 } from "./interface"
 import { IRAssignStmt } from "./ir-stmt"
 import { IRLocalExpr, IRModuleExpr } from "./ir-expr"
@@ -38,6 +33,7 @@ import {
   onHandler,
 } from "./ir-handler"
 import { LetStmt } from "./stmt"
+import { ParseBindIdent, ParsePlaceholder } from "./binding"
 
 export const Self: ParseExpr = {
   compile(scope) {
@@ -87,102 +83,18 @@ export class ParseString implements ParseExpr {
   }
 }
 
-export class ParseIdent implements ParseExpr, ParseBinding {
+export class ParseIdent implements ParseExpr {
   constructor(private value: string) {}
   compile(scope: Scope): IRExpr {
     return scope.lookup(this.value)
-  }
-  var(scope: Scope, expr: ParseExpr): IRStmt[] {
-    const value = expr.compile(scope)
-    const record = scope.locals.set(this.value, scope.locals.create("var"))
-    return [new IRAssignStmt(record.index, value)]
-  }
-  let(scope: Scope, value: IRExpr): IRStmt[] {
-    const record = useLet(scope, this.value)
-    return [new IRAssignStmt(record.index, value)]
-  }
-  selfBinding(scope: Scope): IRStmt[] {
-    return this.let(scope, Self.compile(scope))
-  }
-  set(scope: Scope, expr: ParseExpr): IRStmt[] {
-    const value = expr.compile(scope)
-    return [new IRAssignStmt(scope.lookupVarIndex(this.value), value)]
   }
   setInPlace(scope: Scope, expr: ParseExpr): IRStmt[] {
     if (expr === this) throw new InvalidSetTargetError()
     const value = expr.compile(scope)
     return [new IRAssignStmt(scope.lookupVarIndex(this.value), value)]
   }
-  import(scope: Scope, source: IRExpr): IRStmt[] {
-    throw new InvalidImportBindingError()
-  }
-  export(scope: Scope): void {
-    scope.addExport(this.value)
-  }
-  handler(scope: Scope, offset: number): IRStmt[] {
-    scope.locals.set(this.value, { index: offset, type: "let" })
-    return []
-  }
-}
-
-export const ParsePlaceholder: ParseBinding = {
-  let(scope, value) {
-    return []
-  },
-  import(scope, source) {
-    throw new InvalidImportBindingError()
-  },
-  var() {
-    throw new InvalidVarBindingError()
-  },
-  set() {
-    throw new InvalidSetTargetError()
-  },
-  selfBinding() {
-    return []
-  },
-  export(scope) {
-    throw new Error("invalid export")
-  },
-  handler() {
-    return []
-  },
-}
-
-export class ParseDestructure implements ParseBinding {
-  constructor(private params: ParseParams, private as: string | null) {}
-  let(scope: Scope, value: IRExpr): IRStmt[] {
-    const record = useAs(scope, this.as)
-    return [
-      new IRAssignStmt(record.index, value),
-      ...this.params.let(scope, value),
-    ]
-  }
-  import(scope: Scope, source: IRExpr): IRStmt[] {
-    if (this.as) throw new InvalidImportBindingError()
-    return this.params.import(scope, source)
-  }
-  var(scope: Scope, expr: ParseExpr): IRStmt[] {
-    throw new InvalidVarBindingError()
-  }
-  /* istanbul ignore next */
-  set(scope: Scope, expr: ParseExpr): IRStmt[] {
-    throw new Error("unreachable")
-  }
-  selfBinding(scope: Scope): IRStmt[] {
-    return []
-  }
-  export(scope: Scope): void {
-    if (this.as) {
-      scope.addExport(this.as)
-    }
-    this.params.export(scope)
-  }
-  handler(scope: Scope, offset: number): IRStmt[] {
-    if (this.as) {
-      scope.locals.set(this.as, { index: offset, type: "let" })
-    }
-    return this.let(scope, new IRLocalExpr(offset))
+  toBinding() {
+    return new ParseBindIdent(this.value)
   }
 }
 
@@ -322,14 +234,6 @@ export class ElseHandler implements ParseHandler {
   addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void {
     this.params.addElse(new BlockHandlerBuilder(scope, cls, this.body))
   }
-}
-
-function useAs(scope: Scope, as: string | null): ScopeRecord {
-  if (as === null) return scope.locals.create("let")
-  return useLet(scope, as)
-}
-function useLet(scope: Scope, key: string): ScopeRecord {
-  return scope.locals.set(key, scope.locals.create("let"))
 }
 
 class HandlerBuilder implements IHandlerBuilder {

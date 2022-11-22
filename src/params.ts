@@ -22,6 +22,7 @@ import { IRSendExpr, IRUseExpr } from "./ir-expr"
 import { build } from "./message-builder"
 import { ExprStmt } from "./stmt"
 import { ArgsBuilder, HandlersArg, ValueArg } from "./args"
+import { ParseBindIdent } from "./binding"
 
 class InvalidParamsError {}
 
@@ -35,7 +36,7 @@ export class ParamsBuilder implements PatternBuilder<ParseParam, ParseParams> {
     return new KeyParams(key)
   }
   punPair(key: string): this {
-    this.pairs.push({ key, value: new ValueParam(new ParseIdent(key)) })
+    this.pairs.push({ key, value: new ValueParam(new ParseBindIdent(key)) })
     return this
   }
   pair(key: string, value: ParseParam): this {
@@ -150,7 +151,7 @@ class PairParams implements ParseParams {
 export class DefaultValueParam implements ParseParam {
   constructor(private binding: ParseBinding, private defaultValue: ParseExpr) {}
   handler(scope: Scope, offset: number): IRStmt[] {
-    return this.binding.handler(scope, offset)
+    return this.binding.param(scope, offset)
   }
   defaultPair(): { binding: ParseBinding; value: ParseExpr } {
     return { binding: this.binding, value: this.defaultValue }
@@ -246,7 +247,7 @@ export class PartialValueParam implements ParseParam, PartialParseParam {
 export class ValueParam implements ParseParam {
   constructor(private binding: ParseBinding) {}
   handler(scope: Scope, offset: number): IRStmt[] {
-    return this.binding.handler(scope, offset)
+    return this.binding.param(scope, offset)
   }
   using(scope: Scope, key: string): IRStmt[] {
     return this.binding.let(scope, new IRUseExpr(key))
