@@ -4,6 +4,16 @@ export interface IRSendBuilder {
   compile(inScope: Scope, target: ParseExpr, orElse: ParseExpr | null): IRExpr
 }
 
+export type ParamBinding = { binding: ParseBinding; value: ParseExpr }
+export interface IHandlerBuilder {
+  addOn(selector: string, params: ParseParam[], bindings: ParamBinding[]): void
+  addElse(
+    selector: string,
+    params: ParseParam[],
+    bindings: ParamBinding[]
+  ): void
+}
+
 // parse
 export interface ParseStmt {
   compile(scope: Scope): IRStmt[]
@@ -79,28 +89,8 @@ export interface ParseArg {
 
 export interface ParseParams {
   using(scope: Scope): IRStmt[]
-  addToClass(
-    instance: Instance,
-    cls: IRClassBuilder,
-    body: ParseStmt[],
-    selfBinding: ParseBinding
-  ): void
-  addElseToClass(
-    instance: Instance,
-    cls: IRClassBuilder,
-    body: ParseStmt[],
-    selfBinding: ParseBinding
-  ): void
-  addToBlockClass(
-    scope: Scope,
-    cls: IRBlockClassBuilder,
-    body: ParseStmt[]
-  ): void
-  addElseToBlockClass(
-    scope: Scope,
-    cls: IRBlockClassBuilder,
-    body: ParseStmt[]
-  ): void
+  addOn(builder: IHandlerBuilder): void
+  addElse(builder: IHandlerBuilder): void
   let(scope: Scope, value: IRExpr): IRStmt[]
   export(scope: Scope): void
   import(scope: Scope, source: IRExpr): IRStmt[]

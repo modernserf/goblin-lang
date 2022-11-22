@@ -5,16 +5,21 @@ import {
   InvalidVarBindingError,
 } from "./error"
 import {
+  IHandlerBuilder,
   Instance,
   IRExpr,
   IRHandler,
   IRStmt,
+  ParamBinding,
   ParseArgs,
   ParseBinding,
   ParseExpr,
   ParseHandler,
+  ParseParam,
   ParseParams,
   ParseStmt,
+  PartialHandler,
+  PartialParseParam,
   Scope,
   ScopeRecord,
 } from "./interface"
@@ -26,6 +31,13 @@ import { constObject } from "./optimize"
 import { ParamsBuilder } from "./params"
 import { floatClass, intClass, stringClass } from "./primitive"
 import { createInstance } from "./scope"
+import {
+  elseBlockHandler,
+  elseHandler,
+  IROnBlockHandler,
+  onHandler,
+} from "./ir-handler"
+import { LetStmt } from "./stmt"
 
 export const Self: ParseExpr = {
   compile(scope) {
@@ -289,10 +301,10 @@ export class OnHandler implements ParseHandler {
     cls: IRClassBuilder,
     selfBinding: ParseBinding
   ): void {
-    this.params.addToClass(instance, cls, this.body, selfBinding)
+    this.params.addOn(new HandlerBuilder(instance, cls, this.body, selfBinding))
   }
   addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void {
-    return this.params.addToBlockClass(scope, cls, this.body)
+    this.params.addOn(new BlockHandlerBuilder(scope, cls, this.body))
   }
 }
 
@@ -303,10 +315,12 @@ export class ElseHandler implements ParseHandler {
     cls: IRClassBuilder,
     selfBinding: ParseBinding
   ): void {
-    this.params.addElseToClass(instance, cls, this.body, selfBinding)
+    this.params.addElse(
+      new HandlerBuilder(instance, cls, this.body, selfBinding)
+    )
   }
   addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void {
-    this.params.addElseToBlockClass(scope, cls, this.body)
+    this.params.addElse(new BlockHandlerBuilder(scope, cls, this.body))
   }
 }
 
@@ -316,4 +330,135 @@ function useAs(scope: Scope, as: string | null): ScopeRecord {
 }
 function useLet(scope: Scope, key: string): ScopeRecord {
   return scope.locals.set(key, scope.locals.create("let"))
+}
+
+class HandlerBuilder implements IHandlerBuilder {
+  constructor(
+    private instance: Instance,
+    private cls: IRClassBuilder,
+    private body: ParseStmt[],
+    private selfBinding: ParseBinding
+  ) {}
+  addOn(
+    selector: string,
+    params: ParseParam[],
+    bindings: ParamBinding[]
+  ): void {
+    const partial = condParams(params, this.body)
+    if (partial) {
+      this.cls.addPartial(selector, partial)
+    } else {
+      const { scope, head } = this.scopeHead(params, bindings)
+      this.cls.addFinal(selector, scope, this.body, (body) =>
+        onHandler(params, head, body)
+      )
+    }
+  }
+  addElse(
+    selector: string,
+    params: ParseParam[],
+    bindings: ParamBinding[]
+  ): void {
+    const { scope, head } = this.scopeHead(params, bindings)
+    this.cls.addElse(selector, scope, this.body, (body) =>
+      elseHandler(
+        selector,
+        params.map((p) => p.toIR()),
+        head.concat(body)
+      )
+    )
+  }
+  private scopeHead(params: ParseParam[], bindings: ParamBinding[]) {
+    const scope = this.instance.handlerScope(params.length)
+    const head = [
+      ...this.selfBinding.selfBinding(scope),
+      ...params.flatMap((p, i) => p.handler(scope, i)),
+      ...bindings.flatMap(({ binding, value }) =>
+        new LetStmt(binding, value, false).compile(scope)
+      ),
+    ]
+    return { scope, head }
+  }
+}
+
+class BlockHandlerBuilder implements IHandlerBuilder {
+  private scope = this.inScope.blockBodyScope()
+  private paramScope = this.scope.blockParamsScope()
+  constructor(
+    private inScope: Scope,
+    private cls: IRBlockClassBuilder,
+    private body: ParseStmt[]
+  ) {}
+  addOn(
+    selector: string,
+    params: ParseParam[],
+    bindings: ParamBinding[]
+  ): void {
+    const partial = condParams(params, this.body)
+    if (partial) {
+      this.cls.addPartial(selector, partial)
+    } else {
+      const { offset, head } = this.offsetHead(params, bindings)
+      this.cls.addFinal(
+        selector,
+        this.scope,
+        this.body,
+        (body) =>
+          new IROnBlockHandler(
+            offset,
+            params.map((p) => p.toIR()),
+            head.concat(body)
+          )
+      )
+    }
+  }
+  addElse(
+    selector: string,
+    params: ParseParam[],
+    bindings: ParamBinding[]
+  ): void {
+    const { offset, head } = this.offsetHead(params, bindings)
+    this.cls.addElse(selector, this.scope, this.body, (body) =>
+      elseBlockHandler(
+        selector,
+        offset,
+        params.map((p) => p.toIR()),
+        head.concat(body)
+      )
+    )
+  }
+  private offsetHead(params: ParseParam[], bindings: ParamBinding[]) {
+    const offset = this.scope.locals.allocate(params.length)
+    const head = [
+      ...params.flatMap((p, i) => p.handler(this.paramScope, offset + i)),
+      ...bindings.flatMap(({ binding, value }) =>
+        new LetStmt(binding, value, false).compile(this.scope)
+      ),
+    ]
+    return { offset, head }
+  }
+}
+
+class ParseLocal implements ParseExpr {
+  constructor(private index: number) {}
+  compile(): IRExpr {
+    return new IRLocalExpr(this.index)
+  }
+}
+
+function condParams(
+  params: ParseParam[],
+  body: ParseStmt[]
+): PartialHandler | null {
+  return params.reduceRight((coll: PartialHandler | null, param, index) => {
+    if (!param.cond) return coll
+    const p = param as PartialParseParam
+    return {
+      params,
+      cond: (ifFalse) => {
+        const ifTrue = coll ? coll.cond(ifFalse) : body
+        return p.cond(new ParseLocal(index), ifTrue, ifFalse)
+      },
+    }
+  }, null)
 }

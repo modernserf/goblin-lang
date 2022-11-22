@@ -1,18 +1,10 @@
-import {
-  ElseHandler,
-  OnHandler,
-  ParseIdent,
-  ParseIf,
-  ParsePlaceholder,
-  ParseSend,
-} from "./expr"
+import { ElseHandler, OnHandler, ParseIdent, ParseIf, ParseSend } from "./expr"
 import {
   InvalidDestructuringError,
   InvalidProvideBindingError,
   InvalidElseParamsError,
 } from "./error"
 import {
-  Instance,
   IRExpr,
   IRParam,
   IRStmt,
@@ -23,20 +15,12 @@ import {
   ParseStmt,
   PatternBuilder,
   Scope,
-  IRClassBuilder,
-  IRBlockClassBuilder,
-  PartialHandler,
   PartialParseParam,
+  IHandlerBuilder,
 } from "./interface"
-import { IRLocalExpr, IRSendExpr, IRUseExpr } from "./ir-expr"
-import {
-  elseHandler,
-  elseBlockHandler,
-  onHandler,
-  IROnBlockHandler,
-} from "./ir-handler"
+import { IRSendExpr, IRUseExpr } from "./ir-expr"
 import { build } from "./message-builder"
-import { ExprStmt, LetStmt } from "./stmt"
+import { ExprStmt } from "./stmt"
 import { ArgsBuilder, HandlersArg, ValueArg } from "./args"
 
 class InvalidParamsError {}
@@ -68,32 +52,10 @@ class KeyParams implements ParseParams {
   using(): IRStmt[] {
     throw new InvalidProvideBindingError()
   }
-  addToClass(
-    instance: Instance,
-    cls: IRClassBuilder,
-    body: ParseStmt[],
-    selfBinding: ParseBinding
-  ): void {
-    const scope = instance.handlerScope(0)
-    const head = selfBinding.selfBinding(scope)
-    cls.addFinal(this.key, scope, body, (body) => onHandler([], head, body))
+  addOn(builder: IHandlerBuilder): void {
+    builder.addOn(this.key, [], [])
   }
-  addToBlockClass(
-    scope: Scope,
-    cls: IRBlockClassBuilder,
-    body: ParseStmt[]
-  ): void {
-    cls.addFinal(
-      this.key,
-      scope,
-      body,
-      (body) => new IROnBlockHandler(0, [], body)
-    )
-  }
-  addElseToClass(): void {
-    throw new InvalidElseParamsError(this.key)
-  }
-  addElseToBlockClass(): void {
+  addElse(builder: IHandlerBuilder): void {
     throw new InvalidElseParamsError(this.key)
   }
   /* istanbul ignore next */
@@ -108,168 +70,27 @@ class KeyParams implements ParseParams {
   }
 }
 
-class ParseLocal implements ParseExpr {
-  constructor(private index: number) {}
-  compile(): IRExpr {
-    return new IRLocalExpr(this.index)
-  }
-}
-
-function condParams(
-  params: ParseParam[],
-  body: ParseStmt[]
-): PartialHandler | null {
-  return params.reduceRight((coll: PartialHandler | null, param, index) => {
-    if (!param.cond) return coll
-    const p = param as PartialParseParam
-    return {
-      params,
-      cond: (ifFalse) => {
-        const ifTrue = coll ? coll.cond(ifFalse) : body
-        return p.cond(new ParseLocal(index), ifTrue, ifFalse)
-      },
-    }
-  }, null)
-}
-
-type ParamBinding = { binding: ParseBinding; value: ParseExpr }
 class PairParams implements ParseParams {
   constructor(private pairs: Pair[]) {}
-  addToClass(
-    instance: Instance,
-    cls: IRClassBuilder,
-    body: ParseStmt[],
-    selfBinding: ParseBinding
-  ): void {
+  addOn(builder: IHandlerBuilder): void {
     for (const { pairs, bindings } of this.expandDefaultParams()) {
       build<ParseParam, ParseParam, void>(pairs, {
         pair: (_, param) => param,
         build: (selector, params) => {
-          const scope = instance.handlerScope(params.length)
-
-          const partial = condParams(params, body)
-          if (partial) {
-            cls.addPartial(selector, partial)
-          } else {
-            const head = this.handlerHead(scope, selfBinding, params, bindings)
-            cls.addFinal(selector, scope, body, (body) =>
-              onHandler(params, head, body)
-            )
-          }
+          builder.addOn(selector, params, bindings)
         },
       })
     }
   }
-  addElseToClass(
-    instance: Instance,
-    cls: IRClassBuilder,
-    body: ParseStmt[],
-    selfBinding: ParseBinding
-  ): void {
+  addElse(builder: IHandlerBuilder): void {
     for (const { pairs, bindings } of this.expandDefaultParams()) {
       build<ParseParam, ParseParam, void>(pairs, {
         pair: (_, param) => param,
         build: (selector, params) => {
-          const scope = instance.handlerScope(params.length)
-          const head = this.handlerHead(scope, selfBinding, params, bindings)
-          cls.addElse(selector, scope, body, (body) =>
-            elseHandler(
-              selector,
-              params.map((p) => p.toIR()),
-              head.concat(body)
-            )
-          )
+          builder.addElse(selector, params, bindings)
         },
       })
     }
-  }
-  addToBlockClass(
-    inScope: Scope,
-    cls: IRBlockClassBuilder,
-    body: ParseStmt[]
-  ): void {
-    // block params use parent scope, and do not start at zero
-    for (const { pairs, bindings } of this.expandDefaultParams()) {
-      const scope = inScope.blockBodyScope()
-      const paramScope = scope.blockParamsScope()
-      const offset = scope.locals.allocate(pairs.length)
-      build<ParseParam, ParseParam, void>(pairs, {
-        pair: (_, param) => param,
-        build: (selector, params) => {
-          const partial = condParams(params, body)
-          if (partial) {
-            cls.addPartial(selector, partial)
-          } else {
-            const head = this.handlerHead(
-              scope,
-              ParsePlaceholder,
-              params,
-              bindings,
-              offset,
-              paramScope
-            )
-            cls.addFinal(
-              selector,
-              scope,
-              body,
-              (body) =>
-                new IROnBlockHandler(
-                  offset,
-                  params.map((p) => p.toIR()),
-                  head.concat(body)
-                )
-            )
-          }
-        },
-      })
-    }
-  }
-  addElseToBlockClass(
-    scope: Scope,
-    cls: IRBlockClassBuilder,
-    body: ParseStmt[]
-  ): void {
-    for (const { pairs, bindings } of this.expandDefaultParams()) {
-      const offset = scope.locals.allocate(pairs.length)
-      build<ParseParam, ParseParam, void>(pairs, {
-        pair: (_, param) => param,
-        build: (selector, params) => {
-          const paramScope = scope.blockParamsScope()
-          const head = this.handlerHead(
-            scope,
-            ParsePlaceholder,
-            params,
-            bindings,
-            offset,
-            paramScope
-          )
-          cls.addElse(selector, scope, body, (body) =>
-            elseBlockHandler(
-              selector,
-              offset,
-              params.map((p) => p.toIR()),
-              head.concat(body)
-            )
-          )
-        },
-      })
-    }
-  }
-  private handlerHead(
-    scope: Scope,
-    selfBinding: ParseBinding,
-    params: ParseParam[],
-    bindings: ParamBinding[],
-    offset: number = 0,
-    paramScope: Scope = scope
-  ): IRStmt[] {
-    return [
-      ...selfBinding.selfBinding(scope),
-      ...params.flatMap((p, i) => p.handler(paramScope, offset + i)),
-      ...bindings.flatMap(({ binding, value }) =>
-        new LetStmt(binding, value, false).compile(scope)
-      ),
-    ]
   }
   private expandDefaultParams() {
     type ParamWithBindings = {
