@@ -229,10 +229,10 @@ function parseBinding(lexer: Lexer): ParseBinding | null {
       const params = parsePattern(lexer, param, new ParamsBuilder())
       mustToken(lexer, "closeBracket")
       if (accept(lexer, "as")) {
-        const as = ident(lexer)
+        const as = must(lexer, "binding", parseBinding)
         return new ParseDestructure(params, as)
       }
-      return new ParseDestructure(params, null)
+      return new ParseDestructure(params)
     }
   }
   return null
@@ -386,10 +386,9 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
       lexer.advance()
       const place = must(lexer, "binding", parseExpr)
       if (accept(lexer, "colonEquals")) {
-        // ugh
-        if (place instanceof ParseIdent) {
+        if (place.asSetBinding) {
           const expr = must(lexer, "expr", parseExpr)
-          return new SetStmt(place.toBinding(), expr)
+          return new SetStmt(place.asSetBinding(), expr)
         } else {
           throw new ParseError("binding", "expr")
         }

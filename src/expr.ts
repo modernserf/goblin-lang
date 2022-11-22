@@ -93,7 +93,7 @@ export class ParseIdent implements ParseExpr {
     const value = expr.compile(scope)
     return [new IRAssignStmt(scope.lookupVarIndex(this.value), value)]
   }
-  toBinding() {
+  asSetBinding(): ParseBinding {
     return new ParseBindIdent(this.value)
   }
 }

@@ -9,10 +9,11 @@ import { IRLocalExpr } from "./ir-expr"
 
 export const ParsePlaceholder: ParseBinding = {
   let(scope, value) {
+    scope.locals.create("let")
     return []
   },
   import(scope, source) {
-    throw new InvalidImportBindingError()
+    return []
   },
   var() {
     throw new InvalidVarBindingError()
@@ -23,9 +24,7 @@ export const ParsePlaceholder: ParseBinding = {
   selfBinding() {
     return []
   },
-  export(scope) {
-    throw new Error("invalid export")
-  },
+  export(scope) {},
   param() {
     return []
   },
@@ -60,21 +59,18 @@ export class ParseBindIdent implements ParseBinding {
 }
 
 export class ParseDestructure implements ParseBinding {
-  constructor(private params: ParseParams, private as: string | null) {}
+  constructor(
+    private params: ParseParams,
+    private as: ParseBinding = ParsePlaceholder
+  ) {}
   let(scope: Scope, value: IRExpr): IRStmt[] {
-    const record = this.useAs(scope)
-    return [
-      new IRAssignStmt(record.index, value),
-      ...this.params.let(scope, value),
-    ]
-  }
-  private useAs(scope: Scope) {
-    if (this.as === null) return scope.locals.create("let")
-    return scope.locals.set(this.as, scope.locals.create("let"))
+    return [...this.as.let(scope, value), ...this.params.let(scope, value)]
   }
   import(scope: Scope, source: IRExpr): IRStmt[] {
-    if (this.as) throw new InvalidImportBindingError()
-    return this.params.import(scope, source)
+    return [
+      ...this.as.import(scope, source),
+      ...this.params.import(scope, source),
+    ]
   }
   var(scope: Scope, expr: IRExpr): IRStmt[] {
     throw new InvalidVarBindingError()
@@ -87,15 +83,13 @@ export class ParseDestructure implements ParseBinding {
     return []
   }
   export(scope: Scope): void {
-    if (this.as) {
-      scope.addExport(this.as)
-    }
+    this.as.export(scope)
     this.params.export(scope)
   }
   param(scope: Scope, offset: number): IRStmt[] {
-    if (this.as) {
-      scope.locals.set(this.as, { index: offset, type: "let" })
-    }
-    return this.let(scope, new IRLocalExpr(offset))
+    return [
+      ...this.as.param(scope, offset),
+      ...this.let(scope, new IRLocalExpr(offset)),
+    ]
   }
 }

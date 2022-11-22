@@ -24,6 +24,7 @@ export interface ParseExpr {
   setInPlace?(scope: Scope, expr: ParseExpr): IRStmt[]
   importSource?(scope: Scope): IRExpr
   getHandler?(scope: Scope, selector: string): IRHandler
+  asSetBinding?(): ParseBinding
 }
 
 export interface ParseBinding {

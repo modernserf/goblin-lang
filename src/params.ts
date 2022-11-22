@@ -1,4 +1,4 @@
-import { ElseHandler, OnHandler, ParseIdent, ParseIf, ParseSend } from "./expr"
+import { ElseHandler, OnHandler, ParseIf, ParseSend } from "./expr"
 import {
   InvalidDestructuringError,
   InvalidProvideBindingError,
