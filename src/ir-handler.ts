@@ -300,12 +300,12 @@ export class IROnHandler implements IRHandler {
     selector: string,
     args: IRArg[]
   ): Value {
-    const child = sender.createChild(target)
-    loadArgs(sender, child, 0, this.params, args)
+    const ctx = target.context(sender)
+    loadArgs(sender, ctx, 0, this.params, args)
     try {
-      return Return.handleReturn(child, () => body(child, this.body))
+      return Return.handleReturn(ctx, () => body(ctx, this.body))
     } finally {
-      unloadArgs(sender, child, 0, args)
+      unloadArgs(sender, ctx, 0, args)
     }
   }
 }
@@ -339,7 +339,7 @@ export class IRPrimitiveHandler implements IRHandler {
     return this.fn(
       target.primitiveValue,
       args.map((arg) => arg.value(sender)),
-      sender
+      target.context(sender)
     )
   }
 }
@@ -368,8 +368,8 @@ export class IRElseHandler implements IRHandler {
     selector: string,
     args: IRArg[]
   ): Value {
-    const child = sender.createChild(target)
-    return Return.handleReturn(child, () => body(child, this.body))
+    const ctx = target.context(sender)
+    return Return.handleReturn(ctx, () => body(ctx, this.body))
   }
 }
 
@@ -402,12 +402,12 @@ export class IRForwardHandler implements IRHandler {
     originalArgs: IRArg[]
   ): Value {
     const args = messageForwarder(sender, selector, originalArgs)
-    const child = sender.createChild(target)
-    loadArgs(sender, child, 0, this.params, args)
+    const ctx = target.context(sender)
+    loadArgs(sender, ctx, 0, this.params, args)
     try {
-      return Return.handleReturn(child, () => body(child, this.body))
+      return Return.handleReturn(ctx, () => body(ctx, this.body))
     } finally {
-      unloadArgs(sender, child, 0, args)
+      unloadArgs(sender, ctx, 0, args)
     }
   }
 }
@@ -426,7 +426,7 @@ export class IROnBlockHandler implements IRHandler {
     selector: string,
     args: IRArg[]
   ): Value {
-    const ctx = target.blockContext()
+    const ctx = target.context(sender)
     loadArgs(sender, ctx, this.offset, this.params, args)
     const result = body(ctx, this.body)
     unloadArgs(sender, ctx, this.offset, args)
@@ -446,7 +446,7 @@ export class IRForwardBlockHandler implements IRHandler {
     selector: string,
     originalArgs: IRArg[]
   ): Value {
-    const ctx = target.blockContext()
+    const ctx = target.context(sender)
     const args = messageForwarder(sender, selector, originalArgs)
     loadArgs(sender, ctx, this.offset, this.params, args)
     const result = body(ctx, this.body)
@@ -463,7 +463,7 @@ export class IRElseBlockHandler implements IRHandler {
     selector: string,
     args: IRArg[]
   ): Value {
-    const ctx = target.blockContext()
+    const ctx = target.context(sender)
     return body(ctx, this.body)
   }
 }

@@ -60,8 +60,8 @@ export class ObjectValue implements Value, IRExpr, IRStmt {
   toHandler(): IRHandler {
     return new IRConstHandler(this)
   }
-  blockContext(): Interpreter {
-    throw "not a do value"
+  context(sender: Interpreter): Interpreter {
+    return sender.createChild(this)
   }
 }
 
@@ -94,8 +94,8 @@ export class PrimitiveValue implements Value, IRExpr, IRStmt {
   toHandler(): IRHandler {
     return new IRConstHandler(this)
   }
-  blockContext(): Interpreter {
-    throw "not a do value"
+  context(sender: Interpreter): Interpreter {
+    return sender.createChild(this)
   }
 }
 
@@ -121,14 +121,10 @@ export class DoValue implements Value {
   instanceof(cls: IRClass): boolean {
     throw new Error("unreachable")
   }
-  /* istanbul ignore next */
-  const(): Value {
-    throw new Error("unreachable")
-  }
   eval(ctx: Interpreter): Value {
     return this
   }
-  blockContext(): Interpreter {
+  context(): Interpreter {
     return this.ctx
   }
 }

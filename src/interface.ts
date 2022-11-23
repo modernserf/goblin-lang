@@ -198,5 +198,5 @@ export interface Value extends IRExpr {
     orElse: IRExpr | null
   ): Value
   instanceof(cls: unknown): boolean
-  blockContext(): Interpreter
+  context(sender: Interpreter): Interpreter
 }
