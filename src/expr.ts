@@ -14,7 +14,6 @@ import {
 } from "./interface"
 import { IRAssignStmt } from "./ir-stmt"
 import { IRModuleExpr } from "./ir-expr"
-import { IRClassBuilder as IRClassBuilderImpl } from "./ir-builder"
 import { PrimitiveValue, unit } from "./value"
 import { constObject } from "./optimize"
 import { ParamsBuilder } from "./params"
@@ -89,13 +88,12 @@ export class ParseIdent implements ParseExpr {
 export class ParseObject implements ParseExpr {
   constructor(private handlers: ParseHandler[]) {}
   compile(scope: Scope, selfBinding: ParseBinding = ParsePlaceholder): IRExpr {
-    const cls = new IRClassBuilderImpl()
     const instance = createInstance(scope)
+    const builder = new HandlerBuilder(instance, selfBinding)
     for (const handler of this.handlers) {
-      const builder = new HandlerBuilder(instance, cls, selfBinding)
       handler.addToClass(builder)
     }
-    const builtClass = cls.buildAndClosePartials(scope)
+    const builtClass = builder.build(scope)
     instance.compileSelfHandlers(builtClass)
     return constObject(builtClass, instance.ivars)
   }

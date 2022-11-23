@@ -10,24 +10,24 @@ import {
   IRExpr,
   IHandlerBuilder,
   Instance,
-  IRClassBuilder,
   ParseStmt,
   ParseBinding,
   ParamBinding,
   Scope,
   PartialHandler,
 } from "./interface"
+import { IRBlockClassBuilder, IRClassBuilder } from "./ir-builder"
 import { IRLocalExpr, IRSendExpr } from "./ir-expr"
 import { body, Return } from "./ir-stmt"
 import { LetStmt } from "./stmt"
 import { ObjectValue, unit, DoValue, IRClass } from "./value"
 
 export class HandlerBuilder implements IHandlerBuilder {
-  constructor(
-    private instance: Instance,
-    private cls: IRClassBuilder,
-    private selfBinding: ParseBinding
-  ) {}
+  private cls = new IRClassBuilder()
+  constructor(private instance: Instance, private selfBinding: ParseBinding) {}
+  build(scope: Scope) {
+    return this.cls.buildAndClosePartials(scope)
+  }
   addPartial(selector: string, handler: PartialHandler): void {
     this.cls.addPartial(selector, handler)
   }
@@ -95,9 +95,13 @@ export class HandlerBuilder implements IHandlerBuilder {
 }
 
 export class BlockHandlerBuilder implements IHandlerBuilder {
+  private cls = new IRBlockClassBuilder()
   private scope = this.inScope.blockBodyScope()
   private paramScope = this.scope.blockParamsScope()
-  constructor(private inScope: Scope, private cls: IRClassBuilder) {}
+  constructor(private inScope: Scope) {}
+  build() {
+    return this.cls.build()
+  }
   addPartial(selector: string, handler: PartialHandler): void {
     this.cls.addPartial(selector, handler)
   }

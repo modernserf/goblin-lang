@@ -14,7 +14,6 @@ import {
   ParseExpr,
   ParseArg,
   IRExpr,
-  IRClassBuilder as IIRClassBuilder,
 } from "./interface"
 import {
   IRLocalExpr,
@@ -33,7 +32,7 @@ import { IRClass } from "./value"
 
 // classes
 
-export class IRBaseClassBuilder implements IIRClassBuilder {
+export class IRBaseClassBuilder {
   protected partials = new Map<string, PartialHandler[]>()
   protected handlers = new Map<string, IRHandler>()
   protected elsePartials: PartialHandler[] = []
@@ -86,15 +85,6 @@ export class IRBaseClassBuilder implements IIRClassBuilder {
 }
 
 export class IRClassBuilder extends IRBaseClassBuilder {
-  addPrimitive(
-    selector: string,
-    fn: (value: any, args: Value[], ctx: Interpreter) => Value
-  ): this {
-    return this.add(selector, new IRPrimitiveHandler(fn))
-  }
-  addConst(selector: string, value: Value): this {
-    return this.add(selector, new IRConstHandler(value))
-  }
   buildAndClosePartials(scope: Scope): IRClass {
     if (this.elseHandler) {
       const elseHandler = this.elseHandler

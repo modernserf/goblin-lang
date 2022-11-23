@@ -1,6 +1,23 @@
-import { Value } from "./interface"
+import { Interpreter, Value } from "./interface"
+import { IRConstHandler, IRPrimitiveHandler } from "./ir-handler"
 import { unit, PrimitiveValue, IRClass } from "./value"
-import { IRClassBuilder } from "./ir-builder"
+
+export class IRClassBuilder extends IRClass {
+  addConst(selector: string, value: Value): this {
+    this.handlers.set(selector, new IRConstHandler(value))
+    return this
+  }
+  addPrimitive(
+    selector: string,
+    fn: (value: any, args: Value[], ctx: Interpreter) => Value
+  ): this {
+    this.handlers.set(selector, new IRPrimitiveHandler(fn))
+    return this
+  }
+  build() {
+    return this
+  }
+}
 
 export class PrimitiveTypeError {
   constructor(readonly expected: string) {}

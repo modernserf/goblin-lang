@@ -119,12 +119,11 @@ export class VarArg implements ParseArg {
 export class HandlersArg implements ParseArg {
   constructor(private handlers: ParseHandler[]) {}
   sendArg(scope: Scope): IRArg {
-    const cls = new IRBlockClassBuilder()
+    const builder = new BlockHandlerBuilder(scope)
     for (const handler of this.handlers) {
-      const builder = new BlockHandlerBuilder(scope, cls)
       handler.addToBlockClass(builder)
     }
-    return new IRDoArg(cls.build())
+    return new IRDoArg(builder.build())
   }
   provide(scope: Scope, key: string): IRStmt {
     throw "todo: provide handler"

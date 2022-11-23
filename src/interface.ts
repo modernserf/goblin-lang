@@ -49,22 +49,6 @@ export interface PartialHandler {
   cond(ifFalse: ParseStmt[]): ParseStmt[]
 }
 
-export interface IRClassBuilder {
-  addPartial(selector: string, partial: PartialHandler): this
-  addFinal(
-    selector: string,
-    scope: Scope,
-    body: ParseStmt[],
-    getHandler: (body: IRStmt[]) => IRHandler
-  ): this
-  addElse(
-    selector: string,
-    scope: Scope,
-    body: ParseStmt[],
-    getHandler: (body: IRStmt[]) => IRHandler
-  ): this
-}
-
 export interface ParseHandler {
   addToClass(builder: IHandlerBuilder): void
   addToBlockClass(builder: IHandlerBuilder): void
