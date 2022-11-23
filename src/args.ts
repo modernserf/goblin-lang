@@ -13,7 +13,12 @@ import {
   Scope,
 } from "./interface"
 import { IRProvideStmt } from "./ir-stmt"
-import { IRDoArg, IRValueArg, IRVarArg } from "./ir-handler"
+import {
+  BlockHandlerBuilder,
+  IRDoArg,
+  IRValueArg,
+  IRVarArg,
+} from "./ir-handler"
 import { IRBlockClassBuilder, IRSendBuilder } from "./ir-builder"
 import { build } from "./message-builder"
 
@@ -116,7 +121,8 @@ export class HandlersArg implements ParseArg {
   sendArg(scope: Scope): IRArg {
     const cls = new IRBlockClassBuilder()
     for (const handler of this.handlers) {
-      handler.addToBlockClass(scope, cls)
+      const builder = new BlockHandlerBuilder(scope, cls)
+      handler.addToBlockClass(builder)
     }
     return new IRDoArg(cls.build())
   }

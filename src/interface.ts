@@ -66,12 +66,8 @@ export interface IRClassBuilder {
 }
 
 export interface ParseHandler {
-  addToClass(
-    instance: Instance,
-    cls: IRClassBuilder,
-    selfBinding: ParseBinding
-  ): void
-  addToBlockClass(scope: Scope, cls: IRClassBuilder): void
+  addToClass(builder: IHandlerBuilder): void
+  addToBlockClass(builder: IHandlerBuilder): void
 }
 
 export interface PatternBuilder<Item, Collection> {

@@ -1,7 +1,6 @@
 import { ArgsBuilder, HandlersArg, ValueArg } from "./args"
 import { InvalidSetTargetError } from "./error"
 import {
-  Instance,
   IRExpr,
   IRHandler,
   IRStmt,
@@ -12,7 +11,6 @@ import {
   ParseParams,
   ParseStmt,
   Scope,
-  IRClassBuilder,
 } from "./interface"
 import { IRAssignStmt } from "./ir-stmt"
 import { IRModuleExpr } from "./ir-expr"
@@ -22,7 +20,7 @@ import { constObject } from "./optimize"
 import { ParamsBuilder } from "./params"
 import { floatClass, intClass, stringClass } from "./primitive"
 import { createInstance } from "./scope"
-import { BlockHandlerBuilder, HandlerBuilder } from "./ir-handler"
+import { HandlerBuilder } from "./ir-handler"
 import { ParseBindIdent, ParsePlaceholder } from "./binding"
 
 export const Self: ParseExpr = {
@@ -94,7 +92,8 @@ export class ParseObject implements ParseExpr {
     const cls = new IRClassBuilderImpl()
     const instance = createInstance(scope)
     for (const handler of this.handlers) {
-      handler.addToClass(instance, cls, selfBinding)
+      const builder = new HandlerBuilder(instance, cls, selfBinding)
+      handler.addToClass(builder)
     }
     const builtClass = cls.buildAndClosePartials(scope)
     instance.compileSelfHandlers(builtClass)
@@ -198,31 +197,20 @@ export class ParseIf {
 
 export class OnHandler implements ParseHandler {
   constructor(private params: ParseParams, private body: ParseStmt[]) {}
-  addToClass(
-    instance: Instance,
-    cls: IRClassBuilder,
-    selfBinding: ParseBinding
-  ): void {
-    this.params.addOn(new HandlerBuilder(instance, cls, selfBinding), this.body)
+  addToClass(builder: HandlerBuilder): void {
+    this.params.addOn(builder, this.body)
   }
-  addToBlockClass(scope: Scope, cls: IRClassBuilder): void {
-    this.params.addOn(new BlockHandlerBuilder(scope, cls), this.body)
+  addToBlockClass(builder: HandlerBuilder): void {
+    this.params.addOn(builder, this.body)
   }
 }
 
 export class ElseHandler implements ParseHandler {
   constructor(private params: ParseParams, private body: ParseStmt[]) {}
-  addToClass(
-    instance: Instance,
-    cls: IRClassBuilder,
-    selfBinding: ParseBinding
-  ): void {
-    this.params.addElse(
-      new HandlerBuilder(instance, cls, selfBinding),
-      this.body
-    )
+  addToClass(builder: HandlerBuilder): void {
+    this.params.addElse(builder, this.body)
   }
-  addToBlockClass(scope: Scope, cls: IRClassBuilder): void {
-    this.params.addElse(new BlockHandlerBuilder(scope, cls), this.body)
+  addToBlockClass(builder: HandlerBuilder): void {
+    this.params.addElse(builder, this.body)
   }
 }
