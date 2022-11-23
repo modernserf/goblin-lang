@@ -32,20 +32,18 @@ export class HandlerBuilder implements IHandlerBuilder {
     private body: ParseStmt[],
     private selfBinding: ParseBinding
   ) {}
+  addPartial(selector: string, handler: PartialHandler): void {
+    this.cls.addPartial(selector, handler)
+  }
   addOn(
     selector: string,
     params: ParseParam[],
     bindings: ParamBinding[]
   ): void {
-    const partial = condParams(params, this.body)
-    if (partial) {
-      this.cls.addPartial(selector, partial)
-    } else {
-      const { scope, head } = this.scopeHead(params, bindings)
-      this.cls.addFinal(selector, scope, this.body, (body) =>
-        this.onHandler(params, head, body)
-      )
-    }
+    const { scope, head } = this.scopeHead(params, bindings)
+    this.cls.addFinal(selector, scope, this.body, (body) =>
+      this.onHandler(params, head, body)
+    )
   }
   addElse(
     selector: string,
@@ -106,25 +104,23 @@ export class BlockHandlerBuilder implements IHandlerBuilder {
     private cls: IRBlockClassBuilder,
     private body: ParseStmt[]
   ) {}
+  addPartial(selector: string, handler: PartialHandler): void {
+    this.cls.addPartial(selector, handler)
+  }
   addOn(
     selector: string,
     params: ParseParam[],
     bindings: ParamBinding[]
   ): void {
-    const partial = condParams(params, this.body)
-    if (partial) {
-      this.cls.addPartial(selector, partial)
-    } else {
-      const { offset, head } = this.offsetHead(params, bindings)
-      this.cls.addFinal(selector, this.scope, this.body, (body) =>
-        this.onHandler(
-          offset,
-          params.map((p) => p.toIR()),
-          head,
-          body
-        )
+    const { offset, head } = this.offsetHead(params, bindings)
+    this.cls.addFinal(selector, this.scope, this.body, (body) =>
+      this.onHandler(
+        offset,
+        params.map((p) => p.toIR()),
+        head,
+        body
       )
-    }
+    )
   }
   addElse(
     selector: string,
@@ -174,30 +170,6 @@ export class BlockHandlerBuilder implements IHandlerBuilder {
         throw new InvalidElseParamsError(selector)
     }
   }
-}
-
-class ParseLocal implements ParseExpr {
-  constructor(private index: number) {}
-  compile(): IRExpr {
-    return new IRLocalExpr(this.index)
-  }
-}
-
-function condParams(
-  params: ParseParam[],
-  body: ParseStmt[]
-): PartialHandler | null {
-  return params.reduceRight((coll: PartialHandler | null, param, index) => {
-    if (!param.cond) return coll
-    const p = param as PartialParseParam
-    return {
-      params,
-      cond: (ifFalse) => {
-        const ifTrue = coll ? coll.cond(ifFalse) : body
-        return p.cond(new ParseLocal(index), ifTrue, ifFalse)
-      },
-    }
-  }, null)
 }
 
 export class IRValueArg implements IRArg {

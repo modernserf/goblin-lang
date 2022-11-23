@@ -17,8 +17,9 @@ import {
   Scope,
   PartialParseParam,
   IHandlerBuilder,
+  PartialHandler,
 } from "./interface"
-import { IRSendExpr, IRUseExpr } from "./ir-expr"
+import { IRLocalExpr, IRSendExpr, IRUseExpr } from "./ir-expr"
 import { build } from "./message-builder"
 import { ExprStmt } from "./stmt"
 import { ArgsBuilder, HandlersArg, ValueArg } from "./args"
@@ -71,19 +72,31 @@ class KeyParams implements ParseParams {
   }
 }
 
+class ParseLocal implements ParseExpr {
+  constructor(private index: number) {}
+  compile(): IRExpr {
+    return new IRLocalExpr(this.index)
+  }
+}
+
 class PairParams implements ParseParams {
   constructor(private pairs: Pair[]) {}
-  addOn(builder: IHandlerBuilder): void {
+  addOn(builder: IHandlerBuilder, body: ParseStmt[]): void {
     for (const { pairs, bindings } of this.expandDefaultParams()) {
       build<ParseParam, ParseParam, void>(pairs, {
         pair: (_, param) => param,
         build: (selector, params) => {
-          builder.addOn(selector, params, bindings)
+          const partial = this.condParams(params, body)
+          if (partial) {
+            builder.addPartial(selector, partial)
+          } else {
+            builder.addOn(selector, params, bindings)
+          }
         },
       })
     }
   }
-  addElse(builder: IHandlerBuilder): void {
+  addElse(builder: IHandlerBuilder, body: ParseStmt[]): void {
     for (const { pairs, bindings } of this.expandDefaultParams()) {
       build<ParseParam, ParseParam, void>(pairs, {
         pair: (_, param) => param,
@@ -92,6 +105,22 @@ class PairParams implements ParseParams {
         },
       })
     }
+  }
+  private condParams(
+    params: ParseParam[],
+    body: ParseStmt[]
+  ): PartialHandler | null {
+    return params.reduceRight((coll: PartialHandler | null, param, index) => {
+      if (!param.cond) return coll
+      const p = param as PartialParseParam
+      return {
+        params,
+        cond: (ifFalse) => {
+          const ifTrue = coll ? coll.cond(ifFalse) : body
+          return p.cond(new ParseLocal(index), ifTrue, ifFalse)
+        },
+      }
+    }, null)
   }
   private expandDefaultParams() {
     type ParamWithBindings = {

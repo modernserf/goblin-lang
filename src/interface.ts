@@ -6,6 +6,7 @@ export interface IRSendBuilder {
 
 export type ParamBinding = { binding: ParseBinding; value: ParseExpr }
 export interface IHandlerBuilder {
+  addPartial(selector: string, handler: PartialHandler): void
   addOn(selector: string, params: ParseParam[], bindings: ParamBinding[]): void
   addElse(
     selector: string,
@@ -90,8 +91,8 @@ export interface ParseArg {
 
 export interface ParseParams {
   using(scope: Scope): IRStmt[]
-  addOn(builder: IHandlerBuilder): void
-  addElse(builder: IHandlerBuilder): void
+  addOn(builder: IHandlerBuilder, body: ParseStmt[]): void
+  addElse(builder: IHandlerBuilder, body: ParseStmt[]): void
   let(scope: Scope, value: IRExpr): IRStmt[]
   export(scope: Scope): void
   import(scope: Scope, source: IRExpr): IRStmt[]

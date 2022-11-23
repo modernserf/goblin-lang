@@ -202,10 +202,13 @@ export class OnHandler implements ParseHandler {
     cls: IRClassBuilder,
     selfBinding: ParseBinding
   ): void {
-    this.params.addOn(new HandlerBuilder(instance, cls, this.body, selfBinding))
+    this.params.addOn(
+      new HandlerBuilder(instance, cls, this.body, selfBinding),
+      this.body
+    )
   }
   addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void {
-    this.params.addOn(new BlockHandlerBuilder(scope, cls, this.body))
+    this.params.addOn(new BlockHandlerBuilder(scope, cls, this.body), this.body)
   }
 }
 
@@ -217,10 +220,14 @@ export class ElseHandler implements ParseHandler {
     selfBinding: ParseBinding
   ): void {
     this.params.addElse(
-      new HandlerBuilder(instance, cls, this.body, selfBinding)
+      new HandlerBuilder(instance, cls, this.body, selfBinding),
+      this.body
     )
   }
   addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void {
-    this.params.addElse(new BlockHandlerBuilder(scope, cls, this.body))
+    this.params.addElse(
+      new BlockHandlerBuilder(scope, cls, this.body),
+      this.body
+    )
   }
 }
