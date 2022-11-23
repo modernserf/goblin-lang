@@ -9,27 +9,24 @@ import {
 } from "./interface"
 import { IRConstHandler } from "./ir-handler"
 
-export class IRBaseClass<Handler> {
+export class IRClass {
   constructor(
-    protected handlers: Map<string, Handler> = new Map(),
-    protected elseHandler: Handler | null = null
+    protected handlers: Map<string, IRHandler> = new Map(),
+    protected elseHandler: IRHandler | null = null
   ) {}
-  try(selector: string): Handler | null {
+  try(selector: string): IRHandler | null {
     const handler = this.handlers.get(selector)
     if (handler) return handler
     if (this.elseHandler) return this.elseHandler
     return null
   }
-  get(selector: string): Handler {
+  get(selector: string): IRHandler {
     const handler = this.handlers.get(selector)
     if (handler) return handler
     if (this.elseHandler) return this.elseHandler
     throw new NoHandlerError(selector)
   }
 }
-
-export type IRClass = IRBaseClass<IRHandler>
-export type IRBlockClass = IRBaseClass<IRHandler>
 
 export class ObjectValue implements Value, IRExpr, IRStmt {
   readonly primitiveValue = null
@@ -40,7 +37,6 @@ export class ObjectValue implements Value, IRExpr, IRStmt {
     if (!value) throw new Error(`Missing ivar ${index}`)
     return value
   }
-
   send(
     sender: Interpreter,
     selector: string,
@@ -105,7 +101,7 @@ export class PrimitiveValue implements Value, IRExpr, IRStmt {
 
 export class DoValue implements Value {
   readonly primitiveValue = null
-  constructor(private cls: IRBlockClass, private ctx: Interpreter) {}
+  constructor(private cls: IRClass, private ctx: Interpreter) {}
   /* istanbul ignore next */
   getIvar(index: number): Value {
     throw new Error("do value has no ivars")
@@ -137,5 +133,5 @@ export class DoValue implements Value {
   }
 }
 
-export const unitClass = new IRBaseClass<IRHandler>()
+export const unitClass = new IRClass()
 export const unit = new ObjectValue(unitClass, [])

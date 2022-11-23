@@ -29,18 +29,16 @@ import {
   IRPrimitiveHandler,
   IRValueArg,
 } from "./ir-handler"
-import { IRBaseClass } from "./value"
+import { IRClass } from "./value"
 
 // classes
 
-export class IRBaseClassBuilder<Handler>
-  implements IIRBaseClassBuilder<Handler>
-{
+export class IRBaseClassBuilder {
   protected partials = new Map<string, PartialHandler[]>()
-  protected handlers = new Map<string, Handler>()
+  protected handlers = new Map<string, IRHandler>()
   protected elsePartials: PartialHandler[] = []
-  protected elseHandler: Handler | null = null
-  add(selector: string, handler: Handler): this {
+  protected elseHandler: IRHandler | null = null
+  add(selector: string, handler: IRHandler): this {
     if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
     this.handlers.set(selector, handler)
     return this
@@ -55,7 +53,7 @@ export class IRBaseClassBuilder<Handler>
     selector: string,
     scope: Scope,
     body: ParseStmt[],
-    getHandler: (body: IRStmt[]) => Handler
+    getHandler: (body: IRStmt[]) => IRHandler
   ): this {
     const partials = this.partials.get(selector) || []
     this.partials.delete(selector)
@@ -70,7 +68,7 @@ export class IRBaseClassBuilder<Handler>
     selector: string,
     scope: Scope,
     body: ParseStmt[],
-    getHandler: (body: IRStmt[]) => Handler
+    getHandler: (body: IRStmt[]) => IRHandler
   ): this {
     if (this.elseHandler) throw new DuplicateElseHandlerError(selector)
     const fullBody = this.elsePartials
@@ -81,13 +79,13 @@ export class IRBaseClassBuilder<Handler>
 
     return this
   }
-  build(): IRBaseClass<Handler> {
+  build(): IRClass {
     if (this.partials.size) throw new Error("incomplete partials")
-    return new IRBaseClass<Handler>(this.handlers, this.elseHandler)
+    return new IRClass(this.handlers, this.elseHandler)
   }
 }
 
-export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
+export class IRClassBuilder extends IRBaseClassBuilder {
   addPrimitive(
     selector: string,
     fn: (value: any, args: Value[], ctx: Interpreter) => Value
@@ -97,7 +95,7 @@ export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
   addConst(selector: string, value: Value): this {
     return this.add(selector, new IRConstHandler(value))
   }
-  buildAndClosePartials(scope: Scope): IRBaseClass<IRHandler> {
+  buildAndClosePartials(scope: Scope): IRClass {
     if (this.elseHandler) {
       const elseHandler = this.elseHandler
       for (const [key, [value]] of this.partials.entries()) {
@@ -122,7 +120,7 @@ export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
     return this.build()
   }
 }
-export class IRBlockClassBuilder extends IRBaseClassBuilder<IRHandler> {}
+export class IRBlockClassBuilder extends IRBaseClassBuilder {}
 
 export class IRSendBuilder {
   constructor(private selector: string, private args: ParseArg[]) {}

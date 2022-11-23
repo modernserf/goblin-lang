@@ -23,7 +23,7 @@ import {
 import { IRLocalExpr, IRSendExpr } from "./ir-expr"
 import { body, Return } from "./ir-stmt"
 import { LetStmt } from "./stmt"
-import { ObjectValue, unit, IRBaseClass, IRBlockClass, DoValue } from "./value"
+import { ObjectValue, unit, DoValue, IRClass } from "./value"
 
 export class HandlerBuilder implements IHandlerBuilder {
   constructor(
@@ -246,7 +246,7 @@ export class IRVarArg implements IRArg {
 }
 
 export class IRDoArg implements IRArg {
-  constructor(private cls: IRBlockClass) {}
+  constructor(private cls: IRClass) {}
   value(ctx: Interpreter): Value {
     return new DoValue(this.cls, ctx)
   }
@@ -379,7 +379,7 @@ function messageForwarder(
   args: IRArg[]
 ): IRArg[] {
   const argsWithValues = args.map((arg) => arg.evalInner(ctx))
-  const cls = new IRBaseClass(
+  const cls = new IRClass(
     new Map([
       [
         ":",
