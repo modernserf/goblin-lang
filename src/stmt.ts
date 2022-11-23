@@ -61,7 +61,6 @@ export class ProvideStmt implements ParseStmt {
 export class VarStmt implements ParseStmt {
   constructor(private binding: ParseBinding, private expr: ParseExpr) {}
   compile(scope: Scope): IRStmt[] {
-    if (!this.binding.var) throw new InvalidVarBindingError()
     return this.binding.var(scope, this.expr.compile(scope))
   }
 }

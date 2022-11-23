@@ -50,9 +50,25 @@ test("invalid bindings", () => {
   assert.throws(() => {
     compile(`
       var x := 0
+      set x 
+    `)
+  }, InvalidSetTargetError)
+  assert.throws(() => {
+    compile(`
+      var x := 0
       set x + 1
     `)
   }, InvalidSetTargetError)
+  assert.throws(() => {
+    compile(`
+      set [x: 1]{x}
+    `)
+  }, InvalidSetTargetError)
+  assert.throws(() => {
+    compile(`
+        var __ := [x: 1 y: 2]
+      `)
+  }, InvalidVarBindingError)
   assert.doesNotThrow(() => {
     compile(`
       var x := 0

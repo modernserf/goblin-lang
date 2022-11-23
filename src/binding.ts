@@ -1,8 +1,4 @@
-import {
-  InvalidImportBindingError,
-  InvalidSetTargetError,
-  InvalidVarBindingError,
-} from "./error"
+import { InvalidImportBindingError, InvalidVarBindingError } from "./error"
 import { IRExpr, IRStmt, ParseBinding, ParseParams, Scope } from "./interface"
 import { IRAssignStmt } from "./ir-stmt"
 import { IRLocalExpr } from "./ir-expr"
@@ -18,8 +14,9 @@ export const ParsePlaceholder: ParseBinding = {
   var() {
     throw new InvalidVarBindingError()
   },
-  set() {
-    throw new InvalidSetTargetError()
+  /* istanbul ignore next */
+  set(scope: Scope, expr: IRExpr): IRStmt[] {
+    throw new Error("unreachable")
   },
   selfBinding() {
     return []
