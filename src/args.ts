@@ -19,7 +19,7 @@ import {
   IRValueArg,
   IRVarArg,
 } from "./ir-handler"
-import { IRBlockClassBuilder, IRSendBuilder } from "./ir-builder"
+import { IRSendBuilder } from "./ir-builder"
 import { build } from "./message-builder"
 
 export class InvalidArgsError {}

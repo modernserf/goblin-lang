@@ -1,4 +1,4 @@
-import { NoHandlerError } from "./error"
+import { DuplicateHandlerError, NoHandlerError } from "./error"
 import {
   Interpreter,
   IRArg,
@@ -11,9 +11,14 @@ import { IRConstHandler } from "./ir-handler"
 
 export class IRClass {
   constructor(
-    protected handlers: Map<string, IRHandler>,
-    protected elseHandler: IRHandler | null
+    private handlers: Map<string, IRHandler>,
+    private elseHandler: IRHandler | null
   ) {}
+  add(selector: string, handler: IRHandler): this {
+    if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
+    this.handlers.set(selector, handler)
+    return this
+  }
   try(selector: string): IRHandler | null {
     const handler = this.handlers.get(selector)
     if (handler) return handler

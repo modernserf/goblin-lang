@@ -1,4 +1,9 @@
-import { ArgMismatchError, InvalidElseParamsError } from "./error"
+import {
+  ArgMismatchError,
+  DuplicateElseHandlerError,
+  DuplicateHandlerError,
+  InvalidElseParamsError,
+} from "./error"
 import {
   Interpreter,
   IRArg,
@@ -16,11 +21,96 @@ import {
   Scope,
   PartialHandler,
 } from "./interface"
-import { IRBlockClassBuilder, IRClassBuilder } from "./ir-builder"
-import { IRLocalExpr, IRSendExpr } from "./ir-expr"
+
+import {
+  IRLocalExpr,
+  IRSelfExpr,
+  IRSendDirectExpr,
+  IRSendExpr,
+} from "./ir-expr"
 import { body, Return } from "./ir-stmt"
 import { LetStmt } from "./stmt"
 import { ObjectValue, unit, DoValue, IRClass } from "./value"
+
+export class IRBaseClassBuilder {
+  protected partials = new Map<string, PartialHandler[]>()
+  protected handlers = new Map<string, IRHandler>()
+  protected elsePartials: PartialHandler[] = []
+  protected elseHandler: IRHandler | null = null
+  add(selector: string, handler: IRHandler): this {
+    if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
+    this.handlers.set(selector, handler)
+    return this
+  }
+  addPartial(selector: string, partial: PartialHandler): this {
+    const arr = this.partials.get(selector) || []
+    arr.push(partial)
+    this.partials.set(selector, arr)
+    return this
+  }
+  addFinal(
+    selector: string,
+    scope: Scope,
+    body: ParseStmt[],
+    getHandler: (body: IRStmt[]) => IRHandler
+  ): this {
+    const partials = this.partials.get(selector) || []
+    this.partials.delete(selector)
+
+    const fullBody = partials
+      .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
+      .flatMap((p) => p.compile(scope))
+
+    return this.add(selector, getHandler(fullBody))
+  }
+  addElse(
+    selector: string,
+    scope: Scope,
+    body: ParseStmt[],
+    getHandler: (body: IRStmt[]) => IRHandler
+  ): this {
+    if (this.elseHandler) throw new DuplicateElseHandlerError(selector)
+    const fullBody = this.elsePartials
+      .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
+      .flatMap((p) => p.compile(scope))
+
+    this.elseHandler = getHandler(fullBody)
+
+    return this
+  }
+  build(): IRClass {
+    if (this.partials.size) throw new Error("incomplete partials")
+    return new IRClass(this.handlers, this.elseHandler)
+  }
+}
+
+export class IRClassBuilder extends IRBaseClassBuilder {
+  buildAndClosePartials(scope: Scope): IRClass {
+    if (this.elseHandler) {
+      const elseHandler = this.elseHandler
+      for (const [key, [value]] of this.partials.entries()) {
+        const params = value.params.map((p) => p.toIR())
+        // TODO:is there aa better way to do this?
+        const args = params.map((_, i) => new IRValueArg(new IRLocalExpr(i)))
+        this.addFinal(
+          key,
+          scope,
+          [
+            {
+              compile: () => [
+                new IRSendDirectExpr(key, elseHandler, new IRSelfExpr(), args),
+              ],
+            },
+          ],
+          (body) => new IROnHandler(params, body)
+        )
+      }
+    }
+
+    return this.build()
+  }
+}
+export class IRBlockClassBuilder extends IRBaseClassBuilder {}
 
 export class HandlerBuilder implements IHandlerBuilder {
   private cls = new IRClassBuilder()

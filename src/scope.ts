@@ -10,7 +10,6 @@ import {
 import { IRClass } from "./value"
 import { IRIvarExpr, IRLocalExpr, IRObjectExpr, IRSelfExpr } from "./ir-expr"
 import { IRGetterHandler, IRLazyHandler } from "./ir-handler"
-import { IRClassBuilder } from "./ir-builder"
 
 export class ReferenceError {
   constructor(readonly key: string) {}
@@ -180,12 +179,12 @@ class RootScope extends BasicScope {
     this.exports.set(key, value)
   }
   compileExports(): IRExpr {
-    const exportClass = new IRClassBuilder()
+    const exportClass = new IRClass(new Map(), null)
     const ivars = Array.from(this.exports).map(([key, value], i) => {
       exportClass.add(key, new IRGetterHandler(i))
       return value
     })
-    return new IRObjectExpr(exportClass.build(), ivars)
+    return new IRObjectExpr(exportClass, ivars)
   }
 }
 

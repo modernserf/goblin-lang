@@ -16,12 +16,11 @@ export class IRClassBuilder extends IRClass {
     super(new Map(), null)
   }
   addFrame(selector: string, params: IRParam[], body: IRStmt[]): this {
-    // allow overwriting of methods
-    this.handlers.set(selector, new IROnHandler(params, body))
+    this.add(selector, new IROnHandler(params, body))
     return this
   }
   addGetter(selector: string, index: number): this {
-    this.handlers.set(selector, new IRGetterHandler(index))
+    this.add(selector, new IRGetterHandler(index))
     return this
   }
 }
@@ -78,16 +77,18 @@ export function frame(
     )
   }
   // constructor: [x: 1 y: 2]{x: 3 y: 4}
-  frameClass.addFrame(
-    selector,
-    args.map(() => ({ tag: "value" })),
-    [
-      new IRObjectExpr(
-        frameClass,
-        args.map((_, index) => new IRLocalExpr(index))
-      ),
-    ]
-  )
+  if (args.length > 1) {
+    frameClass.addFrame(
+      selector,
+      args.map(() => ({ tag: "value" })),
+      [
+        new IRObjectExpr(
+          frameClass,
+          args.map((_, index) => new IRLocalExpr(index))
+        ),
+      ]
+    )
+  }
   // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
   frameClass.addFrame(
     ":",
