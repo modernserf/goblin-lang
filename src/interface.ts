@@ -7,11 +7,17 @@ export interface IRSendBuilder {
 export type ParamBinding = { binding: ParseBinding; value: ParseExpr }
 export interface IHandlerBuilder {
   addPartial(selector: string, handler: PartialHandler): void
-  addOn(selector: string, params: ParseParam[], bindings: ParamBinding[]): void
+  addOn(
+    selector: string,
+    params: ParseParam[],
+    bindings: ParamBinding[],
+    body: ParseStmt[]
+  ): void
   addElse(
     selector: string,
     params: ParseParam[],
-    bindings: ParamBinding[]
+    bindings: ParamBinding[],
+    body: ParseStmt[]
   ): void
 }
 
@@ -43,23 +49,21 @@ export interface PartialHandler {
   cond(ifFalse: ParseStmt[]): ParseStmt[]
 }
 
-export interface IRBaseClassBuilder<Handler> {
+export interface IRClassBuilder {
   addPartial(selector: string, partial: PartialHandler): this
   addFinal(
     selector: string,
     scope: Scope,
     body: ParseStmt[],
-    getHandler: (body: IRStmt[]) => Handler
+    getHandler: (body: IRStmt[]) => IRHandler
   ): this
   addElse(
     selector: string,
     scope: Scope,
     body: ParseStmt[],
-    getHandler: (body: IRStmt[]) => Handler
+    getHandler: (body: IRStmt[]) => IRHandler
   ): this
 }
-export type IRClassBuilder = IRBaseClassBuilder<IRHandler>
-export type IRBlockClassBuilder = IRBaseClassBuilder<IRHandler>
 
 export interface ParseHandler {
   addToClass(
@@ -67,7 +71,7 @@ export interface ParseHandler {
     cls: IRClassBuilder,
     selfBinding: ParseBinding
   ): void
-  addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void
+  addToBlockClass(scope: Scope, cls: IRClassBuilder): void
 }
 
 export interface PatternBuilder<Item, Collection> {

@@ -12,10 +12,11 @@ import {
   ParseParams,
   ParseStmt,
   Scope,
+  IRClassBuilder,
 } from "./interface"
 import { IRAssignStmt } from "./ir-stmt"
 import { IRModuleExpr } from "./ir-expr"
-import { IRClassBuilder, IRBlockClassBuilder } from "./ir-builder"
+import { IRClassBuilder as IRClassBuilderImpl } from "./ir-builder"
 import { PrimitiveValue, unit } from "./value"
 import { constObject } from "./optimize"
 import { ParamsBuilder } from "./params"
@@ -90,7 +91,7 @@ export class ParseIdent implements ParseExpr {
 export class ParseObject implements ParseExpr {
   constructor(private handlers: ParseHandler[]) {}
   compile(scope: Scope, selfBinding: ParseBinding = ParsePlaceholder): IRExpr {
-    const cls = new IRClassBuilder()
+    const cls = new IRClassBuilderImpl()
     const instance = createInstance(scope)
     for (const handler of this.handlers) {
       handler.addToClass(instance, cls, selfBinding)
@@ -202,13 +203,10 @@ export class OnHandler implements ParseHandler {
     cls: IRClassBuilder,
     selfBinding: ParseBinding
   ): void {
-    this.params.addOn(
-      new HandlerBuilder(instance, cls, this.body, selfBinding),
-      this.body
-    )
+    this.params.addOn(new HandlerBuilder(instance, cls, selfBinding), this.body)
   }
-  addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void {
-    this.params.addOn(new BlockHandlerBuilder(scope, cls, this.body), this.body)
+  addToBlockClass(scope: Scope, cls: IRClassBuilder): void {
+    this.params.addOn(new BlockHandlerBuilder(scope, cls), this.body)
   }
 }
 
@@ -220,14 +218,11 @@ export class ElseHandler implements ParseHandler {
     selfBinding: ParseBinding
   ): void {
     this.params.addElse(
-      new HandlerBuilder(instance, cls, this.body, selfBinding),
+      new HandlerBuilder(instance, cls, selfBinding),
       this.body
     )
   }
-  addToBlockClass(scope: Scope, cls: IRBlockClassBuilder): void {
-    this.params.addElse(
-      new BlockHandlerBuilder(scope, cls, this.body),
-      this.body
-    )
+  addToBlockClass(scope: Scope, cls: IRClassBuilder): void {
+    this.params.addElse(new BlockHandlerBuilder(scope, cls), this.body)
   }
 }

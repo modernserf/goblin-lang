@@ -54,8 +54,8 @@ class KeyParams implements ParseParams {
   using(): IRStmt[] {
     throw new InvalidProvideBindingError()
   }
-  addOn(builder: IHandlerBuilder): void {
-    builder.addOn(this.key, [], [])
+  addOn(builder: IHandlerBuilder, body: ParseStmt[]): void {
+    builder.addOn(this.key, [], [], body)
   }
   addElse(builder: IHandlerBuilder): void {
     throw new InvalidElseParamsError(this.key)
@@ -90,7 +90,7 @@ class PairParams implements ParseParams {
           if (partial) {
             builder.addPartial(selector, partial)
           } else {
-            builder.addOn(selector, params, bindings)
+            builder.addOn(selector, params, bindings, body)
           }
         },
       })
@@ -101,7 +101,7 @@ class PairParams implements ParseParams {
       build<ParseParam, ParseParam, void>(pairs, {
         pair: (_, param) => param,
         build: (selector, params) => {
-          builder.addElse(selector, params, bindings)
+          builder.addElse(selector, params, bindings, body)
         },
       })
     }

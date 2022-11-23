@@ -15,10 +15,7 @@ import {
   ParseBinding,
   ParamBinding,
   Scope,
-  IRBlockClassBuilder,
-  ParseExpr,
   PartialHandler,
-  PartialParseParam,
 } from "./interface"
 import { IRLocalExpr, IRSendExpr } from "./ir-expr"
 import { body, Return } from "./ir-stmt"
@@ -29,7 +26,6 @@ export class HandlerBuilder implements IHandlerBuilder {
   constructor(
     private instance: Instance,
     private cls: IRClassBuilder,
-    private body: ParseStmt[],
     private selfBinding: ParseBinding
   ) {}
   addPartial(selector: string, handler: PartialHandler): void {
@@ -38,20 +34,22 @@ export class HandlerBuilder implements IHandlerBuilder {
   addOn(
     selector: string,
     params: ParseParam[],
-    bindings: ParamBinding[]
+    bindings: ParamBinding[],
+    body: ParseStmt[]
   ): void {
     const { scope, head } = this.scopeHead(params, bindings)
-    this.cls.addFinal(selector, scope, this.body, (body) =>
+    this.cls.addFinal(selector, scope, body, (body) =>
       this.onHandler(params, head, body)
     )
   }
   addElse(
     selector: string,
     params: ParseParam[],
-    bindings: ParamBinding[]
+    bindings: ParamBinding[],
+    body: ParseStmt[]
   ): void {
     const { scope, head } = this.scopeHead(params, bindings)
-    this.cls.addElse(selector, scope, this.body, (body) =>
+    this.cls.addElse(selector, scope, body, (body) =>
       this.elseHandler(
         selector,
         params.map((p) => p.toIR()),
@@ -99,21 +97,18 @@ export class HandlerBuilder implements IHandlerBuilder {
 export class BlockHandlerBuilder implements IHandlerBuilder {
   private scope = this.inScope.blockBodyScope()
   private paramScope = this.scope.blockParamsScope()
-  constructor(
-    private inScope: Scope,
-    private cls: IRBlockClassBuilder,
-    private body: ParseStmt[]
-  ) {}
+  constructor(private inScope: Scope, private cls: IRClassBuilder) {}
   addPartial(selector: string, handler: PartialHandler): void {
     this.cls.addPartial(selector, handler)
   }
   addOn(
     selector: string,
     params: ParseParam[],
-    bindings: ParamBinding[]
+    bindings: ParamBinding[],
+    body: ParseStmt[]
   ): void {
     const { offset, head } = this.offsetHead(params, bindings)
-    this.cls.addFinal(selector, this.scope, this.body, (body) =>
+    this.cls.addFinal(selector, this.scope, body, (body) =>
       this.onHandler(
         offset,
         params.map((p) => p.toIR()),
@@ -125,10 +120,11 @@ export class BlockHandlerBuilder implements IHandlerBuilder {
   addElse(
     selector: string,
     params: ParseParam[],
-    bindings: ParamBinding[]
+    bindings: ParamBinding[],
+    body: ParseStmt[]
   ): void {
     const { offset, head } = this.offsetHead(params, bindings)
-    this.cls.addElse(selector, this.scope, this.body, (body) =>
+    this.cls.addElse(selector, this.scope, body, (body) =>
       this.elseHandler(
         selector,
         offset,

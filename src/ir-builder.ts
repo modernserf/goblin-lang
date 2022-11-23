@@ -11,10 +11,10 @@ import {
   PartialHandler,
   Scope,
   Value,
-  IRBaseClassBuilder as IIRBaseClassBuilder,
   ParseExpr,
   ParseArg,
   IRExpr,
+  IRClassBuilder as IIRClassBuilder,
 } from "./interface"
 import {
   IRLocalExpr,
@@ -33,7 +33,7 @@ import { IRClass } from "./value"
 
 // classes
 
-export class IRBaseClassBuilder {
+export class IRBaseClassBuilder implements IIRClassBuilder {
   protected partials = new Map<string, PartialHandler[]>()
   protected handlers = new Map<string, IRHandler>()
   protected elsePartials: PartialHandler[] = []
