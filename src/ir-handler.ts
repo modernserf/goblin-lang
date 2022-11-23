@@ -32,11 +32,11 @@ import { body, Return } from "./ir-stmt"
 import { LetStmt } from "./stmt"
 import { ObjectValue, unit, DoValue, IRClass } from "./value"
 
-export class IRBaseClassBuilder {
-  protected partials = new Map<string, PartialHandler[]>()
-  protected handlers = new Map<string, IRHandler>()
-  protected elsePartials: PartialHandler[] = []
-  protected elseHandler: IRHandler | null = null
+class IRClassBuilder {
+  private partials = new Map<string, PartialHandler[]>()
+  private handlers = new Map<string, IRHandler>()
+  private elsePartials: PartialHandler[] = []
+  private elseHandler: IRHandler | null = null
   add(selector: string, handler: IRHandler): this {
     if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
     this.handlers.set(selector, handler)
@@ -56,11 +56,7 @@ export class IRBaseClassBuilder {
   ): this {
     const partials = this.partials.get(selector) || []
     this.partials.delete(selector)
-
-    const fullBody = partials
-      .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
-      .flatMap((p) => p.compile(scope))
-
+    const fullBody = this.foldPartials(partials, scope, body)
     return this.add(selector, getHandler(fullBody))
   }
   addElse(
@@ -70,53 +66,52 @@ export class IRBaseClassBuilder {
     getHandler: (body: IRStmt[]) => IRHandler
   ): this {
     if (this.elseHandler) throw new DuplicateElseHandlerError(selector)
-    const fullBody = this.elsePartials
-      .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
-      .flatMap((p) => p.compile(scope))
-
+    const fullBody = this.foldPartials(this.elsePartials, scope, body)
     this.elseHandler = getHandler(fullBody)
-
     return this
   }
-  build(): IRClass {
-    if (this.partials.size) throw new Error("incomplete partials")
-    return new IRClass(this.handlers, this.elseHandler)
+  private foldPartials(
+    partials: PartialHandler[],
+    scope: Scope,
+    body: ParseStmt[]
+  ) {
+    return partials
+      .reduceRight((ifFalse, partial) => partial.cond(ifFalse), body)
+      .flatMap((p) => p.compile(scope))
   }
-}
-
-export class IRClassBuilder extends IRBaseClassBuilder {
-  buildAndClosePartials(scope: Scope): IRClass {
+  build(scope: Scope): IRClass {
     if (this.elseHandler) {
-      const elseHandler = this.elseHandler
-      for (const [key, [value]] of this.partials.entries()) {
-        const params = value.params.map((p) => p.toIR())
-        // TODO:is there aa better way to do this?
-        const args = params.map((_, i) => new IRValueArg(new IRLocalExpr(i)))
-        this.addFinal(
-          key,
-          scope,
-          [
-            {
-              compile: () => [
-                new IRSendDirectExpr(key, elseHandler, new IRSelfExpr(), args),
-              ],
-            },
-          ],
-          (body) => new IROnHandler(params, body)
-        )
+      for (const [selector, [value]] of this.partials.entries()) {
+        this.closePartial(selector, scope, value)
       }
     }
-
-    return this.build()
+    if (this.partials.size > 0) throw new Error("unclosed partials")
+    return new IRClass(this.handlers, this.elseHandler)
+  }
+  private closePartial(selector: string, scope: Scope, value: PartialHandler) {
+    const params = value.params.map((p) => p.toIR())
+    // TODO:is there a better way to do this?
+    const args = params.map((_, i) => new IRValueArg(new IRLocalExpr(i)))
+    const sendElse = new IRSendDirectExpr(
+      selector,
+      this.elseHandler!,
+      IRSelfExpr,
+      args
+    )
+    this.addFinal(
+      selector,
+      scope,
+      [{ compile: () => [sendElse] }],
+      (body) => new IROnHandler(params, body)
+    )
   }
 }
-export class IRBlockClassBuilder extends IRBaseClassBuilder {}
 
 export class HandlerBuilder implements IHandlerBuilder {
   private cls = new IRClassBuilder()
   constructor(private instance: Instance, private selfBinding: ParseBinding) {}
   build(scope: Scope) {
-    return this.cls.buildAndClosePartials(scope)
+    return this.cls.build(scope)
   }
   addPartial(selector: string, handler: PartialHandler): void {
     this.cls.addPartial(selector, handler)
@@ -185,12 +180,12 @@ export class HandlerBuilder implements IHandlerBuilder {
 }
 
 export class BlockHandlerBuilder implements IHandlerBuilder {
-  private cls = new IRBlockClassBuilder()
+  private cls = new IRClassBuilder()
   private scope = this.inScope.blockBodyScope()
   private paramScope = this.scope.blockParamsScope()
   constructor(private inScope: Scope) {}
-  build() {
-    return this.cls.build()
+  build(scope: Scope) {
+    return this.cls.build(scope)
   }
   addPartial(selector: string, handler: PartialHandler): void {
     this.cls.addPartial(selector, handler)

@@ -9,10 +9,10 @@ import {
 import { IRGetterHandler } from "./ir-handler"
 import { IRClass, ObjectValue } from "./value"
 
-export class IRSelfExpr implements IRExpr, IRStmt {
+export const IRSelfExpr: IRExpr & IRStmt = {
   eval(ctx: Interpreter): Value {
     return ctx.self
-  }
+  },
 }
 
 export class IRIvarExpr implements IRExpr, IRStmt {

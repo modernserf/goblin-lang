@@ -66,25 +66,12 @@ export function frame(
         new IRSendDirectExpr(
           `-> ${key}:`,
           frameClass.get(`${key}:`),
-          new IRSelfExpr(),
+          IRSelfExpr,
           [
             new IRValueArg(
               new IRSendExpr(":", $0, [new IRValueArg(new IRIvarExpr(index))])
             ),
           ]
-        ),
-      ]
-    )
-  }
-  // constructor: [x: 1 y: 2]{x: 3 y: 4}
-  if (args.length > 1) {
-    frameClass.addFrame(
-      selector,
-      args.map(() => ({ tag: "value" })),
-      [
-        new IRObjectExpr(
-          frameClass,
-          args.map((_, index) => new IRLocalExpr(index))
         ),
       ]
     )

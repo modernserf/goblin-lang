@@ -100,7 +100,7 @@ class ObjectInstance implements Instance {
     return new IRIvarExpr(index)
   }
   self(): IRExpr {
-    return new IRSelfExpr()
+    return IRSelfExpr
   }
   getPlaceholderHandler(selector: string): IRHandler {
     const handler = new IRLazyHandler()

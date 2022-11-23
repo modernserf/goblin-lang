@@ -123,7 +123,7 @@ export class HandlersArg implements ParseArg {
     for (const handler of this.handlers) {
       handler.addToBlockClass(builder)
     }
-    return new IRDoArg(builder.build())
+    return new IRDoArg(builder.build(scope))
   }
   provide(scope: Scope, key: string): IRStmt {
     throw "todo: provide handler"
