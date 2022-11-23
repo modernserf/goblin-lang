@@ -2,7 +2,6 @@ import { NoHandlerError } from "./error"
 import {
   Interpreter,
   IRArg,
-  IRBlockHandler,
   IRExpr,
   IRHandler,
   IRStmt,
@@ -30,7 +29,7 @@ export class IRBaseClass<Handler> {
 }
 
 export type IRClass = IRBaseClass<IRHandler>
-export type IRBlockClass = IRBaseClass<IRBlockHandler>
+export type IRBlockClass = IRBaseClass<IRHandler>
 
 export class ObjectValue implements Value, IRExpr, IRStmt {
   readonly primitiveValue = null
@@ -65,6 +64,9 @@ export class ObjectValue implements Value, IRExpr, IRStmt {
   toHandler(): IRHandler {
     return new IRConstHandler(this)
   }
+  blockContext(): Interpreter {
+    throw "not a do value"
+  }
 }
 
 export class PrimitiveValue implements Value, IRExpr, IRStmt {
@@ -96,6 +98,9 @@ export class PrimitiveValue implements Value, IRExpr, IRStmt {
   toHandler(): IRHandler {
     return new IRConstHandler(this)
   }
+  blockContext(): Interpreter {
+    throw "not a do value"
+  }
 }
 
 export class DoValue implements Value {
@@ -112,7 +117,7 @@ export class DoValue implements Value {
     orElse: IRExpr | null
   ): Value {
     const handler = this.cls.try(selector)
-    if (handler) return handler.send(sender, this.ctx, selector, args)
+    if (handler) return handler.send(sender, this, selector, args)
     if (orElse) return orElse.eval(sender)
     throw new NoHandlerError(selector)
   }
@@ -126,6 +131,9 @@ export class DoValue implements Value {
   }
   eval(ctx: Interpreter): Value {
     return this
+  }
+  blockContext(): Interpreter {
+    return this.ctx
   }
 }
 

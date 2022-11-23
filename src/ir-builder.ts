@@ -5,7 +5,6 @@ import {
 } from "./error"
 import {
   Interpreter,
-  IRBlockHandler,
   IRHandler,
   IRStmt,
   ParseStmt,
@@ -123,7 +122,7 @@ export class IRClassBuilder extends IRBaseClassBuilder<IRHandler> {
     return this.build()
   }
 }
-export class IRBlockClassBuilder extends IRBaseClassBuilder<IRBlockHandler> {}
+export class IRBlockClassBuilder extends IRBaseClassBuilder<IRHandler> {}
 
 export class IRSendBuilder {
   constructor(private selector: string, private args: ParseArg[]) {}

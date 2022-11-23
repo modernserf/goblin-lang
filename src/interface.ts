@@ -58,7 +58,7 @@ export interface IRBaseClassBuilder<Handler> {
   ): this
 }
 export type IRClassBuilder = IRBaseClassBuilder<IRHandler>
-export type IRBlockClassBuilder = IRBaseClassBuilder<IRBlockHandler>
+export type IRBlockClassBuilder = IRBaseClassBuilder<IRHandler>
 
 export interface ParseHandler {
   addToClass(
@@ -171,14 +171,6 @@ export interface IRHandler {
   ): Value
   optimize?(): IRHandler
 }
-export interface IRBlockHandler {
-  send(
-    sender: Interpreter,
-    ctx: Interpreter,
-    selector: string,
-    args: IRArg[]
-  ): Value
-}
 export interface IRExpr {
   eval(ctx: Interpreter): Value
   const?(): Value | null
@@ -206,4 +198,5 @@ export interface Value extends IRExpr {
     orElse: IRExpr | null
   ): Value
   instanceof(cls: unknown): boolean
+  blockContext(): Interpreter
 }

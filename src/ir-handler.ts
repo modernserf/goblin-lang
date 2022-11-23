@@ -2,7 +2,6 @@ import { ArgMismatchError, InvalidElseParamsError } from "./error"
 import {
   Interpreter,
   IRArg,
-  IRBlockHandler,
   IRHandler,
   IRParam,
   IRStmt,
@@ -165,7 +164,7 @@ export class BlockHandlerBuilder implements IHandlerBuilder {
     offset: number,
     params: IRParam[],
     body: IRStmt[]
-  ): IRBlockHandler {
+  ): IRHandler {
     switch (selector) {
       case "":
         return new IRElseBlockHandler(body)
@@ -415,7 +414,7 @@ export class IRForwardHandler implements IRHandler {
 
 // Block handlers
 
-export class IROnBlockHandler implements IRBlockHandler {
+export class IROnBlockHandler implements IRHandler {
   constructor(
     private offset: number,
     private params: IRParam[],
@@ -423,10 +422,11 @@ export class IROnBlockHandler implements IRBlockHandler {
   ) {}
   send(
     sender: Interpreter,
-    ctx: Interpreter,
+    target: Value,
     selector: string,
     args: IRArg[]
   ): Value {
+    const ctx = target.blockContext()
     loadArgs(sender, ctx, this.offset, this.params, args)
     const result = body(ctx, this.body)
     unloadArgs(sender, ctx, this.offset, args)
@@ -434,7 +434,7 @@ export class IROnBlockHandler implements IRBlockHandler {
   }
 }
 
-export class IRForwardBlockHandler implements IRBlockHandler {
+export class IRForwardBlockHandler implements IRHandler {
   constructor(
     private offset: number,
     private params: IRParam[],
@@ -442,10 +442,11 @@ export class IRForwardBlockHandler implements IRBlockHandler {
   ) {}
   send(
     sender: Interpreter,
-    ctx: Interpreter,
+    target: Value,
     selector: string,
     originalArgs: IRArg[]
   ): Value {
+    const ctx = target.blockContext()
     const args = messageForwarder(sender, selector, originalArgs)
     loadArgs(sender, ctx, this.offset, this.params, args)
     const result = body(ctx, this.body)
@@ -454,14 +455,15 @@ export class IRForwardBlockHandler implements IRBlockHandler {
   }
 }
 
-export class IRElseBlockHandler implements IRBlockHandler {
+export class IRElseBlockHandler implements IRHandler {
   constructor(private body: IRStmt[]) {}
   send(
     sender: Interpreter,
-    ctx: Interpreter,
+    target: Value,
     selector: string,
     args: IRArg[]
   ): Value {
+    const ctx = target.blockContext()
     return body(ctx, this.body)
   }
 }
