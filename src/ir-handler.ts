@@ -360,7 +360,8 @@ function messageForwarder(
           [new IRSendExpr(selector, new IRLocalExpr(0), argsWithValues)]
         ),
       ],
-    ])
+    ]),
+    null
   )
   return [new IRValueArg(new ObjectValue(cls, []))]
 }

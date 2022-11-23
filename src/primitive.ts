@@ -1,8 +1,9 @@
-import { Interpreter, Value } from "./interface"
+import { Interpreter, IRHandler, Value } from "./interface"
 import { IRConstHandler, IRPrimitiveHandler } from "./ir-handler"
 import { unit, PrimitiveValue, IRClass } from "./value"
 
-export class IRClassBuilder extends IRClass {
+export class IRClassBuilder {
+  private handlers = new Map<string, IRHandler>()
   addConst(selector: string, value: Value): this {
     this.handlers.set(selector, new IRConstHandler(value))
     return this
@@ -15,7 +16,7 @@ export class IRClassBuilder extends IRClass {
     return this
   }
   build() {
-    return this
+    return new IRClass(this.handlers, null)
   }
 }
 

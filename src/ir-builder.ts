@@ -4,13 +4,11 @@ import {
   RedundantTrySendError,
 } from "./error"
 import {
-  Interpreter,
   IRHandler,
   IRStmt,
   ParseStmt,
   PartialHandler,
   Scope,
-  Value,
   ParseExpr,
   ParseArg,
   IRExpr,
@@ -22,12 +20,7 @@ import {
   IRSendExpr,
   IRTrySendExpr,
 } from "./ir-expr"
-import {
-  IRConstHandler,
-  IROnHandler,
-  IRPrimitiveHandler,
-  IRValueArg,
-} from "./ir-handler"
+import { IROnHandler, IRValueArg } from "./ir-handler"
 import { IRClass } from "./value"
 
 // classes

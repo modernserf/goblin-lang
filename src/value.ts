@@ -11,8 +11,8 @@ import { IRConstHandler } from "./ir-handler"
 
 export class IRClass {
   constructor(
-    protected handlers: Map<string, IRHandler> = new Map(),
-    protected elseHandler: IRHandler | null = null
+    protected handlers: Map<string, IRHandler>,
+    protected elseHandler: IRHandler | null
   ) {}
   try(selector: string): IRHandler | null {
     const handler = this.handlers.get(selector)
@@ -129,5 +129,5 @@ export class DoValue implements Value {
   }
 }
 
-export const unitClass = new IRClass()
+export const unitClass = new IRClass(new Map(), null)
 export const unit = new ObjectValue(unitClass, [])

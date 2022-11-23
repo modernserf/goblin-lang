@@ -12,6 +12,9 @@ import { IRGetterHandler, IROnHandler, IRValueArg } from "./ir-handler"
 import { constObject } from "./optimize"
 
 export class IRClassBuilder extends IRClass {
+  constructor() {
+    super(new Map(), null)
+  }
   addFrame(selector: string, params: IRParam[], body: IRStmt[]): this {
     // allow overwriting of methods
     this.handlers.set(selector, new IROnHandler(params, body))
