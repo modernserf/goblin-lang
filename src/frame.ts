@@ -7,9 +7,18 @@ import {
   IRSelfExpr,
   IRSendDirectExpr,
   IRSendExpr,
+  IRTrySendExpr,
 } from "./ir-expr"
-import { IRGetterHandler, IROnHandler, IRValueArg } from "./ir-handler"
+import {
+  IRDoArg,
+  IRElseBlockHandler,
+  IRGetterHandler,
+  IROnBlockHandler,
+  IROnHandler,
+  IRValueArg,
+} from "./ir-handler"
 import { constObject } from "./optimize"
+import { falseVal, trueVal } from "./primitive"
 
 export class IRClassBuilder extends IRClass {
   constructor() {
@@ -88,6 +97,40 @@ export function frame(
       ),
     ]
   )
+
+  // utility methods
+  // TODO: when these conflict with fields, which should take precedence?
+  if (!frameClass.try("=:")) {
+    /*
+    frame equality for [x:y:]
+    on {=: other}
+      other{:
+        on {x: x' y: y'}
+          (x = x') && (y = y')
+      } ? false
+    */
+    const eqParams: IRParam[] = args.map(() => ({ tag: "value" }))
+    const eqClass = new IRClassBuilder()
+      .add(
+        selector,
+        new IROnBlockHandler(0, eqParams, [
+          args.reduce((prev, _, i) => {
+            const myValue = new IRIvarExpr(i)
+            const theirValue = new IRLocalExpr(i)
+            const isEqual = new IRSendExpr("=:", myValue, [
+              new IRValueArg(theirValue),
+            ])
+            return new IRSendExpr("&&:", prev, [new IRValueArg(isEqual)])
+          }, trueVal as IRExpr),
+        ])
+      )
+      .addElse(new IRElseBlockHandler([falseVal]))
+    frameClass.addFrame(
+      "=:",
+      [{ tag: "do" }],
+      [new IRTrySendExpr(":", $0, [new IRDoArg(eqClass)], falseVal)]
+    )
+  }
 
   frameCache.set(selector, frameClass)
   return constObject(frameClass, ivars)

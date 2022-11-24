@@ -1,0 +1,17 @@
+import [_Assert_] := "core"
+
+# key frames (including empty)
+let frame := []
+Assert{true: frame = []}
+Assert{false: frame = [foo]}
+
+let value := frame{: 
+  on {} 1
+  else 2
+}
+Assert{received: value expected: 1}
+
+# fields override methods
+let frame := [=: 2]
+Assert{true: frame{: 2}}
+Assert{received: frame = 3 expected: [=: 3]}

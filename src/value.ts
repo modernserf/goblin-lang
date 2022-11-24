@@ -1,4 +1,5 @@
 import {
+  DuplicateElseHandlerError,
   DuplicateHandlerError,
   NoHandlerError,
   UnreachableError,
@@ -22,6 +23,12 @@ export class IRClass {
     /* istanbul ignore next */
     if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
     this.handlers.set(selector, handler)
+    return this
+  }
+  addElse(handler: IRHandler): this {
+    /* istanbul ignore next */
+    if (this.elseHandler) throw new DuplicateElseHandlerError("")
+    this.elseHandler = handler
     return this
   }
   try(selector: string): IRHandler | null {

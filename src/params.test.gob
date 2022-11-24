@@ -74,6 +74,18 @@ Assert{received: target{count: 1}   expected: "1 item"}
 Assert{received: target{count: 10}  expected: "10 items"}
 
 let target := [
+  on {: ""}
+     {: 0}
+     {: 0.0}
+     {: (())}
+     {: ([])}
+    [empty]
+  else
+    [not empty]
+]
+
+
+let target := [
   on {x: 0 y: 0}
     "at origin"
   on {x: 0 y: __}
