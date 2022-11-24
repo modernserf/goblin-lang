@@ -1,4 +1,8 @@
-import { InvalidImportBindingError, InvalidVarBindingError } from "./error"
+import {
+  InvalidImportBindingError,
+  InvalidVarBindingError,
+  UnreachableError,
+} from "./error"
 import { IRExpr, IRStmt, ParseBinding, ParseParams, Scope } from "./interface"
 import { IRAssignStmt } from "./ir-stmt"
 import { IRLocalExpr } from "./ir-expr"
@@ -16,7 +20,7 @@ export const ParsePlaceholder: ParseBinding = {
   },
   /* istanbul ignore next */
   set(scope: Scope, expr: IRExpr): IRStmt[] {
-    throw new Error("unreachable")
+    throw new UnreachableError("placeholder set target is parse error")
   },
   selfBinding() {
     return []
@@ -74,7 +78,7 @@ export class ParseDestructure implements ParseBinding {
   }
   /* istanbul ignore next */
   set(scope: Scope, expr: IRExpr): IRStmt[] {
-    throw new Error("unreachable")
+    throw new UnreachableError("destructuring set target is parse error")
   }
   selfBinding(scope: Scope): IRStmt[] {
     return []

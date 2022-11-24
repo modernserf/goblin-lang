@@ -21,17 +21,28 @@ export class DuplicateKeyError {
 export class RedundantTrySendError {
   constructor(readonly target: ParseExpr, selector: string) {}
 }
-
-// TODO: RuntimeError base class
-export class NoHandlerError {
-  constructor(readonly selector: string) {}
-}
-export class NoProviderError {
-  constructor(readonly key: string) {}
-}
-export class ArgMismatchError {
-  constructor(readonly paramType: string, readonly argType: string) {}
-}
 export class InvalidElseParamsError {
   constructor(readonly selector: string) {}
 }
+
+// TODO: RuntimeError should collect _goblin_ stack traces, not JS
+export class RuntimeError extends Error {}
+
+export class NoHandlerError extends RuntimeError {
+  constructor(readonly selector: string) {
+    super(`No handler for ${selector}`)
+  }
+}
+export class NoProviderError extends RuntimeError {
+  constructor(readonly key: string) {
+    super(`No provider for ${key}`)
+  }
+}
+export class ArgMismatchError extends RuntimeError {
+  constructor(readonly paramType: string, readonly argType: string) {
+    super(`Expected ${paramType}, received ${argType}`)
+  }
+}
+
+// These errors indicate logic bugs in the compiler/interpreter, not in the code
+export class UnreachableError extends Error {}

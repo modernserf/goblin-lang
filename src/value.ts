@@ -1,4 +1,8 @@
-import { DuplicateHandlerError, NoHandlerError } from "./error"
+import {
+  DuplicateHandlerError,
+  NoHandlerError,
+  UnreachableError,
+} from "./error"
 import {
   Interpreter,
   IRArg,
@@ -15,6 +19,7 @@ export class IRClass {
     private elseHandler: IRHandler | null
   ) {}
   add(selector: string, handler: IRHandler): this {
+    /* istanbul ignore next */
     if (this.handlers.has(selector)) throw new DuplicateHandlerError(selector)
     this.handlers.set(selector, handler)
     return this
@@ -74,7 +79,7 @@ export class PrimitiveValue implements Value, IRExpr, IRStmt {
   constructor(private cls: IRClass, readonly primitiveValue: any) {}
   /* istanbul ignore next */
   getIvar(index: number): Value {
-    throw new Error("primitive value has no ivars")
+    throw new UnreachableError("primitive value does not access ivars")
   }
   send(
     sender: Interpreter,
@@ -109,7 +114,7 @@ export class DoValue implements Value {
   constructor(private cls: IRClass, private ctx: Interpreter) {}
   /* istanbul ignore next */
   getIvar(index: number): Value {
-    throw new Error("do value has no ivars")
+    throw new UnreachableError("do value does not access ivars")
   }
   send(
     sender: Interpreter,
@@ -122,12 +127,12 @@ export class DoValue implements Value {
     if (orElse) return orElse.eval(sender)
     throw new NoHandlerError(selector)
   }
-  /* istanbul ignore next */
   instanceof(cls: IRClass): boolean {
-    throw new Error("unreachable")
+    return false
   }
+  /* istanbul ignore next */
   eval(ctx: Interpreter): Value {
-    return this
+    throw new UnreachableError("do value is not used as IRExpr")
   }
   context(): Interpreter {
     return this.ctx

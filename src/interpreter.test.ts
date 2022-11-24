@@ -27,6 +27,12 @@ test("no method", () => {
       }
     `)
   }, NoHandlerError)
+  assert.throws(() => {
+    run(`
+      let x := 1
+      x{foo}
+    `)
+  }, NoHandlerError)
 })
 
 test("no provider", () => {

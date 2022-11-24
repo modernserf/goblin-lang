@@ -331,6 +331,17 @@ Assert{
 let value := [else 1]{anything}
 Assert{received: value; expected: 1}
 
+# else self
+let pattern := [
+  on {foo: 1}
+    1
+  on {foo: x}
+    self{bar}
+  else
+    2
+]
+Assert{received: pattern{foo: 2} expected: 2}
+
 # return 
 let obj := [
   on {method}
@@ -499,7 +510,7 @@ Assert{
   expected: 2
 }
 
-let a := []
+let a := 0
 
 Assert{
   received: a{foo} ? 1

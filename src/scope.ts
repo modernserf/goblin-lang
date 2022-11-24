@@ -10,6 +10,7 @@ import {
 import { IRClass } from "./value"
 import { IRIvarExpr, IRLocalExpr, IRObjectExpr, IRSelfExpr } from "./ir-expr"
 import { IRGetterHandler, IRLazyHandler } from "./ir-handler"
+import { UnreachableError } from "./error"
 
 export class ReferenceError {
   constructor(readonly key: string) {}
