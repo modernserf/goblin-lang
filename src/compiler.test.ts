@@ -238,7 +238,13 @@ test("not a var", () => {
       x
     `)
   }, NotVarError)
-
+  assert.throws(() => {
+    compile(`
+      let f := [{: do block}
+        set block := 2
+      ] 
+    `)
+  }, NotVarError)
   assert.throws(() => {
     compile(`
       var x := 1

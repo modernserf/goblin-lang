@@ -76,12 +76,13 @@ class NilInstance implements Instance {
   self(): IRExpr {
     throw new NoModuleSelfError()
   }
+  /* istanbul ignore next */
   getPlaceholderHandler(selector: string): IRHandler {
-    throw new NoModuleSelfError()
+    throw new UnreachableError("root instance does not define handlers")
   }
   /* istanbul ignore next */
   handlerScope(arity: number): Scope {
-    throw new Error("unreachable")
+    throw new UnreachableError("root instance does not define handlers")
   }
 }
 

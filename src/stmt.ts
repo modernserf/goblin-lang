@@ -87,7 +87,6 @@ export class LetStmt implements ParseStmt {
 export class SetStmt implements ParseStmt {
   constructor(private binding: ParseBinding, private expr: ParseExpr) {}
   compile(scope: Scope): IRStmt[] {
-    if (!this.binding.set) throw new InvalidSetTargetError()
     return this.binding.set(scope, this.expr.compile(scope))
   }
 }
