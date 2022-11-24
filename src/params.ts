@@ -3,6 +3,7 @@ import {
   InvalidDestructuringError,
   InvalidProvideBindingError,
   InvalidElseParamsError,
+  UnreachableError,
 } from "./error"
 import {
   IRExpr,
@@ -222,8 +223,9 @@ export class PartialPatternParam implements ParseParam, PartialParseParam {
     )
     return [new ExprStmt(send)]
   }
+  /* istanbul ignore next */
   handler(scope: Scope, offset: number): IRStmt[] {
-    return []
+    throw new UnreachableError("partial pattern not used in handler builder")
   }
   using(scope: Scope, key: string): IRStmt[] {
     throw "todo: partial using"
@@ -233,7 +235,7 @@ export class PartialPatternParam implements ParseParam, PartialParseParam {
   }
   /* istanbul ignore next */
   export(): void {
-    throw new Error("unreachable")
+    throw new UnreachableError("partial pattern not available in let binding")
   }
   import(): IRStmt[] {
     throw new InvalidDestructuringError()
@@ -252,8 +254,9 @@ export class PartialValueParam implements ParseParam, PartialParseParam {
     )
     return [new ExprStmt(new ParseIf(cond, ifTrue, ifFalse))]
   }
+  /* istanbul ignore next */
   handler(scope: Scope, offset: number): IRStmt[] {
-    return []
+    throw new UnreachableError("partial pattern not used in handler builder")
   }
   using(scope: Scope, key: string): IRStmt[] {
     throw "todo: partial using"

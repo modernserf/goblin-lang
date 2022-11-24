@@ -2,7 +2,9 @@ import {
   ArgMismatchError,
   DuplicateElseHandlerError,
   DuplicateHandlerError,
+  IncompleteHandlerError,
   InvalidElseParamsError,
+  UnreachableError,
 } from "./error"
 import {
   Interpreter,
@@ -86,7 +88,11 @@ class IRClassBuilder {
         this.closePartial(selector, scope, value)
       }
     }
-    if (this.partials.size > 0) throw new Error("unclosed partials")
+
+    for (const [key] of this.partials) {
+      throw new IncompleteHandlerError(key)
+    }
+
     return new IRClass(this.handlers, this.elseHandler)
   }
   private closePartial(selector: string, scope: Scope, value: PartialHandler) {
@@ -413,7 +419,8 @@ export class IRLazyHandler implements IRHandler {
     selector: string,
     args: IRArg[]
   ): Value {
-    if (!this.handler) throw new Error("missing lazy handler")
+    /* istanbul ignore next */
+    if (!this.handler) throw new UnreachableError("lazy handler not replaced")
     return this.handler.send(sender, target, selector, args)
   }
 }

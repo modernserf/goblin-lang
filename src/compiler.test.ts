@@ -28,6 +28,7 @@ import {
   RedundantTrySendError,
   NoHandlerError,
   InvalidElseParamsError,
+  IncompleteHandlerError,
 } from "./error"
 
 export function compile(source: string) {
@@ -473,6 +474,46 @@ test("else with params", () => {
   assert.doesNotThrow(() => {
     compile(`
       []{:else 1}
+    `)
+  })
+})
+
+test("partial params", () => {
+  assert.throws(() => {
+    compile(`
+      let f := [
+        on {x: 1 y: 1} ()
+      ]
+    `)
+  }, IncompleteHandlerError)
+  assert.throws(() => {
+    compile(`
+      let [x: {x: 1}] := 1
+    `)
+  }, InvalidDestructuringError)
+  assert.throws(() => {
+    compile(`
+      let [x: 1] := 1
+    `)
+  }, InvalidDestructuringError)
+  assert.throws(() => {
+    compile(`
+      import [foo: {x: x}] := "core"
+    `)
+  }, InvalidDestructuringError)
+  assert.throws(() => {
+    compile(`
+      import [foo: 1] := "core"
+    `)
+  }, InvalidDestructuringError)
+  assert.throws(() => {
+    compile(`
+      using {foo: 1} 
+    `)
+  })
+  assert.throws(() => {
+    compile(`
+      using {foo: {x: x}} 
     `)
   })
 })

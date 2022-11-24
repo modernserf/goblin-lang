@@ -24,6 +24,9 @@ export class RedundantTrySendError {
 export class InvalidElseParamsError {
   constructor(readonly selector: string) {}
 }
+export class IncompleteHandlerError {
+  constructor(readonly selector: string) {}
+}
 
 // TODO: RuntimeError should collect _goblin_ stack traces, not JS
 export class RuntimeError extends Error {}

@@ -11,6 +11,18 @@ let value := frame{:
 }
 Assert{received: value expected: 1}
 
+# pair frames
+let point := [x: 1 y: 2]
+Assert{true: point = [x: 1 y: 2]}
+Assert{false: point = [x: 2 y: 2]}
+Assert{false: point = [x: 1 y: 2 z: 3]}
+Assert{false: point = [x: 1]}
+Assert{false: point = []}
+Assert{false: point = 1}
+
+let other := [{: do f} f{x: 1 y: 2}]
+Assert{true: point = other}
+
 # fields override methods
 let frame := [=: 2]
 Assert{true: frame{: 2}}
