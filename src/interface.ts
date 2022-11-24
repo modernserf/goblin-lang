@@ -121,8 +121,11 @@ export interface Scope {
   lookupOuterLet(key: string): IRExpr
   lookupVarIndex(key: string): number
   addExport(key: string): void
-  sendScope(): Scope
-  blockBodyScope(): Scope
+  sendScope(): SendScope
+}
+
+export interface SendScope extends Scope {
+  blockBodyScope(): SendScope
   blockParamsScope(): Scope
 }
 

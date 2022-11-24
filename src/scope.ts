@@ -158,14 +158,8 @@ class BasicScope implements Scope {
   addExport(key: string) {
     throw new ScopedExportError(key)
   }
-  sendScope(): Scope {
+  sendScope(): SendScope {
     return new SendScope(this.instance, new BlockLocals(this.locals))
-  }
-  blockParamsScope(): Scope {
-    throw new Error("unreachable")
-  }
-  blockBodyScope(): Scope {
-    throw new Error("unreachable")
   }
 }
 
@@ -217,7 +211,7 @@ class SendScope extends BasicScope {
     this.borrows.add(key)
     return super.lookupVarIndex(key)
   }
-  blockBodyScope(): Scope {
+  blockBodyScope(): SendScope {
     return new SendScope(
       this.instance,
       new BlockLocals(this.locals),

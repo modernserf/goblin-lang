@@ -20,6 +20,7 @@ import {
   ParamBinding,
   Scope,
   PartialHandler,
+  SendScope,
 } from "./interface"
 
 import {
@@ -183,7 +184,7 @@ export class BlockHandlerBuilder implements IHandlerBuilder {
   private cls = new IRClassBuilder()
   private scope = this.inScope.blockBodyScope()
   private paramScope = this.scope.blockParamsScope()
-  constructor(private inScope: Scope) {}
+  constructor(private inScope: SendScope) {}
   build(scope: Scope) {
     return this.cls.build(scope)
   }

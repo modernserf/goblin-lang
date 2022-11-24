@@ -11,6 +11,7 @@ import {
   ParseHandler,
   PatternBuilder,
   Scope,
+  SendScope,
 } from "./interface"
 import { IRProvideStmt } from "./ir-stmt"
 import {
@@ -118,7 +119,7 @@ export class VarArg implements ParseArg {
 
 export class HandlersArg implements ParseArg {
   constructor(private handlers: ParseHandler[]) {}
-  sendArg(scope: Scope): IRArg {
+  sendArg(scope: SendScope): IRArg {
     const builder = new BlockHandlerBuilder(scope)
     for (const handler of this.handlers) {
       handler.addToBlockClass(builder)
