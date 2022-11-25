@@ -12,7 +12,7 @@ import {
   Unit,
   ParseObject,
   ParseFrame,
-  ParseDoBlock,
+  ParseParens,
   ParseIf,
   ParseSend,
   ParseUnaryOp,
@@ -276,13 +276,9 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
       return new ParseIdent(token.value)
     case "openParen": {
       lexer.advance()
-      const value = parseExpr(lexer)
+      const body = repeat(lexer, parseStmt)
       mustToken(lexer, "closeParen")
-      if (value) {
-        return value
-      } else {
-        return Unit
-      }
+      return new ParseParens(body)
     }
     case "openBracket": {
       lexer.advance()
@@ -294,12 +290,6 @@ function baseExpr(lexer: Lexer): ParseExpr | null {
       const message = parseArgs(lexer)
       mustToken(lexer, "closeBracket")
       return new ParseFrame(message)
-    }
-    case "do": {
-      lexer.advance()
-      const body = repeat(lexer, parseStmt)
-      mustToken(lexer, "end")
-      return new ParseDoBlock(body)
     }
     case "if": {
       lexer.advance()

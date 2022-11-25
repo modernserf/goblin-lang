@@ -43,14 +43,15 @@ let _a long identifier name_ := 2
 
 (TODO: link to more on bindings: destructuring, placeholders, etc)
 
-`do` expressions:
+Parentheses are used to disambiguate operator precedence, but they also create new binding scopes, and can contain statements.
 
 ```goblin
-let a := do
+let a := (
 	let b := 1
 	let c	:= 2
 	b + c
-end # => 3
+) # => 3
+let a := () # => `unit`, an object with no methods
 ```
 
 `if` expressions:
@@ -327,10 +328,10 @@ let mock_logger := [
 ]
 
 log{: "hello"} # logs to system logger
-do
+(
 	provide{logger: mock_logger}
 	log{: "hello"} # logs to mock_logger
-end
+)
 log{: "goodbye"} # back to system logger
 ```
 
@@ -338,7 +339,7 @@ log{: "goodbye"} # back to system logger
 
 ## error handling & control flow
 
-`defer` executes after a handler returns or encounters a runtime error. This is most useful for managing constrained system resources, e.g. file handles:
+`defer` executes after a handler exits, whether thats by returning itself, returning within a do block, or encountering a runtime error. This is most useful for managing constrained system resources, e.g. file handles:
 
 ```goblin
 import [_os_] := "core"
@@ -394,7 +395,7 @@ let Opt := [
 ]
 
 let obj := [{: opt_value}
-	let value := opt_value{some} ? do return Opt{none} end
+	let value := opt_value{some} ? (return Opt{none})
 	# do stuff with value
 ]
 ```

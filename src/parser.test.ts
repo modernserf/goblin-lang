@@ -30,13 +30,6 @@ test("parse errors", () => {
   )
   assert.throws(
     () => {
-      parse("(1 2)")
-    },
-    ParseError,
-    "paren with too many values"
-  )
-  assert.throws(
-    () => {
       parse("[hello")
     },
     ParseError,

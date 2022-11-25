@@ -21,6 +21,7 @@ import { floatClass, intClass, stringClass } from "./primitive"
 import { createInstance } from "./scope"
 import { HandlerBuilder } from "./ir-handler"
 import { ParseBindIdent, ParsePlaceholder } from "./binding"
+import { ExprStmt } from "./stmt"
 
 export const Self: ParseExpr = {
   compile(scope) {
@@ -153,9 +154,14 @@ export class ParseBinaryOp implements ParseExpr {
   }
 }
 
-export class ParseDoBlock implements ParseExpr {
+export class ParseParens implements ParseExpr {
   constructor(private body: ParseStmt[]) {}
   compile(scope: Scope): IRExpr {
+    if (this.body.length === 0) return unit
+    if (this.body.length === 1 && this.body[0] instanceof ExprStmt) {
+      return this.body[0].unwrap().compile(scope)
+    }
+
     const expr: ParseExpr = new ParseSend(
       new ParseFrame(new ArgsBuilder().key("")),
       new ArgsBuilder()

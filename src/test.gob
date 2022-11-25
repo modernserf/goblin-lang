@@ -14,12 +14,12 @@ Assert{
 }
 
 Assert{
-  received: do 2 - 1 end
+  received: (2 - 1)
   expected: 1
 }
 
 Assert{
-  received: do 2; - 1 end
+  received: (2; - 1)
   expected: -1
 }
 
@@ -273,7 +273,7 @@ Assert{
   expected: 2
 }
 
-let result := do
+let result := (
   let obj := [{get} using{_foo_} foo]
 
   provide{foo: 1}
@@ -281,13 +281,13 @@ let result := do
   provide{foo: 2}
   let y := obj{get}
   x + y
-end
+)
 Assert{
   received: result
   expected: 3 
 }
 
-let result := do
+let result := (
   let a := [{get} using{_foo_} foo]
   provide{foo: 3}
   let b := [
@@ -299,7 +299,7 @@ let result := do
       fn{get}
   ]
   b{pv 1: a} + b{pv 2: a} + a{get}
-end
+)
 Assert{
   received: result
   expected: 6
@@ -354,11 +354,11 @@ Assert{
   expected: 1
 }
 
-# do vars
+# paren scopes
 var x := 1
-do
+(
   set x := 2
-end
+)
 Assert{
   received: x
   expected: 2
@@ -367,9 +367,9 @@ Assert{
 # nonlocal return
 let obj := [
   on {method}
-    do 
+    ( 
       return 1
-    end
+    )
     return 2 
 ]
 Assert{

@@ -19,6 +19,9 @@ export class ExprStmt implements ParseStmt {
   compile(scope: Scope): IRStmt[] {
     return [this.expr.compile(scope)]
   }
+  unwrap() {
+    return this.expr
+  }
 }
 
 export class DeferStmt implements ParseStmt {
