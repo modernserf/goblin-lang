@@ -4,6 +4,8 @@ import [_Assert_] := "core"
 let frame := []
 Assert{true: frame = []}
 Assert{false: frame = [foo]}
+Assert{false: frame = ()}
+Assert{false: frame = 0}
 
 let value := frame{: 
   on {} 1
