@@ -71,16 +71,16 @@ list{map: {: item} item}
 ```goblin
 let Opt := [
 	on {some: value} [
-		on {some}
+		on {some!}
 			value
 	]
 	on {none} [
-		# no 'some' handler
+		# no 'some!' handler
 	]
 ]
 
 let obj := [{: opt_value}
-	let value := opt_value{some} ? (return Opt{none})
+	let value := opt_value{some!} ? (return Opt{none})
 	# do stuff with value
 ]
 ```

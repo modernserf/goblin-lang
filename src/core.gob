@@ -5,6 +5,39 @@ export let Bool := [
   on {false} false
 ]
 
+
+# - orderable objects respond to {order: other} with an Ord instance
+# - operators (note: prefix!) can be used for quickly deriving relevant methods from {order: other}
+export let Ord := [
+  on {<} [
+    on {: do f} f{<}
+    on {<} true
+    on {<=} true
+    on {=} false
+    on {!=} true
+    on {>=} false
+    on {>} false
+  ]
+  on {=} [
+    on {: do f} f{=}
+    on {<} false
+    on {<=} true
+    on {=} true
+    on {!=} false
+    on {>=} true
+    on {>} false
+  ]
+  on {>} [
+    on {: do f} f{=}
+    on {<} false
+    on {<=} false
+    on {=} false
+    on {!=} true
+    on {>=} true
+    on {>} true
+  ]
+]
+
 # Option & Result in single value for mutual recursion
 let OR := [
   on {some: value} [
@@ -26,7 +59,7 @@ let OR := [
       value
     on {=: other} other{:
       on {some: x} x = value
-      on {none} false
+      else false
     }
     on {!=: other}
       !(self = other)
@@ -40,6 +73,18 @@ let OR := [
       self
     on {to Result}
       OR{ok: value}
+    # ordering {none} < any {some: value}
+    on {order: other}
+      other{:
+        on {some: x}
+          value{order: x}
+        on {none}
+          Ord{>}
+      }
+    on {<: val}   <self{order: val}
+    on {<=: val} <=self{order: val}
+    on {>=: val} >=self{order: val}
+    on {>: val}   >self{order: val}
   ]
 
   on {none} [
@@ -59,8 +104,8 @@ let OR := [
     on {or do: do f}
       f{}
     on {=: other} other{:
-      on {some: x} false
       on {none} true
+      else false
     }
     on {!=: other}
       !(self = other)
@@ -72,6 +117,17 @@ let OR := [
       self
     on {to Result}
       OR{error: ()}
+    on {order: other}
+      other{:
+        on {some: __}
+          Ord{<}
+        on {none}
+          Ord{=}
+      }
+    on {<: val}   <self{order: val}
+    on {<=: val} <=self{order: val}
+    on {>=: val} >=self{order: val}
+    on {>: val}   >self{order: val}
   ]
   
   on {ok: value} [
@@ -102,7 +158,7 @@ let OR := [
       f{: value}
     on {=: other} other{:
       on {ok: x} x = value
-      on {error: e} false
+      else false
     }
     on {!=: other}
       !(self = other)
@@ -114,6 +170,18 @@ let OR := [
       OR{some: value}
     on {to Result}
       self
+    # ordering any {error: err} < any {ok: value}
+    on {order: other}
+      other{:
+        on {ok: x}
+          value{order: x}
+        on {error: __}
+          Ord{>}
+      }
+    on {<: val}   <self{order: val}
+    on {<=: val} <=self{order: val}
+    on {>=: val} >=self{order: val}
+    on {>: val}   >self{order: val}
   ]
 
   on {error: err} [
@@ -143,8 +211,8 @@ let OR := [
     on {error or do: do f}
       err
     on {=: other} other{:
-      on {ok: x} false
       on {error: e} e = err
+      else false
     }
     on {!=: other}
       !(self = other)
@@ -156,6 +224,17 @@ let OR := [
       OR{none}
     on {to Result}
       self
+    on {order: other}
+      other{:
+        on {ok: __}
+          Ord{<}
+        on {error: val}
+          err{order: val}
+      }
+    on {<: val}   <self{order: val}
+    on {<=: val} <=self{order: val}
+    on {>=: val} >=self{order: val}
+    on {>: val}   >self{order: val}
   ]
 ]
 
@@ -206,6 +285,13 @@ export let Control := [
   on {loop: do f}
     f{}
     self{loop: f}
+  on {times: times do: do f}
+    var i := 0
+    Control{loop: {}
+      if i >= times then return end
+      f{: i} ? f{}
+      set i{+: 1}
+    }
 ]
 
 let VecImpl := [
@@ -220,6 +306,38 @@ let VecImpl := [
         if index >= length then Panic{message: "index out of range"} end
         # TODO: handle negative index wraparound
         index
+      on {sort: arr by: do f lo: lo hi: hi}
+        if (lo >= 0) && (hi >= 0) && (lo < hi) then
+          let p := self{partition: arr by: f lo: lo hi: hi}
+          self{sort: arr by: f lo: lo hi: p}
+          self{sort: arr by: f lo: p + 1 hi: hi}
+        end
+      on {partition: arr by: do f lo: lo hi: hi}
+        let pivot := arr{at: (hi + lo) >> 1}
+        var left_idx := lo - 1 
+        var right_idx := hi + 1
+        Control{loop: {}
+          private{
+            inc: var left_idx 
+            while: {: i} <f{left: arr{at: i} right: pivot}
+          }
+          private{
+            dec: var right_idx
+            while: {: i} >f{left: arr{at: i} right: pivot}
+          }
+          if left_idx >= right_idx then return right_idx end
+          arr{at: left_idx swap: right_idx}
+        }
+      on {inc: var i while: do f}
+        Control{loop: {}
+          set i{+: 1}
+          if !f{: i} then return end
+        }
+      on {dec: var i while: do f}
+        Control{loop: {}
+          set i{-: 1}
+          if !f{: i} then return end
+        }
     ]
     return [
       on {length}
@@ -247,79 +365,55 @@ let VecImpl := [
           last: array{at: len}
         ]
       on {map: do f}
-        var i := 0
-        var out := Array{}
-        Control{loop: {}
-          if i >= length then 
-            return VecImpl{array: out length: length}
-          end
+        let out := Array{}
+        Control{times: length do: {: i}
           let value := array{at: i}
           out{push: f{: value}}
-          set i{+: 1}
         }
+        VecImpl{array: out length: length}
       on {filter: do f}
-        var i := 0
-        var out := Array{}
-        Control{loop: {}
-          if i >= length then 
-            return VecImpl{array: out length: out{length}}
-          end
+        let out := Array{}
+        Control{times: length do: {: i}
           let value := array{at: i}
           if f{: array{at: i}} then
             out{push: value}
           end
-          set i{+: 1}
         }
+        VecImpl{array: out length: out{length}}
+      on {=: other}
+        let len := other{length} ? (return false)
+        if len != length then return false end
+        Control{times: length do: {: i}
+          let val := other{at: i} ? (return false)
+          if array{at: i} != val then return false end 
+        }
+        return true
+      on {sort}
+        self{sort: [asc]}
+      on {sort: direction}
+        self{sort: direction by key: {: x} x}
+      on {sort by key: do f}
+        self{sort: [asc] by key: f}
+      on {sort: direction by key: do f}
+        direction{:
+          on {asc}
+            self{sort by: {left: l right: r} f{:l}{order: f{: r}}}
+          on {desc}
+            self{sort by: {left: l right: r} f{:r}{order: f{: l}}}
+        }
+      on {sort by: do f}
+        if length <= 1 then return self end
+        let out := array{from: 0 to: length}
+        private{sort: out by: f lo: 0 hi: length - 1}
+        return VecImpl{array: out length: length}
     ]
 ]
 
 export let Vec := [
   on {}
     VecImpl{array: Array{} length: 0}
-]
-
-# - orderable objects respond to {order: other} with an Ord instance
-# - operators (note: prefix!) can be used for quickly deriving relevant methods from {order: other}
-# let Point := [
-#   # ...
-#   on {order: other}
-#     let ord := x{order: other{x}}
-#     if ord{!=} then return ord end
-#     y{order: other{y}}
-#   on {<: val}   <self{order: val}
-#   on {<=: val} <=self{order: val}
-#   on {=: val}   =self{order: val}
-#   on {!=: val} !=self{order: val}
-#   on {>=: val} >=self{order: val}
-#   on {>: val}   >self{order: val}
-# ]
-
-export let Ord := [
-  on {<} [
-    on {: do f} f{<}
-    on {<} true
-    on {<=} true
-    on {=} false
-    on {!=} true
-    on {>=} false
-    on {>} false
-  ]
-  on {=} [
-    on {: do f} f{=}
-    on {<} false
-    on {<=} true
-    on {=} true
-    on {!=} false
-    on {>=} true
-    on {>} false
-  ]
-  on {>} [
-    on {: do f} f{=}
-    on {<} false
-    on {<=} false
-    on {=} false
-    on {!=} true
-    on {>=} true
-    on {>} true
-  ]
+  on {pop: var vec}
+    let res := vec{pop}
+    set vec := res{most}
+    return res{last}
 ]

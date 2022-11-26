@@ -53,6 +53,14 @@ const arrayInstance: IRClass = new IRClassBuilder()
     self[i] = value
     return new PrimitiveValue(arrayInstance, self)
   })
+  .addPrimitive("at:swap:", (self, [left, right]) => {
+    const l = intValue(left)
+    const r = intValue(right)
+    const tmp = self[l]
+    self[l] = self[r]
+    self[r] = tmp
+    return new PrimitiveValue(arrayInstance, self)
+  })
   .addPrimitive(",:", (self, [value]) => {
     self.push(value)
     return new PrimitiveValue(arrayInstance, self)

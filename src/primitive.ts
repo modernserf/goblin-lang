@@ -81,6 +81,9 @@ export const stringClass: IRClass = new IRClassBuilder()
   .addPrimitive("++:", (self, [arg]) => {
     return new PrimitiveValue(stringClass, `${self}${strValue(arg)}`)
   })
+  .addPrimitive("length", (self) => {
+    return new PrimitiveValue(intClass, self.length)
+  })
   .addPrimitive(
     "js debug",
     /* istanbul ignore next */ (self) => {
@@ -136,6 +139,9 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("&:", (self, [arg]) => {
     return new PrimitiveValue(intClass, self & intValue(arg))
   })
+  .addPrimitive(">>:", (self, [arg]) => {
+    return new PrimitiveValue(intClass, self >> intValue(arg))
+  })
   .addPrimitive("-", (self) => {
     return new PrimitiveValue(intClass, -self)
   })
@@ -165,8 +171,20 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("==:", (self, [arg]) => {
     return numericCompare(self, arg, (a, b) => a === b)
   })
-  .addPrimitive(">=:", (self, [arg], ctx) => {
+  .addPrimitive("!==:", (self, [arg]) => {
+    return numericCompare(self, arg, (a, b) => a !== b)
+  })
+  .addPrimitive(">=:", (self, [arg]) => {
     return numericCompare(self, arg, (a, b) => a >= b)
+  })
+  .addPrimitive(">:", (self, [arg]) => {
+    return numericCompare(self, arg, (a, b) => a > b)
+  })
+  .addPrimitive("<=:", (self, [arg]) => {
+    return numericCompare(self, arg, (a, b) => a <= b)
+  })
+  .addPrimitive("<:", (self, [arg]) => {
+    return numericCompare(self, arg, (a, b) => a < b)
   })
   .addPrimitive("to String", (self) => {
     return new PrimitiveValue(stringClass, String(self))
