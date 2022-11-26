@@ -99,6 +99,7 @@ export function frame(
   )
 
   // utility methods
+  // TODO: could you write, like, a macro system to generate these?
   // TODO: when these conflict with fields, which should take precedence?
   if (!frameClass.try("=:")) {
     /*
@@ -129,6 +130,36 @@ export function frame(
       "=:",
       [{ tag: "do" }],
       [new IRTrySendExpr(":", $0, [new IRDoArg(eqClass)], falseVal)]
+    )
+  }
+
+  if (!frameClass.try("!=:")) {
+    const eqParams: IRParam[] = args.map(() => ({ tag: "value" }))
+    const notEqClass = new IRClassBuilder()
+      .add(
+        selector,
+        new IROnBlockHandler(0, eqParams, [
+          args.reduce((prev, _, i) => {
+            const myValue = new IRIvarExpr(i)
+            const theirValue = new IRLocalExpr(i)
+            const isEqual = new IRSendExpr("=:", myValue, [
+              new IRValueArg(theirValue),
+            ])
+            return new IRSendExpr("&&:", prev, [new IRValueArg(isEqual)])
+          }, trueVal as IRExpr),
+        ])
+      )
+      .addElse(new IRElseBlockHandler([falseVal]))
+    frameClass.addFrame(
+      "!=:",
+      [{ tag: "do" }],
+      [
+        new IRSendExpr(
+          "!",
+          new IRTrySendExpr(":", $0, [new IRDoArg(notEqClass)], falseVal),
+          []
+        ),
+      ]
     )
   }
 

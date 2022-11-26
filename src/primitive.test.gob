@@ -7,6 +7,9 @@ Assert{true: true = true}
 Assert{false: true = false}
 Assert{false: true = 1}
 Assert{false: true{=: {: x} x}}
+Assert{true: true != false}
+Assert{true: true != 1}
+Assert{false: true != true}
 
 # operators
 Assert{true: !false}
@@ -23,7 +26,7 @@ Assert{
   expected: "Hello, world!"
 }
 
-Assert{true: "Hello" = "Hello"}
+Assert{: "Hello" = "Hello"}
 Assert{false: "Hello" = "Goodbye"}
 Assert{false: "Hello" = 1}
 
@@ -55,18 +58,25 @@ Assert{received: 1 + 1.0  expected: 2.0}
 Assert{received: 1.0 + 1  expected: 2.0}
 
 # strict equality
-Assert{true: 1 = 1}
-Assert{true: 1.0 = 1.0}
+Assert{: 1 = 1}
+Assert{: 1.0 = 1.0}
 Assert{false: 1 = 2}
 Assert{false: 1.0 = 2.0}
 # does not convert int->flaot
 Assert{false: 1 = 1.0}
 Assert{false: 1.0 = 1}
+# strict non-equality
+Assert{: 1 != 2}
+Assert{: 1 != 1.0}
+Assert{false: 1 != 1}
+Assert{: 1.0 != 2.0}
+Assert{: 1.0 != 2}
+Assert{false: 1.0 != 1.0}
 
 # comparisons (with conversions)
-Assert{true: 1 == 1}
-Assert{true: 1 == 1.0}
-Assert{true: 1.0 == 1}
-Assert{true: 3 >= 1}
-Assert{true: 3 >= 1.0}
-Assert{true: 3.0 >= 1}
+Assert{: 1 == 1}
+Assert{: 1 == 1.0}
+Assert{: 1.0 == 1}
+Assert{: 3 >= 1}
+Assert{: 3 >= 1.0}
+Assert{: 3.0 >= 1}

@@ -42,6 +42,12 @@ export const boolClass: IRClass = new IRClassBuilder()
     }
     return falseVal
   })
+  .addPrimitive("!=:", (self, [arg]) => {
+    if (arg.instanceof(boolClass)) {
+      return arg.primitiveValue !== self ? trueVal : falseVal
+    }
+    return trueVal
+  })
   .addPrimitive("!", (self) => {
     return self ? falseVal : trueVal
   })
@@ -141,6 +147,12 @@ export const intClass: IRClass = new IRClassBuilder()
     }
     return falseVal
   })
+  .addPrimitive("!=:", (self, [arg]) => {
+    if (arg.instanceof(intClass)) {
+      return arg.primitiveValue !== self ? trueVal : falseVal
+    }
+    return trueVal
+  })
   .addPrimitive("==:", (self, [arg]) => {
     return numericCompare(self, arg, (a, b) => a === b)
   })
@@ -188,6 +200,12 @@ export const floatClass: IRClass = new IRClassBuilder()
       return arg.primitiveValue === self ? trueVal : falseVal
     }
     return falseVal
+  })
+  .addPrimitive("!=:", (self, [arg], ctx) => {
+    if (arg.instanceof(floatClass)) {
+      return arg.primitiveValue !== self ? trueVal : falseVal
+    }
+    return trueVal
   })
   .addPrimitive("==:", (self, [arg]) => {
     return numericCompare(self, arg, (a, b) => a === b)

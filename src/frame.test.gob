@@ -2,10 +2,10 @@ import [_Assert_] := "core"
 
 # key frames (including empty)
 let frame := []
-Assert{true: frame = []}
-Assert{false: frame = [foo]}
-Assert{false: frame = ()}
-Assert{false: frame = 0}
+Assert{: frame = []}
+Assert{: frame != [foo]}
+Assert{: frame != ()}
+Assert{: frame != 0}
 
 let value := frame{: 
   on {} 1
@@ -15,17 +15,20 @@ Assert{received: value expected: 1}
 
 # pair frames
 let point := [x: 1 y: 2]
-Assert{true: point = [x: 1 y: 2]}
-Assert{false: point = [x: 2 y: 2]}
-Assert{false: point = [x: 1 y: 2 z: 3]}
-Assert{false: point = [x: 1]}
-Assert{false: point = []}
-Assert{false: point = 1}
+Assert{: point = [x: 1 y: 2]}
+Assert{: point != [x: 2 y: 2]}
+Assert{: point != [x: 1 y: 2 z: 3]}
+Assert{: point != [x: 1]}
+Assert{: point != []}
+Assert{: point != 1}
 
 let other := [{: do f} f{x: 1 y: 2}]
-Assert{true: point = other}
+Assert{: point = other}
 
 # fields override methods
 let frame := [=: 2]
-Assert{true: frame{: 2}}
+Assert{: frame{: 2}}
 Assert{received: frame = 3 expected: [=: 3]}
+let frame := [!=: 2]
+Assert{false: frame{: 2}}
+Assert{received: frame != 3 expected: [!=: 3]}

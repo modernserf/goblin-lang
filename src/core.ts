@@ -95,6 +95,10 @@ const assertModule = new ObjectValue(
       assert(boolValue(arg))
       return unit
     })
+    .addPrimitive(":", (_, [arg]) => {
+      assert(boolValue(arg))
+      return unit
+    })
     .addPrimitive("false:", (_, [arg]) => {
       assert(boolValue(arg) === false)
       return unit
