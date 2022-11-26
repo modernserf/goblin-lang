@@ -93,7 +93,7 @@ let obj := [
 		if results{length} = 0 then
 			return "no results"
 		end
-		results{map: {: result} result{name}}{join: ", "}
+		return "some results"
 ]
 ```
 
@@ -204,16 +204,7 @@ a{:[
 ]} # => 3
 ```
 
-A common idiom with frames is to use them in "higher-order messages", like map/filter:
-
-```goblin
-let points := Vec{}, Point{x: 1 y: 2}, Point{x: 3 y: 4}
-points{map: [x]} # points{map: [{: value} value{x}]}
-let nums := Vec{}, 1, 2, 3
-nums{filter: [<=: 2]} # nums{filter: [{: value} value <= 2]}
-```
-
-The expression `[]` produces a frame with a blank key; for an object with _no_ methods, use `()`.
+NOTE: The expression `[]` produces a frame with a blank key; for an object with _no_ methods, use `()`.
 
 (TODO: link to more on frames)
 
@@ -362,40 +353,4 @@ let x := params{x} ? defaults{x} # => 3
 let y := params{y} ? defaults{y} # => 2
 ```
 
-This is idiomatically used with `do` blocks to provide optional arguments:
-
-```goblin
-let List := [
-	# ...
-	on {head: h tail: t} [
-		on {map: do f}
-			self{map: f index: 0}
-		on {map: do f index: i}
-			let h' := f{: h index: i} ? f{: h}
-			let t' := tail{map: f index: i + 1}
-			List{head: h' tail: t'}
-	]
-]
-# both work:
-list{map: {: item index: i} i}
-list{map: {: item} item}
-```
-
-This is also idiomatically used for unwrapping optionals and propagating errors:
-
-```goblin
-let Opt := [
-	on {some: value} [
-		on {some}
-			value
-	]
-	on {none} [
-		# no 'some' handler
-	]
-]
-
-let obj := [{: opt_value}
-	let value := opt_value{some} ? (return Opt{none})
-	# do stuff with value
-]
-```
+(TODO: link to try-send idioms)
