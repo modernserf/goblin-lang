@@ -80,3 +80,17 @@ Assert{: 1.0 == 1}
 Assert{: 3 >= 1}
 Assert{: 3 >= 1.0}
 Assert{: 3.0 >= 1}
+
+# order
+Assert{:  <1{order: 2}}
+Assert{: <=1{order: 2}}
+Assert{: !=1{order: 2}}
+Assert{:  =1{order: 1}}
+Assert{: >=1{order: 0}}
+Assert{:  >1{order: 0}}
+let res := 1{order: 2}{:
+  on {<} "<"
+  on {=} "="
+  on {>} ">"
+}
+Assert{: res = "<"}

@@ -1,4 +1,5 @@
 import { Interpreter, IRHandler, Value } from "./interface"
+import { IRModuleExpr } from "./ir-expr"
 import { IRConstHandler, IRPrimitiveHandler } from "./ir-handler"
 import { unit, PrimitiveValue, IRClass } from "./value"
 
@@ -152,6 +153,14 @@ export const intClass: IRClass = new IRClassBuilder()
       return arg.primitiveValue !== self ? trueVal : falseVal
     }
     return trueVal
+  })
+  .addPrimitive("order:", (self, [arg], ctx) => {
+    const other = floatValue(arg)
+    const selector = self === other ? "=" : self > other ? ">" : "<"
+    return new IRModuleExpr("core")
+      .eval(ctx)
+      .send(ctx, "Ord", [], null)
+      .send(ctx, selector, [], null)
   })
   .addPrimitive("==:", (self, [arg]) => {
     return numericCompare(self, arg, (a, b) => a === b)
