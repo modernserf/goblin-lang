@@ -70,18 +70,10 @@ function param(lexer: Lexer): ParseParam {
       lexer.advance()
       return new DoParam(ident(lexer))
     case "string":
-      lexer.advance()
-      return new PartialValueParam(new ParseString(token.value))
     case "integer":
-      lexer.advance()
-      return new PartialValueParam(new ParseInt(token.value))
     case "float":
-      lexer.advance()
-      return new PartialValueParam(new ParseFloat(token.value))
     case "openParen":
-      lexer.advance()
-      const expr = must(lexer, "expr", parseExpr)
-      mustToken(lexer, "closeParen")
+      const expr = must(lexer, "expr", baseExpr)
       return new PartialValueParam(expr)
     case "openBrace":
       lexer.advance()
@@ -159,6 +151,7 @@ function parsePattern<Item, Collection>(
     const token = lexer.peek()
     if (token.tag === "quotedIdent") {
       lexer.advance()
+      accept(lexer, "semicolon")
       builder.punPair(token.value)
       continue
     }
@@ -166,6 +159,7 @@ function parsePattern<Item, Collection>(
     const key = parseKey(lexer)
     if (accept(lexer, "colon")) {
       const value = must(lexer, "arg", parser)
+      accept(lexer, "semicolon")
       builder.pair(key, value)
       continue
     } else if (key) {
@@ -337,7 +331,6 @@ function binaryOpExpr(lexer: Lexer): ParseExpr | null {
 function parseExpr(lexer: Lexer): ParseExpr | null {
   const value = binaryOpExpr(lexer)
   if (!value) return null
-  accept(lexer, "semicolon")
   return value
 }
 
@@ -412,6 +405,7 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
     default: {
       const expr = parseExpr(lexer)
       if (!expr) return null
+      accept(lexer, "semicolon")
       return new ExprStmt(expr)
     }
   }
