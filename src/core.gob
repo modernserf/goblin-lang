@@ -384,6 +384,14 @@ let VecImpl := [
           end
         }
         VecImpl{array: out length: out{length}}
+      on {find: do f}
+        Control{times: length do: {: i}
+          let value := array{at: i}
+          if f{: array{at: i}} then
+            return Option{some: value}
+          end
+          Option{none}
+        }
       on {into: init fold: do f}
         var result := init
         Control{times: length do: {: i}

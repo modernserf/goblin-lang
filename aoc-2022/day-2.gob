@@ -1,71 +1,29 @@
 import [_File_ _Panic_ _Log_ _Vec_ _Control_ _Option_ _true_ _false_] := "core"
 
-let [_win_ _draw_ _lose_] := [
-  on {win} [
-    on {: do f} f{win}
-    on {score} 6
-  ]
-  on {draw} [
-    on {: do f} f{draw}
-    on {score} 3
-  ]
-  on {lose} [
-    on {: do f} f{lose}
-    on {score} 0
-  ]
-]
+let result_scores := [win: 6 draw: 3 lose: 0]
+let shape_scores := [rock: 1 paper: 2 scissors: 3]
+let rules := Vec{}
+  , [a: [rock] b: [rock] c: [draw]]
+  , [a: [rock] b: [paper] c: [lose]]
+  , [a: [rock] b: [scissors] c: [win]]
+  , [a: [paper] b: [rock] c: [win]]
+  , [a: [paper] b: [paper] c: [draw]]
+  , [a: [paper] b: [scissors] c: [lose]]
+  , [a: [scissors] b: [rock] c: [lose]]
+  , [a: [scissors] b: [paper] c: [win]]
+  , [a: [scissors] b: [scissors] c: [draw]]
 
-let RPS := [
-  on {rock} [
-    on {: do f} f{rock}
-    on {shape score} 1
-    on {beats: other}
-      other{:
-        on {rock}     draw
-        on {paper}    lose
-        on {scissors} win
-      }
-    on {get result: result}
-      result{:
-        on {win}  RPS{paper}
-        on {draw} RPS{rock}
-        on {lose} RPS{scissors}
-      }
-  ]
-  on {paper} [
-    on {: do f} f{paper}
-    on {shape score} 2
-    on {beats: other}
-      other{:
-        on {rock}     win
-        on {paper}    draw
-        on {scissors} lose
-      }
-    on {get result: result}
-      result{:
-        on {win}  RPS{scissors}
-        on {draw} RPS{paper}
-        on {lose} RPS{rock}
-      }
-  ]
-  on {scissors} [
-    on {: do f} f{scissors}
-    on {shape score} 3
-    on {beats: other}
-      other{:
-        on {rock}     lose
-        on {paper}    win
-        on {scissors} draw
-      }
-    on {get result: result}
-      result{:
-        on {win}  RPS{rock}
-        on {draw} RPS{scissors}
-        on {lose} RPS{paper}
-      }
-  ]
+# this is fast enough, but would be nice if this were indexed
+let query := [
+  on {player: a opponent: b}
+    rules{find: {: row}
+      (row{a} = a) && (row{b} = b)
+    }{some!}{c}
+  on {opponent: b result: c}
+    rules{find: {: row}
+      (row{b} = b) && (row{c} = c)
+    }{some!}{a}
 ]
-let [_rock_ _paper_ _scissors_] := RPS
 
 let ParseState := [
   on {source: src index: idx := 0} [
@@ -97,11 +55,11 @@ let parser := [
   on {left: var state}
     let ch := state{peek}
     let res := if ch = "A" then 
-        rock
+        [rock]
       else if ch = "B" then
-        paper
+        [paper]
       else if ch = "C" then
-        scissors
+        [scissors]
       else
         Panic{message: "unexpected char"}
       end
@@ -111,11 +69,11 @@ let parser := [
   on {right: var state}
     let ch := state{peek}
     let res := if ch = "X" then 
-        rock
+        [rock]
       else if ch = "Y" then
-        paper
+        [paper]
       else if ch = "Z" then
-        scissors
+        [scissors]
       else
         Panic{message: "unexpected char"}
       end
@@ -125,11 +83,11 @@ let parser := [
   on {right 2: var state}
     let ch := state{peek}
     let res := if ch = "X" then 
-        lose
+        [lose]
       else if ch = "Y" then
-        draw
+        [draw]
       else if ch = "Z" then
-        win
+        [win]
       else
         Panic{message: "unexpected char"}
       end
@@ -144,8 +102,8 @@ let parser := [
     let player := self{right: var state}
     self{newline: var state}
     
-    let result := player{beats: opponent}
-    let score := player{shape score} + result{score}
+    let result := query{player: player opponent: opponent}
+    let score := player{: shape_scores} + result{: result_scores}
     Option{some: score}
 
   on {round 2: var state}
@@ -155,8 +113,9 @@ let parser := [
     self{space: var state}
     let result := self{right 2: var state}
     self{newline: var state}
-    let player := opponent{get result: result}
-    let score := player{shape score} + result{score}
+    
+    let player := query{opponent: opponent result: result}
+    let score := player{: shape_scores} + result{: result_scores}
     Option{some: score}
 
   on {game: var state}
