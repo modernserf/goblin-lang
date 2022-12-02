@@ -285,10 +285,10 @@ export let Log := native{Log}
 
 export let File := native{File}
 
+let loop := native{loop}
 export let Control := [
   on {loop: do f}
-    f{}
-    self{loop: f}
+    loop{loop: f}
   on {times: times do: do f}
     var i := 0
     Control{loop: {}

@@ -87,7 +87,7 @@ let parser := [
     }
 ] 
 
-var input := File{read text sync: "./aoc-2022/day-1.input.txt"}
+let input := File{read text sync: "./aoc-2022/day-1.input.txt"}
 var state := ParseState{source: input}
 let elves := parser{root: var state}
 

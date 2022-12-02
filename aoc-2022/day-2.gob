@@ -1,0 +1,196 @@
+import [_File_ _Panic_ _Log_ _Vec_ _Control_ _Option_ _true_ _false_] := "core"
+
+let [_win_ _draw_ _lose_] := [
+  on {win} [
+    on {: do f} f{win}
+    on {score} 6
+  ]
+  on {draw} [
+    on {: do f} f{draw}
+    on {score} 3
+  ]
+  on {lose} [
+    on {: do f} f{lose}
+    on {score} 0
+  ]
+]
+
+let RPS := [
+  on {rock} [
+    on {: do f} f{rock}
+    on {shape score} 1
+    on {beats: other}
+      other{:
+        on {rock}     draw
+        on {paper}    lose
+        on {scissors} win
+      }
+    on {get result: result}
+      result{:
+        on {win}  RPS{paper}
+        on {draw} RPS{rock}
+        on {lose} RPS{scissors}
+      }
+  ]
+  on {paper} [
+    on {: do f} f{paper}
+    on {shape score} 2
+    on {beats: other}
+      other{:
+        on {rock}     win
+        on {paper}    draw
+        on {scissors} lose
+      }
+    on {get result: result}
+      result{:
+        on {win}  RPS{scissors}
+        on {draw} RPS{paper}
+        on {lose} RPS{rock}
+      }
+  ]
+  on {scissors} [
+    on {: do f} f{scissors}
+    on {shape score} 3
+    on {beats: other}
+      other{:
+        on {rock}     lose
+        on {paper}    win
+        on {scissors} draw
+      }
+    on {get result: result}
+      result{:
+        on {win}  RPS{rock}
+        on {draw} RPS{scissors}
+        on {lose} RPS{paper}
+      }
+  ]
+]
+let [_rock_ _paper_ _scissors_] := RPS
+
+let ParseState := [
+  on {source: src index: idx := 0} [
+    on {peek}
+      src{at: idx}
+    on {next}
+      ParseState{source: src index: idx + 1}
+  ]
+]
+
+let newline := "
+"
+
+let parser := [
+  on {space: var state}
+    let ch := state{peek}
+    if ch != " " then
+      Panic{message: "expected space"}
+    end
+    set state{next}
+  
+  on {newline: var state}
+    let ch := state{peek}
+    if ch != newline then
+      Panic{message: "expected newline"}
+    end
+    set state{next}
+
+  on {left: var state}
+    let ch := state{peek}
+    let res := if ch = "A" then 
+        rock
+      else if ch = "B" then
+        paper
+      else if ch = "C" then
+        scissors
+      else
+        Panic{message: "unexpected char"}
+      end
+    set state{next}
+    res
+
+  on {right: var state}
+    let ch := state{peek}
+    let res := if ch = "X" then 
+        rock
+      else if ch = "Y" then
+        paper
+      else if ch = "Z" then
+        scissors
+      else
+        Panic{message: "unexpected char"}
+      end
+    set state{next}
+    res
+
+  on {right 2: var state}
+    let ch := state{peek}
+    let res := if ch = "X" then 
+        lose
+      else if ch = "Y" then
+        draw
+      else if ch = "Z" then
+        win
+      else
+        Panic{message: "unexpected char"}
+      end
+    set state{next}
+    res
+
+  on {round: var state}
+    if state{peek} = "" then return Option{none} end
+
+    let opponent := self{left: var state}
+    self{space: var state}
+    let player := self{right: var state}
+    self{newline: var state}
+    
+    let result := player{beats: opponent}
+    let score := player{shape score} + result{score}
+    Option{some: score}
+
+  on {round 2: var state}
+    if state{peek} = "" then return Option{none} end
+
+    let opponent := self{left: var state}
+    self{space: var state}
+    let result := self{right 2: var state}
+    self{newline: var state}
+    let player := opponent{get result: result}
+    let score := player{shape score} + result{score}
+    Option{some: score}
+
+  on {game: var state}
+    var total_score := 0
+    Control{loop: {}
+      let round := self{round: var state}
+      let score := round{:
+        on {some: score}
+          score
+        on {none}
+          return total_score
+      }
+      set total_score{+: score}
+    }
+
+  on {game 2: var state}
+    var total_score := 0
+    Control{loop: {}
+      let round := self{round 2: var state}
+      let score := round{:
+        on {some: score}
+          score
+        on {none}
+          return total_score
+      }
+      set total_score{+: score}
+    }
+]
+
+let input := File{read text sync: "./aoc-2022/day-2.input.txt"}
+var state := ParseState{source: input}
+let total_score := parser{game: var state}
+Log{: "part 1: " ++ total_score{to String}}
+
+var state := ParseState{source: input}
+let total_score := parser{game 2: var state}
+Log{: "part 2: " ++ total_score{to String}}

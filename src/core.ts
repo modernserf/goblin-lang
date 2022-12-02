@@ -145,6 +145,17 @@ const fileModule = new ObjectValue(
   []
 )
 
+const loopModule = new ObjectValue(
+  new IRClassBuilder()
+    .addPrimitive("loop:", (_, [fn], ctx) => {
+      while (true) {
+        fn.send(ctx, "", [], null)
+      }
+    })
+    .build(),
+  []
+)
+
 const nativeClass = new IRClassBuilder()
   .addConst("Cell", cellModule)
   .addConst("Array", arrayModule)
@@ -154,6 +165,7 @@ const nativeClass = new IRClassBuilder()
   .addConst("File", fileModule)
   .addConst("true", trueVal)
   .addConst("false", falseVal)
+  .addConst("loop", loopModule)
   .build()
 
 const native = new PrimitiveValue(nativeClass, null)

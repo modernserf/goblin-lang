@@ -78,6 +78,12 @@ export const stringClass: IRClass = new IRClassBuilder()
     }
     return falseVal
   })
+  .addPrimitive("!=:", (self, [arg]) => {
+    if (arg.instanceof(stringClass)) {
+      return arg.primitiveValue !== self ? trueVal : falseVal
+    }
+    return trueVal
+  })
   .addPrimitive("++:", (self, [arg]) => {
     return new PrimitiveValue(stringClass, `${self}${strValue(arg)}`)
   })
