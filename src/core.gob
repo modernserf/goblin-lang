@@ -281,6 +281,10 @@ export let Array := native{Array}
 
 export let Panic := native{Panic}
 
+export let Log := native{Log}
+
+export let File := native{File}
+
 export let Control := [
   on {loop: do f}
     f{}
@@ -380,6 +384,13 @@ let VecImpl := [
           end
         }
         VecImpl{array: out length: out{length}}
+      on {into: init fold: do f}
+        var result := init
+        Control{times: length do: {: i}
+          let value := array{at: i}
+          set result := f{: value into: result}
+        }
+        result
       on {=: other}
         let len := other{length} ? (return false)
         if len != length then return false end

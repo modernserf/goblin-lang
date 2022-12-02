@@ -84,6 +84,18 @@ export const stringClass: IRClass = new IRClassBuilder()
   .addPrimitive("length", (self) => {
     return new PrimitiveValue(intClass, self.length)
   })
+  // TODO: return option value
+  .addPrimitive("at:", (self, [arg]) => {
+    const index = intValue(arg)
+    const ch = self[index] || ""
+    return new PrimitiveValue(stringClass, ch)
+  })
+  // TODO: return option value
+  .addPrimitive("code at:", (self, [arg]) => {
+    const index = intValue(arg)
+    const code = index < self.length ? self.charCodeAt(index) : -1
+    return new PrimitiveValue(intClass, code)
+  })
   .addPrimitive(
     "js debug",
     /* istanbul ignore next */ (self) => {

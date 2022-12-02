@@ -14,6 +14,7 @@ import {
   falseVal,
   boolValue,
   IRClassBuilder,
+  stringClass,
 } from "./primitive"
 import { IRStmt } from "./interface"
 
@@ -123,11 +124,34 @@ const panicModule = new ObjectValue(
     .build(),
   []
 )
+
+const logModule = new ObjectValue(
+  new IRClassBuilder()
+    .addPrimitive(":", (_, [message]) => {
+      console.log(strValue(message))
+      return unit
+    })
+    .build(),
+  []
+)
+
+const fileModule = new ObjectValue(
+  new IRClassBuilder()
+    .addPrimitive("read text sync:", (_, [filename]) => {
+      const contents = readFileSync(strValue(filename), { encoding: "utf-8" })
+      return new PrimitiveValue(stringClass, contents)
+    })
+    .build(),
+  []
+)
+
 const nativeClass = new IRClassBuilder()
   .addConst("Cell", cellModule)
   .addConst("Array", arrayModule)
   .addConst("Assert", assertModule)
   .addConst("Panic", panicModule)
+  .addConst("Log", logModule)
+  .addConst("File", fileModule)
   .addConst("true", trueVal)
   .addConst("false", falseVal)
   .build()
