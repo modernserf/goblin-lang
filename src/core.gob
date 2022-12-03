@@ -407,6 +407,18 @@ let VecImpl := [
           if array{at: i} != val then return false end 
         }
         return true
+
+      # slicing
+      on {from: f to: t}
+        let next := array{from: f to: t}
+        let len := next{length}
+        VecImpl{array: next length: len}
+      on {from: f}
+        self{from: f to: self{length}}
+      on {to: t}
+        self{from: 0 to: t}
+      
+      # sorting
       on {sort}
         self{sort: [asc]}
       on {sort: direction}

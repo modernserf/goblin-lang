@@ -89,3 +89,6 @@ var xs := Vec{}, 1, 2, 3
 Assert{received: Vec{pop: var xs} expected: 3}
 Assert{received: Vec{pop: var xs} expected: 2}
 Assert{: xs = (Vec{}, 1)}
+
+var xs := Vec{}, "a", "b", "c", "d", "e"
+Assert{received: xs{from: 0 to: 3} expected: Vec{}, "a", "b", "c"}

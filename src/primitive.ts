@@ -91,7 +91,7 @@ export const stringClass: IRClass = new IRClassBuilder()
     return new PrimitiveValue(intClass, self.length)
   })
   // TODO: return option value
-  .addPrimitive("at:", (self, [arg]) => {
+  .addPrimitive("at:", (self: string, [arg]) => {
     const index = intValue(arg)
     const ch = self[index] || ""
     return new PrimitiveValue(stringClass, ch)
@@ -157,8 +157,14 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("&:", (self, [arg]) => {
     return new PrimitiveValue(intClass, self & intValue(arg))
   })
+  .addPrimitive("|:", (self, [arg]) => {
+    return new PrimitiveValue(intClass, self | intValue(arg))
+  })
   .addPrimitive(">>:", (self, [arg]) => {
     return new PrimitiveValue(intClass, self >> intValue(arg))
+  })
+  .addPrimitive("<<:", (self, [arg]) => {
+    return new PrimitiveValue(intClass, self << intValue(arg))
   })
   .addPrimitive("-", (self) => {
     return new PrimitiveValue(intClass, -self)

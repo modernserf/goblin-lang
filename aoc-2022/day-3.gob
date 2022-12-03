@@ -1,0 +1,187 @@
+import [_File_ _Option_ _Control_ _Vec_ _Log_ _Assert_] := "core"
+
+let ParseState := [
+  on {source: src index: idx := 0} [
+    on {peek}
+      src{at: idx}
+    on {next}
+      ParseState{source: src index: idx + 1}
+  ]
+]
+
+let lowercase := "a"{code at: 0}
+let uppercase := "A"{code at: 0}
+let newline := "
+"
+
+let BitSet := [
+  on {}
+    BitSet{hi: 0 lo: 0}
+  on {: vec}
+    var bitset := BitSet{}
+    vec{map: {: item}
+      set bitset{add: item}
+    }
+    bitset
+
+  on {_hi_ _lo_} [
+    on {hi} hi
+    on {lo} lo
+
+    on {add: num}
+      if num > 32 then
+        # TODO: fix `let x := x + 1`
+        let hi' := hi | (1 << (num - 32))
+        BitSet{hi: hi' _lo_}
+      else
+        let lo' := lo | (1 << num)
+        BitSet{_hi_ lo: lo'}
+      end
+    
+    on {has: num}
+      if num > 32 then
+        hi & (1 << (num - 32)) != 0
+      else
+        lo & (1 << num) != 0
+      end
+
+    on {&: other}
+      BitSet{
+        hi: hi & other{hi}
+        lo: lo & other{lo}
+      }
+
+    on {|: other}
+      BitSet{
+        hi: hi | other{hi}
+        lo: lo | other{lo}
+      }
+
+    on {to Vec}
+      var out := Vec{}
+      Control{times: 64 do: {: i}
+        if self{has: i} then
+          set out{push: i}
+        end
+      }
+      out
+  ]
+]
+
+# Test bitset
+[{}
+  var bs := BitSet{}
+  set bs{add: 1}
+  set bs{add: 30}
+  set bs{add: 58}
+  Assert{:bs{has: 1}}
+  Assert{:bs{has: 30}}
+  Assert{:bs{has: 58}}
+  Assert{false: bs{has: 20}}
+  Assert{false: bs{has: 63}}
+
+  let cs := BitSet{: Vec{}, 4, 30, 22}
+  Assert{:cs{has: 4}}
+  Assert{:cs{has: 30}}
+  Assert{:cs{has: 22}}
+
+  let intersect := bs & cs
+  Assert{: intersect{has: 30}}
+  Assert{false: intersect{has: 1}}
+  Assert{false: intersect{has: 4}}
+
+  Assert{
+    expected: bs{to Vec}
+    received: Vec{}, 1, 30, 58
+  }
+]{}
+
+let Rucksack := [
+  on {: vec}
+    let len := vec{length}
+    let half := len >> 1
+    let left := vec{to: half}
+    let right := vec{from: half}
+    Rucksack{left: BitSet{: left} right: BitSet{: right}}
+
+  on {_left_ _right_} [
+    on {sum overlap}
+      let overlap := left & right
+      let overlap_vec := overlap{to Vec}
+      let sum := overlap{to Vec}{into: 0 fold: {: item into: sum} sum + item}
+      sum 
+
+    on {to BitSet}
+      left | right
+  ]
+]
+
+let parser := [
+  on {item: var state}
+    let ch := state{peek}
+    set state{next}
+    if ch = newline then return Option{none} end
+
+    let code := ch{code at: 0}    
+    let priority := if code <= lowercase then
+      # uppercase: A-Z -> 27-52
+      code - uppercase + 27
+    else
+      # lowercase: a-z -> 1-26
+      code - lowercase + 1
+    end
+    Option{some: priority}
+
+  on {line: var state}
+    var items := Vec{}
+    Control{loop: {}
+      let priority := self{item: var state}{:
+        on {some: p}
+          p
+        on {none}
+          Assert{: items{length} > 0}
+          return Rucksack{:items}
+      }
+      set items{push: priority}
+    }
+
+  on {group: var state}
+    let a := self{line: var state}
+    let b := self{line: var state}
+    let c := self{line: var state}
+    let badge_set := a{to BitSet} & b{to BitSet} & c{to BitSet}
+    let priority := badge_set{to Vec}{at: 0}
+    priority
+  
+  on {sum: input}
+    var state := ParseState{source: input}
+    var sum := 0
+    Control{loop: {}
+      let sack := self{line: var state}
+      set sum{+: sack{sum overlap}}
+      if state{peek} = "" then return sum end
+    }
+
+  on {group sum: input}
+    var state := ParseState{source: input}
+    var sum := 0
+    Control{loop: {}
+      let group_priority := self{group: var state}
+      set sum{+: group_priority}
+      if state{peek} = "" then return sum end
+    }
+]
+
+let input := File{read text sync: "./aoc-2022/day-3.input.txt"}
+
+let test_input := "vJrwpWtwJgWrhcsFMMfFFhFp
+jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
+PmmdzqPrVvPwwTWBwg
+wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
+ttgJtRGJQctTZtZT
+CrZsJsPPZsGzwwsLwLmpwMDw
+"
+
+Log{: "part 1: " ++ parser{sum: input}{to String}}
+Log{: "part 2: " ++ parser{group sum: input}{to String}}
+
