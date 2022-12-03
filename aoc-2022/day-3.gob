@@ -29,7 +29,7 @@ let BitSet := [
     on {lo} lo
 
     on {add: num}
-      if num > 32 then
+      if num >= 32 then
         # TODO: fix `let x := x + 1`
         let hi' := hi | (1 << (num - 32))
         BitSet{hi: hi' _lo_}
@@ -39,7 +39,7 @@ let BitSet := [
       end
     
     on {has: num}
-      if num > 32 then
+      if num >= 32 then
         hi & (1 << (num - 32)) != 0
       else
         lo & (1 << num) != 0
@@ -165,9 +165,11 @@ let parser := [
   on {group sum: input}
     var state := ParseState{source: input}
     var sum := 0
+    var count := 0
     Control{loop: {}
       let group_priority := self{group: var state}
       set sum{+: group_priority}
+      set count{+: 1}
       if state{peek} = "" then return sum end
     }
 ]
