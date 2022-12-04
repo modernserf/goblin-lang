@@ -587,6 +587,16 @@ export let Parser := [
       Option{none}
   ]}
 
+  on {any} Parser{:[
+    on {parse: var state}
+      if state{done} then
+        return Option{none}
+      end
+      let result := state{peek}
+      set state{next}
+      return Option{some: result}
+  ]}
+
   on {end} Parser{:[
     on {parse: var state}
       if state{done} then

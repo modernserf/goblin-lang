@@ -1,4 +1,4 @@
-import [_File_ _Panic_ _Log_ _Vec_ _Control_ _Option_ _true_ _false_] := "core"
+import [_File_ _Log_ _Vec_ _Parser_ _Panic_] := "core"
 
 let result_scores := [win: 6 draw: 3 lose: 0]
 let shape_scores := [rock: 1 paper: 2 scissors: 3]
@@ -25,131 +25,61 @@ let query := [
     }{some!}{a}
 ]
 
-let ParseState := [
-  on {source: src index: idx := 0} [
-    on {peek}
-      src{at: idx}
-    on {next}
-      ParseState{source: src index: idx + 1}
-  ]
+# TODO: maybe Parser{try match: f} -> Option{value}
+let left_hand := Parser{any} |>> [{: ch}
+  if ch = "A" then 
+    [rock]
+  else if ch = "B" then
+    [paper]
+  else if ch = "C" then
+    [scissors]
+  else
+    Panic{message: "unexpected char"}
+  end
 ]
 
-let newline := "
-"
+let right_hand := Parser{any} |>> [{: ch}
+  if ch = "X" then 
+    [rock]
+  else if ch = "Y" then
+    [paper]
+  else if ch = "Z" then
+    [scissors]
+  else
+    Panic{message: "unexpected char"}
+  end
+]
 
-let parser := [
-  on {space: var state}
-    let ch := state{peek}
-    if ch != " " then
-      Panic{message: "expected space"}
+let right_result := Parser{any} |>> [{: ch}
+   if ch = "X" then 
+      [lose]
+    else if ch = "Y" then
+      [draw]
+    else if ch = "Z" then
+      [win]
+    else
+      Panic{message: "unexpected char"}
     end
-    set state{next}
-  
-  on {newline: var state}
-    let ch := state{peek}
-    if ch != newline then
-      Panic{message: "expected newline"}
-    end
-    set state{next}
+]
 
-  on {left: var state}
-    let ch := state{peek}
-    let res := if ch = "A" then 
-        [rock]
-      else if ch = "B" then
-        [paper]
-      else if ch = "C" then
-        [scissors]
-      else
-        Panic{message: "unexpected char"}
-      end
-    set state{next}
-    res
+let space := Parser{token: " "}
 
-  on {right: var state}
-    let ch := state{peek}
-    let res := if ch = "X" then 
-        [rock]
-      else if ch = "Y" then
-        [paper]
-      else if ch = "Z" then
-        [scissors]
-      else
-        Panic{message: "unexpected char"}
-      end
-    set state{next}
-    res
-
-  on {right 2: var state}
-    let ch := state{peek}
-    let res := if ch = "X" then 
-        [lose]
-      else if ch = "Y" then
-        [draw]
-      else if ch = "Z" then
-        [win]
-      else
-        Panic{message: "unexpected char"}
-      end
-    set state{next}
-    res
-
-  on {round: var state}
-    if state{peek} = "" then return Option{none} end
-
-    let opponent := self{left: var state}
-    self{space: var state}
-    let player := self{right: var state}
-    self{newline: var state}
-    
+let round_1 :=
+  left_hand .>> space .>>. right_hand .>> Parser{newline} |>> [{:[0: opponent 1: player]}
     let result := query{player: player opponent: opponent}
-    let score := player{: shape_scores} + result{: result_scores}
-    Option{some: score}
+    player{: shape_scores} + result{: result_scores}
+  ]
 
-  on {round 2: var state}
-    if state{peek} = "" then return Option{none} end
-
-    let opponent := self{left: var state}
-    self{space: var state}
-    let result := self{right 2: var state}
-    self{newline: var state}
-    
+let round_2 :=
+  left_hand .>> space .>>. right_result .>> Parser{newline} |>> [{:[0: opponent 1: result]}
     let player := query{opponent: opponent result: result}
-    let score := player{: shape_scores} + result{: result_scores}
-    Option{some: score}
+    player{: shape_scores} + result{: result_scores}
+  ]
 
-  on {game: var state}
-    var total_score := 0
-    Control{loop: {}
-      let round := self{round: var state}
-      let score := round{:
-        on {some: score}
-          score
-        on {none}
-          return total_score
-      }
-      set total_score{+: score}
-    }
-
-  on {game 2: var state}
-    var total_score := 0
-    Control{loop: {}
-      let round := self{round 2: var state}
-      let score := round{:
-        on {some: score}
-          score
-        on {none}
-          return total_score
-      }
-      set total_score{+: score}
-    }
-]
+let sum := [{: xs} xs{into: 0 fold: {: x into: sum} sum + x}]
 
 let input := File{read text sync: "./aoc-2022/day-2.input.txt"}
-var state := ParseState{source: input}
-let total_score := parser{game: var state}
-Log{: "part 1: " ++ total_score{to String}}
-
-var state := ParseState{source: input}
-let total_score := parser{game 2: var state}
-Log{: "part 2: " ++ total_score{to String}}
+let part_1 := Parser{parse: input with: *round_1 |>> sum}{some!}
+Log{: "part 1: " ++ part_1{to String}}
+let part_2 := Parser{parse: input with: *round_2 |>> sum}{some!}
+Log{: "part 2: " ++ part_2{to String}}
