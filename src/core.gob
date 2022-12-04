@@ -1,4 +1,8 @@
-export let [_true_ _false_ String: string] := native
+export let [_true_ _false_ String: string _debug_] := native
+
+export let Debug := [
+  on {: value} debug{: value}
+]
 
 export let Bool := [
   on {true} true
@@ -623,7 +627,10 @@ export let Parser := [
       digits{into: 0 fold: {: digit into: num}
         (num * 10) + digit
       }
-    ] 
+    ]
+
+  on {newline}
+    Parser{token: String{newline}} 
   
   # combinator utils
   on {: parser} [

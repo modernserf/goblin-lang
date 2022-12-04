@@ -17,6 +17,7 @@ import {
   stringClass,
 } from "./primitive"
 import { IRStmt } from "./interface"
+import { debug } from "node:console"
 
 const cellInstance = new IRClassBuilder()
   .addPrimitive("get", (self) => self.value)
@@ -166,6 +167,16 @@ const stringModule = new ObjectValue(
   []
 )
 
+const debugModule = new ObjectValue(
+  new IRClassBuilder()
+    .addPrimitive(":", (_, [val]) => {
+      console.log(val)
+      return unit
+    })
+    .build(),
+  []
+)
+
 const nativeClass = new IRClassBuilder()
   .addConst("String", stringModule)
   .addConst("Cell", cellModule)
@@ -177,6 +188,7 @@ const nativeClass = new IRClassBuilder()
   .addConst("true", trueVal)
   .addConst("false", falseVal)
   .addConst("loop", loopModule)
+  .addConst("debug", debugModule)
   .build()
 
 const native = new PrimitiveValue(nativeClass, null)

@@ -1,95 +1,4 @@
-import [_File_ _Log_ _Vec_ _Control_ _Option_ _true_ _false_] := "core"
-
-let ParseState := [
-  on {source: src index: idx := 0} [
-    on {peek}
-      src{at: idx}
-    on {next}
-      ParseState{source: src index: idx + 1}
-  ]
-]
-
-# TODO: support "\n" -> newline; also String{newline}
-let newline := "
-"
-
-let NumberBlock := [
-  on {: vec := Vec{}} [
-    on {push: item}
-      NumberBlock{: vec{push: item}}
-    on {is empty}
-      vec{length} = 0
-    on {sum}
-      vec{into: 0 fold: {: value into: sum} sum + value}
-  ]
-]
-
-let parser := [
-  on {digit: var state} # Option{:Int}
-    let ch := state{peek}
-    let code := ch{code at: 0}
-    let int := code - 48 # ASCII '0'
-    if (int < 0) || (int > 9) then
-      return Option{none}
-    end
-    set state{next}
-    Option{some: int}
-
-  on {newline: var state} # Option{:unit}
-    let ch := state{peek}
-    if ch = newline then
-      set state{next}
-      return Option{some:()}
-    end
-    return Option{none}
-
-  on {number: var state} # Option{:Int}
-    var number := self{digit: var state}{:
-      on {some: x} x
-      on {none} return Option{none}
-    }
-
-    Control{loop: {}
-      self{digit: var state}{:
-        on {some: x}
-          set number := (number * 10) + x
-        on {none}
-          return Option{some: number}
-      }
-    }
-
-  on {number block: var state} # NumberBlock
-    var block := NumberBlock{}
-
-    Control{loop: {}
-      let opt_num := self{number: var state}
-      # FIXME: getting spurious var double borrow with natural code
-      let num := opt_num{:
-        on {some: num}
-          num
-        on {none}
-          return block
-      }
-      set block{push: num}
-      self{newline: var state}{some!}
-    }
-
-  on {root: var state} # Vec{:NumberBlock}
-    var result := Vec{}
-    Control{loop: {}
-      let block := self{number block: var state}
-      if block{is empty} then
-        return result
-      end
-
-      self{newline: var state}
-      set result{push: block}
-    }
-] 
-
-let input := File{read text sync: "./aoc-2022/day-1.input.txt"}
-var state := ParseState{source: input}
-let elves := parser{root: var state}
+import [_File_ _Log_ _Parser_] := "core"
 
 let TopThree := [
   on {} 
@@ -112,12 +21,16 @@ let TopThree := [
   ]
 ]
 
-var top_three := TopThree{}
+let sum := [{: xs} xs{into: 0 fold: {: value into: sum} sum + value}]
+let top_three := [{:xs} xs{into: TopThree{} fold: {: item into: state} state{add: item}}]
 
-elves{map: {: item}
-  let sum := item{sum}
-  set top_three{add: sum}
-}
+# TODO: sep by newline
+let number_line := Parser{integer} .>> Parser{newline}
+let block_sum := +number_line .>> Parser{newline} |>> sum
+let all_sums := *block_sum |>> top_three
 
-Log{: "part 1: " ++ top_three{max}{to String}}
-Log{: "part 2: " ++ top_three{sum}{to String}}
+let input := File{read text sync: "./aoc-2022/day-1.input.txt"}
+let result := Parser{parse: input with: all_sums}{some!}
+
+Log{: "part 1: " ++ result{max}{to String}}
+Log{: "part 2: " ++ result{sum}{to String}}
