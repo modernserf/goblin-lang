@@ -42,7 +42,7 @@ const re = {
   string: /"(?:\\"|[^"])*"/y,
   identKw: /[a-zA-Z][a-zA-Z0-9'_]*/y,
   identUnderscore: /_(?:\\_|[^_])*_/y,
-  operator: /[-~!@$%^&*+|<>,/=]+/y,
+  operator: /[-~!@$%^&*+|<>.,/=]+/y,
   punctuation: /:=|[\[\]\(\)\{\}:;?]/y,
 }
 

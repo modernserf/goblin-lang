@@ -1,10 +1,18 @@
-export let [_true_ _false_] := native
+export let [_true_ _false_ String: string] := native
 
 export let Bool := [
   on {true} true
   on {false} false
 ]
 
+export let String := [
+  on {from char code: code}
+    string{from char code: code}
+  on {newline} 
+    string{from char code: 10}
+  on {tab} 
+    string{from char code: 9}
+]
 
 # - orderable objects respond to {order: other} with an Ord instance
 # - operators (note: prefix!) can be used for quickly deriving relevant methods from {order: other}
@@ -542,5 +550,147 @@ export let HashMap := [
       HashMap{state: next_state}
     on {size}
       state{size}
+  ]
+]
+
+# TODO: three-state result - None | Ok(value) | Err(err) - instead of throwing
+# (this will enable a try method for backtracking)
+let ParseState := [
+  on {source: src index: idx := 0} [
+    on {peek}
+      src{at: idx}
+    on {next}
+      ParseState{source: src index: idx + 1}
+    on {done}
+      idx >= src{length}
+  ]
+]
+
+export let Parser := [
+  on {parse: source with: parser}
+    var state := ParseState{source: source}
+    Parser{:parser}
+      {skip: Parser{end}}
+      {parse: var state}
+
+  on {some: value} Parser{:[
+    on {parse: var __}
+      Option{some: value}
+  ]}
+
+  on {none} Parser{:[
+    on {parse: var __}
+      Option{none}
+  ]}
+
+  on {end} Parser{:[
+    on {parse: var state}
+      if state{done} then
+        Option{some: ()}
+      else
+        Option{none}
+      end
+  ]}
+
+  on {match: f} Parser{:[
+    on {parse: var state}
+      let result := state{peek}
+      if f{: result} then
+        set state{next}
+        Option{some: result}
+      else
+        Option{none}
+      end
+  ]}
+
+  on {token: tok}
+    Parser{match: [=: tok]}
+
+  on {digit} Parser{:[
+    on {parse: var state}
+      let ch := state{peek}
+      let code := ch{code at: 0}
+      let int := code - 48 # ASCII '0'
+      if (int < 0) || (int > 9) then
+        return Option{none}
+      end
+      set state{next}
+      Option{some: int}
+  ]}
+
+  on {integer} 
+    +Parser{digit} |>> [{: digits}
+      digits{into: 0 fold: {: digit into: num}
+        (num * 10) + digit
+      }
+    ] 
+  
+  # combinator utils
+  on {: parser} [
+    on {parse: var state}
+      parser{parse: var state}
+
+    on {|>>: f}
+      {apply: f} Parser{:[
+      on {parse: var state}
+        parser{parse: var state}{map: f}
+    ]}
+
+    on {some!} Parser{:[
+      on {parse: var state}
+        self{parse: var state}{some!}
+    ]}
+
+    on {>>%: constant}
+      {constant: constant}
+      self |>> [{: __} constant]
+
+    on {.>>.: next_parser} 
+      {pair: next_parser} Parser{:[
+        on {parse: var state}
+          let first := parser{parse: var state}{some!} ? (return Option{none})
+          let second := next_parser{parse: var state}{some!}
+          Option{some: [0: first 1: second]}
+      ]}
+
+    on {.>>: next_parser}
+      {skip: next_parser}
+        self .>>. next_parser |>> [0]
+
+    on {>>.: next_parser}
+      {then: next_parser}
+        self .>>. next_parser |>> [1]
+
+    on {between: open_parser and: close_parser}
+      Parser{:open_parser} >>. self .>> close_parser
+   
+    on 
+      {repeat: min} Parser{:[
+      on {parse: var state}
+        # save previous state for backtracking
+        let prev_state := state
+        var result := Vec{}
+        Control{loop: {}
+          let item := parser{parse: var state}{:
+            on {some: x} x
+            on {none}
+              if result{length} < min then
+                set state := prev_state
+                return Option{none}
+              end
+              return Option{some: result}
+          }
+          set result{push: item}
+        }
+    ]}
+    on {+} {repeat1}
+      self{repeat: 1}
+    on {*} {repeat}
+      self{repeat: 0}
+    on {opt} {optional} Parser{:[
+      on {parse: var state}
+        let res := parser{parse: var state}
+        Option{some: res}
+    ]}
   ]
 ]

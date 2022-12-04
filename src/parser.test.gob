@@ -1,0 +1,38 @@
+import [_Option_ _Parser_ _Assert_ _Vec_] := "core"
+
+Assert{
+  received: Parser{parse: "" with: Parser{end}}
+  expected: Option{some: ()}
+}
+Assert{
+  received: Parser{parse: "h" with: Parser{token: "h"}}
+  expected: Option{some: "h"}
+}
+Assert{
+  received: Parser{parse: Vec{}, 3 with: Parser{match: [>: 1]}}
+  expected: Option{some: 3}
+}
+Assert{
+  received: Parser{parse: Vec{}, 0 with: Parser{match: [>: 1]}}
+  expected: Option{none}
+}
+Assert{
+  received: Parser{parse: "1" with: Parser{digit}}
+  expected: Option{some: 1}
+}
+Assert{
+  received: Parser{parse: "c" with: Parser{digit}}
+  expected: Option{none}
+}
+Assert{
+  received: Parser{parse: "123" with: Parser{integer}}
+  expected: Option{some: 123}
+}
+Assert{
+  received: Parser{parse: "123" with: Parser{integer} |>> [*: 2]}
+  expected: Option{some: 246}
+}
+Assert{
+  received: Parser{parse: "123,45" with: Parser{integer} .>> Parser{token: ","} .>>. Parser{integer}}
+  expected: Option{some: [0: 123 1: 45]}
+}

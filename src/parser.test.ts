@@ -16,7 +16,7 @@ test("invalid tokens", () => {
     parse(`"string with no end quote`)
   }, LexerError)
   assert.throws(() => {
-    parse(`.`)
+    parse("`")
   }, LexerError)
 })
 

@@ -156,7 +156,18 @@ const loopModule = new ObjectValue(
   []
 )
 
+const stringModule = new ObjectValue(
+  new IRClassBuilder()
+    .addPrimitive("from char code:", (_, [code]) => {
+      const str = String.fromCharCode(intValue(code))
+      return new PrimitiveValue(stringClass, str)
+    })
+    .build(),
+  []
+)
+
 const nativeClass = new IRClassBuilder()
+  .addConst("String", stringModule)
   .addConst("Cell", cellModule)
   .addConst("Array", arrayModule)
   .addConst("Assert", assertModule)

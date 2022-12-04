@@ -16,6 +16,7 @@ function testFile(name: string, path: string) {
 
 testFile("primitives", "./src/primitive.test.gob")
 testFile("structures", "./src/structures.test.gob")
+testFile("parser", "./src/parser.test.gob")
 testFile("params", "./src/params.test.gob")
 testFile("frame", "./src/frame.test.gob")
 testFile("test file", "./src/test.gob")
