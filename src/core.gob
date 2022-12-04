@@ -372,7 +372,7 @@ let VecImpl := [
         let out := Array{}
         Control{times: length do: {: i}
           let value := array{at: i}
-          out{push: f{: value}}
+          out{push: f{: value} ? f{: value index: i}}
         }
         VecImpl{array: out length: length}
       on {filter: do f}
@@ -447,4 +447,42 @@ export let Vec := [
     let res := vec{pop}
     set vec := res{most}
     return res{last}
+]
+
+let HM := [
+  on {empty} [
+    on {key: __ hash: __}
+      Option{none}
+    on {key: k value: v hash: __}
+      var cs := Vec{}
+      Control{times: 32 do: {}
+        cs{push: HM{empty}}
+      }
+      HM{key: k value: v children: cs}
+  ]
+  on {_key_ _value_ _children_} [
+    on {key: k hash: hash}
+      if key = k then return Option{some: value} end
+      let next := children{at: hash & 31}
+      next{key: k hash: hash >> 5}
+
+    on {key: k value: v hash: hash}
+      if key = k then return HM{key: k value: v children: children} end
+      let next := children{at: hash & 31}
+      let inserted := next{key: k value: v hash: hash >> 4}
+      let next_children := children{at: hash & 31 value: inserted}
+      HM{key: key value: value children: next_children}
+  ]
+]
+
+export let HashMap := [
+  on {}
+    HashMap{state: HM{empty}}
+  on {state: state} [
+    on {key: k}
+      state{key: k hash: k{hash}}
+    on {key: k value: v}
+      let next_state := state{key: k value: v hash: k{hash}}
+      HashMap{state: state}
+  ]
 ]

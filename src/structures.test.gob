@@ -1,4 +1,4 @@
-import [_Assert_ _Array_ _Cell_ _Vec_] := "core"
+import [_Assert_ _Array_ _Cell_ _Vec_ _HashMap_] := "core"
 
 # cell
 let a := Cell{: 0}
