@@ -450,28 +450,81 @@ export let Vec := [
 ]
 
 let HM := [
-  on {empty} [
-    on {key: __ hash: __}
-      Option{none}
-    on {key: k value: v hash: __}
-      var cs := Vec{}
-      Control{times: 32 do: {}
-        cs{push: HM{empty}}
-      }
-      HM{key: k value: v children: cs}
-  ]
-  on {_key_ _value_ _children_} [
-    on {key: k hash: hash}
-      if key = k then return Option{some: value} end
-      let next := children{at: hash & 31}
-      next{key: k hash: hash >> 5}
+  on {empty}
+    HM{entry: [empty] children: Option{none}}
+  on {init children}
+    var cs := Vec{}
+    Control{times: 32 do: {}
+      set cs{push: HM{empty}}
+    }
+    cs
 
-    on {key: k value: v hash: hash}
-      if key = k then return HM{key: k value: v children: children} end
-      let next := children{at: hash & 31}
-      let inserted := next{key: k value: v hash: hash >> 4}
-      let next_children := children{at: hash & 31 value: inserted}
-      HM{key: key value: value children: next_children}
+  on {entry: entry children: children} [
+    on {key: k hash: hash}
+      entry{:
+        on {empty} ()
+        on {key: key value: value}
+          if key = k then
+            return Option{some: value}
+          end
+      }
+      children{:
+        on {some: children}
+          let next := children{at: hash & 31}
+          return next{key: k hash: hash >> 5}
+        on {none}
+          return Option{none}
+      }
+
+    on {entry: e hash: hash}
+      entry{:
+        on {empty}
+          return HM{entry: e children: children}
+        on {key: key value: value}
+          if e{key} = key then
+            return HM{entry: e children: children}
+          end  
+      }
+      let cs := children{:
+        on {none} HM{init children}
+        on {some: cs} cs
+      }
+      let next := cs{at: hash & 31}
+      let inserted := next{entry: e hash: hash >> 5}
+      let next_cs := cs{at: hash & 31 value: inserted}
+      HM{entry: entry children: Option{some: next_cs}}
+
+    on {remove: k hash: hash}
+      entry{:
+        on {empty} ()
+        on {key: key value: __}
+          if k = key then
+            return HM{entry: [empty] children: children}
+          end
+      }
+      let cs := children{:
+        on {none}
+          return self
+        on {some: cs}
+          cs
+      }
+      let next := cs{at: hash & 31}
+      let removed := next{remove: k hash: hash >> 5}
+      let next_cs := cs{at: hash & 31 value: removed}
+      HM{entry: entry children: Option{some: next_cs}}
+
+    on {size}
+      let this_node := entry{:
+        on {empty} 0
+        else 1
+      }
+      children{:
+        on {none} this_node
+        on {some: cs}
+          cs{into: this_node fold: {: item into: sum}
+            item{size} + sum
+          }
+      }
   ]
 ]
 
@@ -482,7 +535,12 @@ export let HashMap := [
     on {key: k}
       state{key: k hash: k{hash}}
     on {key: k value: v}
-      let next_state := state{key: k value: v hash: k{hash}}
-      HashMap{state: state}
+      let next_state := state{entry: [key: k value: v] hash: k{hash}}
+      HashMap{state: next_state}
+    on {remove: k}
+      let next_state := state{remove: k hash: k{hash}}
+      HashMap{state: next_state}
+    on {size}
+      state{size}
   ]
 ]

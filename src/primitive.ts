@@ -59,6 +59,9 @@ export const boolClass: IRClass = new IRClassBuilder()
   .addPrimitive("||:", (self, [arg]) => {
     return boolValue(arg) || self ? trueVal : falseVal
   })
+  .addPrimitive("hash", (self) => {
+    return new PrimitiveValue(intClass, self ? 1 : 0)
+  })
   .build()
 
 export const trueVal = new PrimitiveValue(boolClass, true)
@@ -109,6 +112,11 @@ export const stringClass: IRClass = new IRClassBuilder()
       return unit
     }
   )
+  .addPrimitive("hash", (self) => {
+    // FIXME
+    const hash = (self.length << 8) + self.charCodeAt(0)
+    return new PrimitiveValue(intClass, hash)
+  })
   .build()
 
 export function intValue(arg: Value): number {
@@ -220,6 +228,9 @@ export const intClass: IRClass = new IRClassBuilder()
       return unit
     }
   )
+  .addPrimitive("hash", (self) => {
+    return new PrimitiveValue(intClass, self)
+  })
   .build()
 
 export function floatValue(arg: Value): number {
