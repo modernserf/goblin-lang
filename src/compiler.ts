@@ -12,6 +12,14 @@ export function coreModule(stmts: ParseStmt[], nativeValue: IRExpr): IRStmt[] {
   ]
 }
 
+export function module(stmts: ParseStmt[]): IRStmt[] {
+  const scope = rootScope()
+  return [
+    ...stmts.flatMap((stmt) => stmt.compile(scope)),
+    scope.compileExports(),
+  ]
+}
+
 export function program(stmts: ParseStmt[]): IRStmt[] {
   const scope = rootScope()
   return stmts.flatMap((stmt) => stmt.compile(scope))

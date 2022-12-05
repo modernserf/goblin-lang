@@ -1,4 +1,5 @@
-import [_File_ _Log_ _Parser_] := "core"
+import [_File_ _Log_] := "core"
+import [_Parser_] := "parse"
 
 let TopThree := [
   on {} 

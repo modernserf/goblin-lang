@@ -1,4 +1,5 @@
-import [_File_ _Control_ _Vec_ _Log_ _Assert_ _Parser_] := "core"
+import [_File_ _Control_ _Vec_ _Log_ _Assert_] := "core"
+import [_Parser_] := "parse"
 
 let BitSet := [
   on {}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { Lexer } from "./lexer"
 import { program as parse } from "./parser"
-import { coreModule } from "./compiler"
+import { module, coreModule } from "./compiler"
 
 import { readFileSync } from "fs"
 import { IRClass, ObjectValue, PrimitiveValue, unit } from "./value"
@@ -17,7 +17,6 @@ import {
   stringClass,
 } from "./primitive"
 import { IRStmt } from "./interface"
-import { debug } from "node:console"
 
 const cellInstance = new IRClassBuilder()
   .addPrimitive("get", (self) => self.value)
@@ -198,4 +197,9 @@ export function compileCore(): IRStmt[] {
 
   // TODO: compile injects a `native` object that's referenced by all the native methods
   return coreModule(parse(new Lexer(source)), native)
+}
+
+export function compileFile(file: string): IRStmt[] {
+  const source = readFileSync(file, { encoding: "utf-8" })
+  return module(parse(new Lexer(source)))
 }

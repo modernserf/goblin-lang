@@ -1,4 +1,5 @@
-import [_File_ _Log_ _Vec_ _Option_ _Parser_] := "core"
+import [_File_ _Log_ _Vec_ _Option_] := "core"
+import [_Parser_] := "parse"
 
 let result_scores := [win: 6 draw: 3 lose: 0]
 let shape_scores := [rock: 1 paper: 2 scissors: 3]

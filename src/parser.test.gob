@@ -1,4 +1,5 @@
-import [_Option_ _Parser_ _Assert_ _Vec_] := "core"
+import [_Option_ _Assert_ _Vec_] := "core"
+import [_Parser_] := "parse"
 
 Assert{
   received: Parser{parse: "" with: Parser{end}}

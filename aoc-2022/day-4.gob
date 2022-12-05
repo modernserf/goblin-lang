@@ -1,4 +1,5 @@
-import [_File_ _Log_ _String_ _Parser_] := "core"
+import [_File_ _Log_ _String_] := "core"
+import [_Parser_] := "parse"
 
 let Range := [
   on {from: first through: last} [
@@ -39,7 +40,6 @@ let part_2 := *parse_range_pair
     {filter: {: [0: left 1: right]} left{overlaps: right} || right{overlaps: left}}
     {length}
   ]
-
 
 let input := File{read text sync: "./aoc-2022/day-4.input.txt"}
 Log{: "part 1: " ++ Parser{parse: input with: part_1}{some!}{to String}}

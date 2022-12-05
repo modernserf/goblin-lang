@@ -1,8 +1,4 @@
-import {
-  InvalidImportSourceError,
-  InvalidSetTargetError,
-  InvalidVarBindingError,
-} from "./error"
+import { InvalidImportSourceError, InvalidSetTargetError } from "./error"
 import {
   IRStmt,
   ParseArgs,
