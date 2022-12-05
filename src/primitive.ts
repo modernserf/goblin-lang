@@ -203,12 +203,20 @@ export const intClass: IRClass = new IRClassBuilder()
     return trueVal
   })
   .addPrimitive("order:", (self, [arg], ctx) => {
-    const other = floatValue(arg)
+    const other = intValue(arg)
     const selector = self === other ? "=" : self > other ? ">" : "<"
     return new IRModuleExpr("core")
       .eval(ctx)
       .send(ctx, "Ord", [], null)
       .send(ctx, selector, [], null)
+  })
+  .addPrimitive("max:", (self, [arg]) => {
+    const other = intValue(arg)
+    return new PrimitiveValue(intClass, self > other ? self : other)
+  })
+  .addPrimitive("min:", (self, [arg]) => {
+    const other = intValue(arg)
+    return new PrimitiveValue(intClass, self < other ? self : other)
   })
   .addPrimitive("==:", (self, [arg]) => {
     return numericCompare(self, arg, (a, b) => a === b)

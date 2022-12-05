@@ -1,32 +1,10 @@
-import [_File_ _Log_ _String_] := "core"
+import [_File_ _Log_ _String_ _Range_] := "core"
 import [_Parser_] := "parse"
-
-let Range := [
-  on {} 
-    Range{from: 0 through: 0}
-  on {from: first through: last} [
-    on {from: value}
-      Range{from: value through: last}
-    on {through: value}
-      Range{from: first through: value}
-    on {: do f}
-      f{from: first through: last}
-    on {superset of: other}
-      other{:
-        on {from: other_first through: other_last}
-          (first <= other_first) && (last >= other_last)
-      }
-    on {has: value}
-      (first <= value) && (last >= value)
-    on {overlaps: other}
-      other{has: first} || other{has: last}
-  ]
-]
 
 let parse_range := Parser{ok: Range{}}
   {into: [from] parse: Parser{integer}}
   {skip: Parser{token: "-"}}
-  {into: [through] parse: Parser{integer}}
+  {into: [to] parse: Parser{integer} |>> [+: 1]}
 
 let parse_range_pair := parse_range
   .>> Parser{token: ","}
@@ -34,11 +12,11 @@ let parse_range_pair := parse_range
   .>> Parser{token: String{newline}}
 
 let part_1 := *parse_range_pair
-  |>> [filter: [{: [0: left 1: right]} left{superset of: right} || right{superset of: left}]]
+  |>> [filter: [{: [0: left 1: right]} left{is superset: right} || right{is superset: left}]]
   |>> [length]
 
 let part_2 := *parse_range_pair
-  |>> [filter: [{: [0: left 1: right]} left{overlaps: right} || right{overlaps: left}]]
+  |>> [filter: [{: [0: left 1: right]} (left & right){size} > 0]]
   |>> [length]
 
 
