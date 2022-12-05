@@ -124,6 +124,6 @@ let group_sum := *line_group |>> [sum]
 
 let input := File{read text sync: "./aoc-2022/day-3.input.txt"}
 
-Log{: "part 1: " ++ Parser{parse: input with: line_sum}{ok!}{to String}}
-Log{: "part 2: " ++ Parser{parse: input with: group_sum}{ok!}{to String}}
+Log{: "part 1: " ++ Parser{parse: input with: line_sum}{ok!}}
+Log{: "part 2: " ++ Parser{parse: input with: group_sum}{ok!}}
 

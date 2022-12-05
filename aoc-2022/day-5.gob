@@ -46,9 +46,7 @@ let end_state := lines{into: init_state fold: {: line into: state}
     {at: line{dest} value: dest}
 }
 
-let part_1 := end_state{into: "" fold: {: stack into: str} 
-  str ++ stack{pop}{last}
-}
+let part_1 := end_state{map: [pop]}{map: [last]}{into: "" fold: [++]}
 
 Log{: "Part 1: " ++ part_1}
 

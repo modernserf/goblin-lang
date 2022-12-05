@@ -35,6 +35,7 @@ export class IRClassBuilder extends IRClass {
 }
 
 const $0: IRExpr = new IRLocalExpr(0)
+const $1: IRExpr = new IRLocalExpr(1)
 
 const frameCache = new Map<string, IRClass>()
 export function frame(
@@ -85,6 +86,16 @@ export function frame(
       ]
     )
   }
+
+  // folder: items{into: 0 fold: [+]} => sum
+  if (args.length === 0) {
+    frameClass.addFrame(
+      ":into:",
+      [{ tag: "value" }, { tag: "value" }],
+      [new IRSendExpr(`${selector}:`, $1, [new IRValueArg($0)])]
+    )
+  }
+
   // matcher: [x: 1 y: 2]{: target} => target{x: 1 y: 2}
   frameClass.addFrame(
     ":",
