@@ -15,6 +15,7 @@ import {
   boolValue,
   IRClassBuilder,
   stringClass,
+  PrimitiveTypeError,
 } from "./primitive"
 import { IRStmt } from "./interface"
 
@@ -82,6 +83,12 @@ const arrayInstance: IRClass = new IRClassBuilder()
     const f = intValue(from)
     const t = intValue(to)
     return new PrimitiveValue(arrayInstance, self.slice(f, t))
+  })
+  .addPrimitive("append:", (self, [other]) => {
+    if (!other.instanceof(arrayInstance)) {
+      throw new PrimitiveTypeError("array")
+    }
+    return new PrimitiveValue(arrayInstance, self.concat(other.primitiveValue))
   })
   .build()
 

@@ -105,6 +105,12 @@ export const stringClass: IRClass = new IRClassBuilder()
     const code = index < self.length ? self.charCodeAt(index) : -1
     return new PrimitiveValue(intClass, code)
   })
+  .addPrimitive("from:to:", (self, [from, to]) => {
+    return new PrimitiveValue(
+      stringClass,
+      self.slice(intValue(from), intValue(to))
+    )
+  })
   .addPrimitive(
     "js debug",
     /* istanbul ignore next */ (self) => {

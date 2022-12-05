@@ -129,6 +129,22 @@ export let Parser := [
   # accept a newline
   on {newline}
     Parser{token: String{newline}}{map error: [expected: [newline]]}
+
+  # accept a sequence of characters
+  on {string: str} Parser{:[
+    on {parse: var state}
+      Control{times: str{length} do: {: i}
+        if state{peek} = str{at: i} then
+          set state{next}
+        else
+          let fail_str := str{from: 0 to: i} ++ state{peek}
+          return Err{expected: [string: str] received: fail_str}
+        end
+      }
+      Result{ok: str}
+  ]}{unless done: [string: str]}
+
+
   
   # parser: [on {parse: var ParseState} Result]
   on {: parser} [

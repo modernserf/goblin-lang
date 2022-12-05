@@ -46,3 +46,12 @@ Assert{
   received: Parser{parse: "b" with: Parser{token: "a"} | Parser{token: "b"}}
   expected: Result{ok: "b"}
 }
+
+Assert{
+  received: Parser{parse: "hello" with: Parser{string: "hello"}}
+  expected: Result{ok: "hello"}
+}
+Assert{
+  received: Parser{parse: "help me" with: Parser{string: "hello"}}
+  expected: Result{error: [expected: [string: "hello"] received: "help"]}
+}

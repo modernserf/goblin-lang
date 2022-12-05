@@ -440,6 +440,14 @@ let VecImpl := [
         self{from: f to: self{length}}
       on {to: t}
         self{from: 0 to: t}
+
+      on {++: other}
+        {append: other}
+        var next := self
+        Control{times: other{length} do: {: i}
+          set next{push: other{at: i}}
+        }
+        next
       
       # sorting
       on {sort}

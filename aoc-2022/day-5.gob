@@ -1,0 +1,71 @@
+import [_Vec_ _File_ _Log_ _Control_ _Assert_] := "core"
+import [_Parser_] := "parse"
+
+#     [C]         [Q]         [V]    
+#     [D]         [D] [S]     [M] [Z]
+#     [G]     [P] [W] [M]     [C] [G]
+#     [F]     [Z] [C] [D] [P] [S] [W]
+# [P] [L]     [C] [V] [W] [W] [H] [L]
+# [G] [B] [V] [R] [L] [N] [G] [P] [F]
+# [R] [T] [S] [S] [S] [T] [D] [L] [P]
+# [N] [J] [M] [L] [P] [C] [H] [Z] [R]
+#  1   2   3   4   5   6   7   8   9 
+
+let init_state := Vec{}
+  {push: Vec{}, "N", "R", "G", "P"}
+  {push: Vec{}, "J", "T", "B", "L", "F", "G", "D", "C"}
+  {push: Vec{}, "M", "S", "V"}
+  {push: Vec{}, "L", "S", "R", "C", "Z", "P"}
+  {push: Vec{}, "P", "S", "L", "V", "C", "W", "D", "Q"}
+  {push: Vec{}, "C", "T", "N", "W", "D", "M", "S"}
+  {push: Vec{}, "H", "D", "G", "W", "P"}
+  {push: Vec{}, "Z", "L", "P", "H", "S", "C", "M", "V"}
+  {push: Vec{}, "R", "P", "F", "L", "W", "G", "Z"}
+
+let line := Parser{string: "move "}
+  >>. Parser{integer}
+  .>> Parser{string: " from "}
+  .>>. Parser{integer}
+  .>> Parser{string: " to "}
+  .>>. Parser{integer}
+  .>> Parser{newline}
+  |>> [{: [0: [0: count 1: source] 1: dest]} [_count_ source: source - 1 dest: dest - 1]]
+
+let input := File{read text sync: "./aoc-2022/day-5.input.txt"}
+let lines := Parser{parse: input with: *line}{ok!}
+
+let end_state := lines{into: init_state fold: {: line into: state}
+  var source := state{at: line{source}}
+  var dest := state{at: line{dest}}
+  Control{times: line{count} do: {: __}
+    let popped := Vec{pop: var source}
+    set dest{push: popped}
+  }
+  state
+    {at: line{source} value: source}
+    {at: line{dest} value: dest}
+}
+
+let part_1 := end_state{into: "" fold: {: stack into: str} 
+  str ++ stack{pop}{last}
+}
+
+Log{: "Part 1: " ++ part_1}
+
+let end_state := lines{into: init_state fold: {: line into: state}
+  let source := state{at: line{source}}
+  let split_at := source{length} - line{count}
+  let moved_chunk := source{from: split_at}
+  let next_source := source{to: split_at}
+  let next_dest := state{at: line{dest}} ++ moved_chunk
+
+  state
+    {at: line{source} value: next_source}
+    {at: line{dest} value: next_dest}
+}
+
+let part_2 := end_state{into: "" fold: {: stack into: str} 
+  str ++ stack{pop}{last}
+}
+
+Log{: "Part 2: " ++ part_2}
