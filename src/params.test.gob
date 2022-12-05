@@ -67,7 +67,7 @@ let target := [
   on {count: 1}
     "1 item"
   on {count: n}
-    n{to String} ++ " items"
+    "" ++ n ++ " items"
 ]
 Assert{received: target{count: 0}   expected: "no items"}
 Assert{received: target{count: 1}   expected: "1 item"}

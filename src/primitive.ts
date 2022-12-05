@@ -87,8 +87,12 @@ export const stringClass: IRClass = new IRClassBuilder()
     }
     return trueVal
   })
-  .addPrimitive("++:", (self, [arg]) => {
-    return new PrimitiveValue(stringClass, `${self}${strValue(arg)}`)
+  .addPrimitive("to String", (self) => {
+    return new PrimitiveValue(stringClass, self)
+  })
+  .addPrimitive("++:", (self, [arg], ctx) => {
+    let argAsStr = strValue(arg.send(ctx, "to String", [], null))
+    return new PrimitiveValue(stringClass, `${self}${argAsStr}`)
   })
   .addPrimitive("length", (self) => {
     return new PrimitiveValue(intClass, self.length)

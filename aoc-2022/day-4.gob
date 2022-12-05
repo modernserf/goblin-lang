@@ -42,5 +42,5 @@ let part_2 := *parse_range_pair
   ]
 
 let input := File{read text sync: "./aoc-2022/day-4.input.txt"}
-Log{: "part 1: " ++ Parser{parse: input with: part_1}{ok!}{to String}}
-Log{: "part 2: " ++ Parser{parse: input with: part_2}{ok!}{to String}}
+Log{: "part 1: " ++ Parser{parse: input with: part_1}{ok!}}
+Log{: "part 2: " ++ Parser{parse: input with: part_2}{ok!}}

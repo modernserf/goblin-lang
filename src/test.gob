@@ -569,7 +569,7 @@ let obj := [
   on {count: 1}
     "1 item"
   on {count: n}
-    n{to String} ++ " items"
+    "" ++ n ++ " items"
 ]
 Assert{
   received: obj{count: 0}

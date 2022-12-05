@@ -17,9 +17,6 @@ test("primitive methods", () => {
     run(`1.0 + "hello"`)
   }, PrimitiveTypeError)
   assert.throws(() => {
-    run(`"foo" ++ 1`)
-  }, PrimitiveTypeError)
-  assert.throws(() => {
     run(`1 & 1.0`)
   }, PrimitiveTypeError)
   assert.throws(() => {

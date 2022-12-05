@@ -31,5 +31,5 @@ let all_sums := *block_sum |>> [{:xs}
 let input := File{read text sync: "./aoc-2022/day-1.input.txt"}
 let result := Parser{parse: input with: all_sums}{ok!}
 
-Log{: "part 1: " ++ result{max}{to String}}
-Log{: "part 2: " ++ result{sum}{to String}}
+Log{: "part 1: " ++ result{max}}
+Log{: "part 2: " ++ result{sum}}
