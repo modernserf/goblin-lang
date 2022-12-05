@@ -14,9 +14,9 @@ function testFile(name: string, path: string) {
   })
 }
 
-testFile("primitives", "./src/primitive.test.gob")
-testFile("structures", "./src/structures.test.gob")
-testFile("parser", "./src/parser.test.gob")
-testFile("params", "./src/params.test.gob")
-testFile("frame", "./src/frame.test.gob")
+testFile("primitives", "./src/stdlib/primitive.test.gob")
+testFile("structures", "./src/stdlib/structures.test.gob")
+testFile("parser", "./src/stdlib/parse.test.gob")
+testFile("params", "./src/stdlib/params.test.gob")
+testFile("frame", "./src/stdlib/frame.test.gob")
 testFile("test file", "./src/test.gob")

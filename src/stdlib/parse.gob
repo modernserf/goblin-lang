@@ -12,7 +12,6 @@ let ParseState := [
   ]
 ]
 
-
 let Err := [
   on {_expected_ _received_}
     Result{error: [_expected_ _received_]}
@@ -57,10 +56,10 @@ export let Parser := [
       Result{ok: state{peek}}
   ]}{unless done: [peek]}
 
-  # accept no tokens and produce current parse state
-  on {state} Parser{:[
+  # accept no tokens and produce current parse index
+  on {index} Parser{:[
     on {parse: var state}
-      Result{ok: state}
+      Result{ok: state{index}}
   ]}
 
   # accept if f{: token} returns true

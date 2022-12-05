@@ -200,7 +200,7 @@ const nativeClass = new IRClassBuilder()
 const native = new PrimitiveValue(nativeClass, null)
 
 export function compileCore(): IRStmt[] {
-  const source = readFileSync("./src/core.gob", { encoding: "utf-8" })
+  const source = readFileSync("./src/stdlib/core.gob", { encoding: "utf-8" })
 
   // TODO: compile injects a `native` object that's referenced by all the native methods
   return coreModule(parse(new Lexer(source)), native)

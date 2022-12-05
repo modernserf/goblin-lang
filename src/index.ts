@@ -11,7 +11,7 @@ export function run(source: string) {
     ir,
     new Map([
       ["core", compileCore()],
-      ["parse", compileFile("./src/parse.gob")],
+      ["parse", compileFile("./src/stdlib/parse.gob")],
     ])
   )
 }
