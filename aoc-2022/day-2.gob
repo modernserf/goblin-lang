@@ -64,18 +64,25 @@ let right_result := Parser{try match: [{: ch}
 
 let space := Parser{token: " "}
 
-let round_1 :=
-  left_hand .>> space .>>. right_hand .>> Parser{newline} |>> [{:[0: opponent 1: player]}
+let round_1 := Parser{ok: [opponent: () player: ()]}
+  {into: [opponent] parse: left_hand}
+  {skip: space}
+  {into: [player] parse: right_hand}
+  {skip: Parser{newline}}
+  {map: [{: [_player_ _opponent_]}
     let result := query{player: player opponent: opponent}
     player{: shape_scores} + result{: result_scores}
-  ]
+  ]}
 
-let round_2 :=
-  left_hand .>> space .>>. right_result .>> Parser{newline} |>> [{:[0: opponent 1: result]}
+let round_2 := Parser{ok: [opponent: () result: ()]}
+  {into: [opponent] parse: left_hand}
+  {skip: space}
+  {into: [result] parse: right_result}
+  {skip: Parser{newline}}
+  {map: [{: [_opponent_ _result_]}
     let player := query{opponent: opponent result: result}
     player{: shape_scores} + result{: result_scores}
-  ]
-
+  ]}
 
 let input := File{read text sync: "./aoc-2022/day-2.input.txt"}
 let part_1 := Parser{parse: input with: *round_1 |>> [into: 0 fold: [+]]}{ok!}

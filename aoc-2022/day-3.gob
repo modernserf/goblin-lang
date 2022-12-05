@@ -113,10 +113,11 @@ let letter := uppercase | lowercase
 
 let line := +letter .>> Parser{newline} |>> Rucksack
 
-let line_group := line .>>. line .>>. line |>> [{: [0: [0: a 1: b] 1: c]}
-  let badge_set := a{to BitSet} & b{to BitSet} & c{to BitSet}
-  badge_set{to Vec}{at: 0}
-]
+let line_group := line{map: [to BitSet]} 
+  {into: [&] parse: line{map: [to BitSet]}}
+  {into: [&] parse: line{map: [to BitSet]}}
+  {map: [to Vec]}
+  {map: [at: 0]}
 
 let line_sum := *line |>> [map: [sum overlap]] |>> [sum]
 

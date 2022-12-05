@@ -191,6 +191,16 @@ export let Parser := [
       {then: next_parser}
       self .>>. next_parser |>> [1]
 
+    # match a sequence of parsers and combine their values with f
+    on {into: f parse: next_parser} Parser{:[
+      on {parse: var state}
+        parser{parse: var state}{chain: {: first}
+          next_parser{parse: var state}{map: {: second}
+            f{: second into: first}
+          }
+        }
+    ]}
+
     # try matching one, then the other parser
     on {|: next_parser} 
       {or: next_parser} Parser{:[

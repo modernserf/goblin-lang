@@ -22,14 +22,14 @@ let init_state := Vec{}
   {push: Vec{}, "Z", "L", "P", "H", "S", "C", "M", "V"}
   {push: Vec{}, "R", "P", "F", "L", "W", "G", "Z"}
 
-let line := Parser{string: "move "}
-  >>. Parser{integer}
-  .>> Parser{string: " from "}
-  .>>. Parser{integer}
-  .>> Parser{string: " to "}
-  .>>. Parser{integer}
-  .>> Parser{newline}
-  |>> [{: [0: [0: count 1: source] 1: dest]} [_count_ source: source - 1 dest: dest - 1]]
+let line := Parser{ok: [count: () source: () dest: ()]}
+  {skip: Parser{string: "move "}}
+  {into: [count] parse: Parser{integer}}
+  {skip: Parser{string: " from "}}
+  {into: [source] parse: Parser{integer} |>> [-: 1]}
+  {skip: Parser{string: " to "}}
+  {into: [dest] parse: Parser{integer} |>> [-: 1]}
+  {skip: Parser{newline}}
 
 let input := File{read text sync: "./aoc-2022/day-5.input.txt"}
 let lines := Parser{parse: input with: *line}{ok!}
