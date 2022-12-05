@@ -65,12 +65,12 @@ let OR := [
       OR{some: f{: value}}
     on {chain: do f}
       f{: value}
+    on {chain none: do f}
+      self
     on {or: default}
       value
     on {or do: do f}
       value
-    on {or chain: do f}
-      self
     on {=: other} other{:
       on {some: x} x = value
       else false
@@ -113,11 +113,11 @@ let OR := [
       self
     on {chain: do f}
       self
+    on {chain none: do f}
+      f{}
     on {or: default}
       default
     on {or do: do f}
-      f{}
-    on {or chain: do f}
       f{}
     on {=: other} other{:
       on {none} true

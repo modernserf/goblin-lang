@@ -78,7 +78,7 @@ let round_2 :=
 
 
 let input := File{read text sync: "./aoc-2022/day-2.input.txt"}
-let part_1 := Parser{parse: input with: *round_1 |>> [sum]}{some!}
+let part_1 := Parser{parse: input with: *round_1 |>> [sum]}{ok!}
 Log{: "part 1: " ++ part_1{to String}}
-let part_2 := Parser{parse: input with: *round_2 |>> [sum]}{some!}
+let part_2 := Parser{parse: input with: *round_2 |>> [sum]}{ok!}
 Log{: "part 2: " ++ part_2{to String}}

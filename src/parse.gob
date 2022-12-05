@@ -1,9 +1,8 @@
-import [_Option_ _Vec_ _String_ _Control_] := "core"
+import [_Result_ _Vec_ _String_ _Control_] := "core"
 
-# TODO: three-state result - None | Ok(value) | Err(err) - instead of throwing
-# (this will enable a try method for backtracking)
 let ParseState := [
   on {source: src index: idx := 0} [
+    on {index} idx
     on {peek}
       src{at: idx}
     on {next}
@@ -13,159 +12,202 @@ let ParseState := [
   ]
 ]
 
+
+let Err := [
+  on {_expected_ _received_}
+    Result{error: [_expected_ _received_]}
+  # TODO: would be nice if there were some sort of convenient to use tuple
+  on {_error_ _and_}
+    Result{error: [_error_ _and_]}
+]
+
 export let Parser := [
+  # make as method
   on {parse: source with: parser}
     var state := ParseState{source: source}
     parser
       {skip: Parser{end}}
       {parse: var state}
 
-  on {some: value} Parser{:[
+  # accept no tokens and produce ok value
+  on {ok: value} Parser{:[
     on {parse: var __}
-      Option{some: value}
+      Result{ok: value}
   ]}
 
-  on {none} Parser{:[
+  # accept no tokens and produce error
+  on {error: err} Parser{:[
     on {parse: var __}
-      Option{none}
+      Result{error: err}
   ]}
 
-  on {any} Parser{:[
-    on {parse: var state}
-      if state{done} then
-        return Option{none}
-      end
-      let result := state{peek}
-      set state{next}
-      return Option{some: result}
-  ]}
-
+  # accept the end of input
   on {end} Parser{:[
     on {parse: var state}
       if state{done} then
-        Option{some: ()}
+        Result{ok: ()}
       else
-        Option{none}
+        Err{expected: [end] received: state{peek}}
       end
   ]}
 
+  # accept the next token but do not consume
+  on {peek} Parser{:[
+    on {parse: var state}
+      Result{ok: state{peek}}
+  ]}{unless done: [peek]}
+
+  # accept no tokens and produce current parse state
+  on {state} Parser{:[
+    on {parse: var state}
+      Result{ok: state}
+  ]}
+
+  # accept if f{: token} returns true
   on {match: f} Parser{:[
     on {parse: var state}
       let result := state{peek}
       if f{: result} then
         set state{next}
-        Option{some: result}
+        Result{ok: result}
       else
-        Option{none}
+        Err{expected: [match: f] received: result}
       end
-  ]}
+  ]}{unless done: [match: f]}
 
+  # accept result if f{: token} returns some
   on {try match: f} Parser{:[
     on {parse: var state}
       let result := state{peek}
-      f{: result}{map: {: value}
-        set state{next}
-        value
+      f{: result}{:
+        on {some: value}
+          set state{next}
+          Result{ok: value}
+        on {none}
+          Err{expected: [try match: f] received: result}
       }
-  ]}
+  ]}{unless done: [try match: f]}
 
+  # accept result if = tok
   on {token: tok}
-    Parser{match: [=: tok]}
+    Parser{match: [=: tok]}{map error: [expected: [token: tok]]}
 
+  # accept a digit and convert to base-10 integer
   on {digit} Parser{:[
     on {parse: var state}
       let ch := state{peek}
       let code := ch{code at: 0}
       let int := code - 48 # ASCII '0'
       if (int < 0) || (int > 9) then
-        return Option{none}
+        return Err{expected: [digit] received: ch}
       end
       set state{next}
-      Option{some: int}
-  ]}
+      Result{ok: int}
+  ]}{unless done: [digit]}
 
+  # accept a string of digits and convert to base-10 integer
   on {integer} 
-    +Parser{digit} |>> [{: digits}
+    (+Parser{digit} |>> [{: digits}
       digits{into: 0 fold: {: digit into: num}
         (num * 10) + digit
       }
-    ]
+    ]){map error: [expected: [integer]]}
   
+  # accept a range of characters
   on {range: a through: b} Parser{:[
     on {parse: var state}
       let ch := state{peek}
       let code := ch{code at: 0}
       if (code >= a{code at: 0}) && (code <= b{code at: 0}) then
         set state{next}
-        Option{some: ch}
+        Result{ok: ch}
       else
-        Option{none}
+        Err{expected: [range: a through: b] received: ch}
       end
-  ]}
+  ]}{unless done: [range: a through: b]}
 
+  # accept a newline
   on {newline}
-    Parser{token: String{newline}} 
+    Parser{token: String{newline}}{map error: [expected: [newline]]}
   
-  # combinator utils
+  # parser: [on {parse: var ParseState} Result]
   on {: parser} [
     on {parse: var state}
       parser{parse: var state}
 
+    # return err if state is done
+    on {unless done: expected} Parser{:[
+      on {parse: var state}
+        if state{done} then return Err{expected: expected received: [end]} end
+        parser{parse: var state}
+    ]}
+
+    # map ok value
     on {|>>: f}
-      {apply: f} Parser{:[
+      {map: f} Parser{:[
       on {parse: var state}
         parser{parse: var state}{map: f}
     ]}
 
-    on {some!} Parser{:[
+    # map an error value
+    on {map error: f} Parser{:[
       on {parse: var state}
-        self{parse: var state}{some!}
+        parser{parse: var state}{map error: f}
     ]}
 
-    on {>>%: constant}
-      {constant: constant}
-      self |>> [{: __} constant]
-
+    # match a sequence of parsers and produce the results as a pair
     on {.>>.: next_parser} 
       {pair: next_parser} Parser{:[
       on {parse: var state}
-        let first := parser{parse: var state}{some!} ? (return Option{none})
-        let second := next_parser{parse: var state}{some!}
-        Option{some: [0: first 1: second]}
+        parser{parse: var state}{chain: {: first}
+          next_parser{parse: var state}{map: {: second}
+            [0: first 1: second]
+          }
+        }
     ]}
 
+    # match a sequence of parsers and produce the first result
     on {.>>: next_parser}
       {skip: next_parser}
       self .>>. next_parser |>> [0]
 
+    # match a sequence of parsers and produce the second result
     on {>>.: next_parser}
       {then: next_parser}
       self .>>. next_parser |>> [1]
 
+    # try matching one, then the other parser
     on {|: next_parser} 
       {or: next_parser} Parser{:[
         on {parse: var state}
-          parser{parse: var state}
-            {or chain: {} next_parser{parse: var state}}
+          let prev_state := state
+          parser{parse: var state}{chain error: {: first_err} 
+            # only proceed if parser consumed no input before failing
+            if prev_state{index} != state{index} then
+              return Result{error: first_err}
+            end
+            next_parser{parse: var state}{map error: {: second_err}
+              Err{error: first_err and: second_err}
+            }
+          }
     ]}
 
     on {between: open_parser and: close_parser}
       open_parser >>. self .>> close_parser
    
+    # repeatedly try to match a parser & collect results into vec
     on {repeat: min} Parser{:[
       on {parse: var state}
-        # save previous state for backtracking
-        let prev_state := state
         var result := Vec{}
         Control{loop: {}
+          let prev_state := state
           let item := parser{parse: var state}{:
-            on {some: x} x
-            on {none}
-              if result{length} < min then
-                set state := prev_state
-                return Option{none}
+            on {ok: x} x
+            on {error: err}
+              if (prev_state{index} == state{index}) && (result{length} >= min) then
+                return Result{ok: result}
               end
-              return Option{some: result}
+              return Result{error: err}              
           }
           set result{push: item}
         }
@@ -174,10 +216,11 @@ export let Parser := [
       self{repeat: 1}
     on {*} {repeat}
       self{repeat: 0}
+
     on {opt} {optional} Parser{:[
       on {parse: var state}
         let res := parser{parse: var state}
-        Option{some: res}
+        Result{ok: res}
     ]}
   ]
 ]

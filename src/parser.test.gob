@@ -1,48 +1,48 @@
-import [_Option_ _Assert_ _Vec_] := "core"
+import [_Result_ _Assert_ _Vec_] := "core"
 import [_Parser_] := "parse"
 
 Assert{
   received: Parser{parse: "" with: Parser{end}}
-  expected: Option{some: ()}
+  expected: Result{ok: ()}
 }
 Assert{
   received: Parser{parse: "h" with: Parser{token: "h"}}
-  expected: Option{some: "h"}
+  expected: Result{ok: "h"}
 }
 Assert{
   received: Parser{parse: Vec{}, 3 with: Parser{match: [>: 1]}}
-  expected: Option{some: 3}
+  expected: Result{ok: 3}
 }
 Assert{
   received: Parser{parse: Vec{}, 0 with: Parser{match: [>: 1]}}
-  expected: Option{none}
+  expected: Result{error: [expected: [match: [>: 1]] received: 0]}
 }
 Assert{
   received: Parser{parse: "1" with: Parser{digit}}
-  expected: Option{some: 1}
+  expected: Result{ok: 1}
 }
 Assert{
   received: Parser{parse: "c" with: Parser{digit}}
-  expected: Option{none}
+  expected: Result{error: [expected: [digit] received: "c"]}
 }
 Assert{
   received: Parser{parse: "123" with: Parser{integer}}
-  expected: Option{some: 123}
+  expected: Result{ok: 123}
 }
 Assert{
   received: Parser{parse: "123" with: Parser{integer} |>> [*: 2]}
-  expected: Option{some: 246}
+  expected: Result{ok: 246}
 }
 Assert{
   received: Parser{parse: "123,45" with: Parser{integer} .>> Parser{token: ","} .>>. Parser{integer}}
-  expected: Option{some: [0: 123 1: 45]}
+  expected: Result{ok: [0: 123 1: 45]}
 }
 
 Assert{
   received: Parser{parse: "a" with: Parser{token: "a"} | Parser{token: "b"}}
-  expected: Option{some: "a"}
+  expected: Result{ok: "a"}
 }
 Assert{
   received: Parser{parse: "b" with: Parser{token: "a"} | Parser{token: "b"}}
-  expected: Option{some: "b"}
+  expected: Result{ok: "b"}
 }
