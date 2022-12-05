@@ -1,4 +1,4 @@
-import [_File_ _Log_ _Vec_ _Parser_ _Panic_] := "core"
+import [_File_ _Log_ _Vec_ _Option_ _Parser_] := "core"
 
 let result_scores := [win: 6 draw: 3 lose: 0]
 let shape_scores := [rock: 1 paper: 2 scissors: 3]
@@ -25,42 +25,41 @@ let query := [
     }{some!}{a}
 ]
 
-# TODO: maybe Parser{try match: f} -> Option{value}
-let left_hand := Parser{any} |>> [{: ch}
+let left_hand := Parser{try match: [{: ch}
   if ch = "A" then 
-    [rock]
+    Option{some: [rock]}
   else if ch = "B" then
-    [paper]
+    Option{some:[paper]}
   else if ch = "C" then
-    [scissors]
+    Option{some:[scissors]}
   else
-    Panic{message: "unexpected char"}
+    Option{none}
   end
-]
+]}
 
-let right_hand := Parser{any} |>> [{: ch}
+let right_hand := Parser{try match: [{: ch}
   if ch = "X" then 
-    [rock]
+    Option{some: [rock]}
   else if ch = "Y" then
-    [paper]
+    Option{some:[paper]}
   else if ch = "Z" then
-    [scissors]
+    Option{some:[scissors]}
   else
-    Panic{message: "unexpected char"}
+    Option{none}
   end
-]
+]}
 
-let right_result := Parser{any} |>> [{: ch}
+let right_result := Parser{try match: [{: ch}
    if ch = "X" then 
-      [lose]
+      Option{some: [lose]}
     else if ch = "Y" then
-      [draw]
+      Option{some: [draw]}
     else if ch = "Z" then
-      [win]
+      Option{some: [win]}
     else
-      Panic{message: "unexpected char"}
+      Option{none}
     end
-]
+]}
 
 let space := Parser{token: " "}
 

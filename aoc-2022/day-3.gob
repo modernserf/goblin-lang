@@ -1,18 +1,4 @@
-import [_File_ _Option_ _Control_ _Vec_ _Log_ _Assert_] := "core"
-
-let ParseState := [
-  on {source: src index: idx := 0} [
-    on {peek}
-      src{at: idx}
-    on {next}
-      ParseState{source: src index: idx + 1}
-  ]
-]
-
-let lowercase := "a"{code at: 0}
-let uppercase := "A"{code at: 0}
-let newline := "
-"
+import [_File_ _Control_ _Vec_ _Log_ _Assert_ _Parser_] := "core"
 
 let BitSet := [
   on {}
@@ -116,74 +102,30 @@ let Rucksack := [
   ]
 ]
 
-let parser := [
-  on {item: var state}
-    let ch := state{peek}
-    set state{next}
-    if ch = newline then return Option{none} end
+# lowercase: a-z -> 1-26
+let lowercase := Parser{range: "a" through: "z"} 
+  |>> [{: ch} ch{code at: 0} - "a"{code at: 0} + 1]
+# uppercase: A-Z -> 27-52
+let uppercase := Parser{range: "A" through: "Z"}
+  |>> [{: ch} ch{code at: 0} - "A"{code at: 0} + 27]
 
-    let code := ch{code at: 0}    
-    let priority := if code <= lowercase then
-      # uppercase: A-Z -> 27-52
-      code - uppercase + 27
-    else
-      # lowercase: a-z -> 1-26
-      code - lowercase + 1
-    end
-    Option{some: priority}
+let letter := uppercase | lowercase
 
-  on {line: var state}
-    var items := Vec{}
-    Control{loop: {}
-      let priority := self{item: var state}{:
-        on {some: p}
-          p
-        on {none}
-          Assert{: items{length} > 0}
-          return Rucksack{:items}
-      }
-      set items{push: priority}
-    }
+let line := +letter .>> Parser{newline} |>> Rucksack
 
-  on {group: var state}
-    let a := self{line: var state}
-    let b := self{line: var state}
-    let c := self{line: var state}
-    let badge_set := a{to BitSet} & b{to BitSet} & c{to BitSet}
-    let priority := badge_set{to Vec}{at: 0}
-    priority
-  
-  on {sum: input}
-    var state := ParseState{source: input}
-    var sum := 0
-    Control{loop: {}
-      let sack := self{line: var state}
-      set sum{+: sack{sum overlap}}
-      if state{peek} = "" then return sum end
-    }
-
-  on {group sum: input}
-    var state := ParseState{source: input}
-    var sum := 0
-    var count := 0
-    Control{loop: {}
-      let group_priority := self{group: var state}
-      set sum{+: group_priority}
-      set count{+: 1}
-      if state{peek} = "" then return sum end
-    }
+let line_group := line .>>. line .>>. line |>> [{: [0: [0: a 1: b] 1: c]}
+  let badge_set := a{to BitSet} & b{to BitSet} & c{to BitSet}
+  badge_set{to Vec}{at: 0}
 ]
+
+let line_sum := *line |>> [{: sacks} sacks{into: 0 fold: {: sack into: sum}
+  sum + sack{sum overlap}
+}]
+
+let group_sum := *line_group |>> [{: groups} groups{into: 0 fold: {: group into: sum} group + sum}]
 
 let input := File{read text sync: "./aoc-2022/day-3.input.txt"}
 
-let test_input := "vJrwpWtwJgWrhcsFMMfFFhFp
-jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
-PmmdzqPrVvPwwTWBwg
-wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
-ttgJtRGJQctTZtZT
-CrZsJsPPZsGzwwsLwLmpwMDw
-"
-
-Log{: "part 1: " ++ parser{sum: input}{to String}}
-Log{: "part 2: " ++ parser{group sum: input}{to String}}
+Log{: "part 1: " ++ Parser{parse: input with: line_sum}{some!}{to String}}
+Log{: "part 2: " ++ Parser{parse: input with: group_sum}{some!}{to String}}
 

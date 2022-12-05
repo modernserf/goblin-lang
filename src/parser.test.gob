@@ -36,3 +36,12 @@ Assert{
   received: Parser{parse: "123,45" with: Parser{integer} .>> Parser{token: ","} .>>. Parser{integer}}
   expected: Option{some: [0: 123 1: 45]}
 }
+
+Assert{
+  received: Parser{parse: "a" with: Parser{token: "a"} | Parser{token: "b"}}
+  expected: Option{some: "a"}
+}
+Assert{
+  received: Parser{parse: "b" with: Parser{token: "a"} | Parser{token: "b"}}
+  expected: Option{some: "b"}
+}

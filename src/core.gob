@@ -69,6 +69,8 @@ let OR := [
       value
     on {or do: do f}
       value
+    on {or chain: do f}
+      self
     on {=: other} other{:
       on {some: x} x = value
       else false
@@ -114,6 +116,8 @@ let OR := [
     on {or: default}
       default
     on {or do: do f}
+      f{}
+    on {or chain: do f}
       f{}
     on {=: other} other{:
       on {none} true
@@ -573,7 +577,7 @@ let ParseState := [
 export let Parser := [
   on {parse: source with: parser}
     var state := ParseState{source: source}
-    Parser{:parser}
+    parser
       {skip: Parser{end}}
       {parse: var state}
 
@@ -617,6 +621,15 @@ export let Parser := [
       end
   ]}
 
+  on {try match: f} Parser{:[
+    on {parse: var state}
+      let result := state{peek}
+      f{: result}{map: {: value}
+        set state{next}
+        value
+      }
+  ]}
+
   on {token: tok}
     Parser{match: [=: tok]}
 
@@ -638,6 +651,18 @@ export let Parser := [
         (num * 10) + digit
       }
     ]
+  
+  on {range: a through: b} Parser{:[
+    on {parse: var state}
+      let ch := state{peek}
+      let code := ch{code at: 0}
+      if (code >= a{code at: 0}) && (code <= b{code at: 0}) then
+        set state{next}
+        Option{some: ch}
+      else
+        Option{none}
+      end
+  ]}
 
   on {newline}
     Parser{token: String{newline}} 
@@ -664,25 +689,31 @@ export let Parser := [
 
     on {.>>.: next_parser} 
       {pair: next_parser} Parser{:[
-        on {parse: var state}
-          let first := parser{parse: var state}{some!} ? (return Option{none})
-          let second := next_parser{parse: var state}{some!}
-          Option{some: [0: first 1: second]}
-      ]}
+      on {parse: var state}
+        let first := parser{parse: var state}{some!} ? (return Option{none})
+        let second := next_parser{parse: var state}{some!}
+        Option{some: [0: first 1: second]}
+    ]}
 
     on {.>>: next_parser}
       {skip: next_parser}
-        self .>>. next_parser |>> [0]
+      self .>>. next_parser |>> [0]
 
     on {>>.: next_parser}
       {then: next_parser}
-        self .>>. next_parser |>> [1]
+      self .>>. next_parser |>> [1]
+
+    on {|: next_parser} 
+      {or: next_parser} Parser{:[
+        on {parse: var state}
+          parser{parse: var state}
+            {or chain: {} next_parser{parse: var state}}
+    ]}
 
     on {between: open_parser and: close_parser}
-      Parser{:open_parser} >>. self .>> close_parser
+      open_parser >>. self .>> close_parser
    
-    on 
-      {repeat: min} Parser{:[
+    on {repeat: min} Parser{:[
       on {parse: var state}
         # save previous state for backtracking
         let prev_state := state
