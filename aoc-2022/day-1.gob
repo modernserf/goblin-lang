@@ -21,13 +21,11 @@ let TopThree := [
   ]
 ]
 
-let sum := [{: xs} xs{into: 0 fold: {: value into: sum} sum + value}]
-let top_three := [{:xs} xs{into: TopThree{} fold: {: item into: state} state{add: item}}]
-
 # TODO: sep by newline
 let number_line := Parser{integer} .>> Parser{newline}
-let block_sum := +number_line .>> Parser{newline} |>> sum
-let all_sums := *block_sum |>> top_three
+let block_sum := +number_line .>> Parser{newline} |>> [sum]
+let all_sums := *block_sum |>> [{:xs} 
+  xs{into: TopThree{} fold: {: item into: state} state{add: item}}]
 
 let input := File{read text sync: "./aoc-2022/day-1.input.txt"}
 let result := Parser{parse: input with: all_sums}{some!}

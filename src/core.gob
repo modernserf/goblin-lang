@@ -415,6 +415,13 @@ let VecImpl := [
           set result := f{: value into: result}
         }
         result
+      on {sum}
+        var result := 0
+        Control{times: length do: {: i}
+          set result{+: array{at: i}}
+        }
+        result
+
       on {=: other}
         let len := other{length} ? (return false)
         if len != length then return false end

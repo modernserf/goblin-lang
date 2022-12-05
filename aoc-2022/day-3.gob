@@ -94,8 +94,7 @@ let Rucksack := [
     on {sum overlap}
       let overlap := left & right
       let overlap_vec := overlap{to Vec}
-      let sum := overlap{to Vec}{into: 0 fold: {: item into: sum} sum + item}
-      sum 
+      overlap{to Vec}{sum}
 
     on {to BitSet}
       left | right
@@ -118,11 +117,9 @@ let line_group := line .>>. line .>>. line |>> [{: [0: [0: a 1: b] 1: c]}
   badge_set{to Vec}{at: 0}
 ]
 
-let line_sum := *line |>> [{: sacks} sacks{into: 0 fold: {: sack into: sum}
-  sum + sack{sum overlap}
-}]
+let line_sum := *line |>> [map: [sum overlap]] |>> [sum]
 
-let group_sum := *line_group |>> [{: groups} groups{into: 0 fold: {: group into: sum} group + sum}]
+let group_sum := *line_group |>> [sum]
 
 let input := File{read text sync: "./aoc-2022/day-3.input.txt"}
 

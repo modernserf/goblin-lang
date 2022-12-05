@@ -28,24 +28,16 @@ let parse_range_pair := parse_range
 
 let part_1 := *parse_range_pair
   |>> [{: pairs}
-    pairs{into: 0 fold: {: [0: left 1: right] into: count}
-      if left{superset of: right} || right{superset of: left} then
-        count + 1
-      else
-        count
-      end
-    }
+    pairs
+      {filter: {: [0: left 1: right]} left{superset of: right} || right{superset of: left}}
+      {length}
   ]
 
 let part_2 := *parse_range_pair
   |>> [{: pairs}
-    pairs{into: 0 fold: {: [0: left 1: right] into: count}
-      if left{overlaps: right} || right{overlaps: left} then
-        count + 1
-      else
-        count
-      end
-    }
+    pairs
+    {filter: {: [0: left 1: right]} left{overlaps: right} || right{overlaps: left}}
+    {length}
   ]
 
 
