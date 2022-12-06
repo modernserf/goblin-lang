@@ -1,87 +1,5 @@
-import [_File_ _Control_ _Vec_ _Log_ _Assert_] := "core"
+import [_File_ _Control_ _Vec_ _Log_ _Assert_ _BitSet_] := "core"
 import [_Parser_] := "parse"
-
-let BitSet := [
-  on {}
-    BitSet{hi: 0 lo: 0}
-  on {: vec}
-    var bitset := BitSet{}
-    vec{map: {: item}
-      set bitset{add: item}
-    }
-    bitset
-
-  on {_hi_ _lo_} [
-    on {hi} hi
-    on {lo} lo
-
-    on {add: num}
-      if num >= 32 then
-        # TODO: fix `let x := x + 1`
-        let hi' := hi | (1 << (num - 32))
-        BitSet{hi: hi' _lo_}
-      else
-        let lo' := lo | (1 << num)
-        BitSet{_hi_ lo: lo'}
-      end
-    
-    on {has: num}
-      if num >= 32 then
-        hi & (1 << (num - 32)) != 0
-      else
-        lo & (1 << num) != 0
-      end
-
-    on {&: other}
-      BitSet{
-        hi: hi & other{hi}
-        lo: lo & other{lo}
-      }
-
-    on {|: other}
-      BitSet{
-        hi: hi | other{hi}
-        lo: lo | other{lo}
-      }
-
-    on {to Vec}
-      var out := Vec{}
-      Control{times: 64 do: {: i}
-        if self{has: i} then
-          set out{push: i}
-        end
-      }
-      out
-  ]
-]
-
-# Test bitset
-[{}
-  var bs := BitSet{}
-  set bs{add: 1}
-  set bs{add: 30}
-  set bs{add: 58}
-  Assert{:bs{has: 1}}
-  Assert{:bs{has: 30}}
-  Assert{:bs{has: 58}}
-  Assert{false: bs{has: 20}}
-  Assert{false: bs{has: 63}}
-
-  let cs := BitSet{: Vec{}, 4, 30, 22}
-  Assert{:cs{has: 4}}
-  Assert{:cs{has: 30}}
-  Assert{:cs{has: 22}}
-
-  let intersect := bs & cs
-  Assert{: intersect{has: 30}}
-  Assert{false: intersect{has: 1}}
-  Assert{false: intersect{has: 4}}
-
-  Assert{
-    expected: bs{to Vec}
-    received: Vec{}, 1, 30, 58
-  }
-]{}
 
 let Rucksack := [
   on {: vec}
@@ -89,14 +7,15 @@ let Rucksack := [
     let half := len >> 1
     let left := vec{to: half}
     let right := vec{from: half}
-    Rucksack{left: BitSet{: left} right: BitSet{: right}}
+    Rucksack{
+      left:   left{into: BitSet{} fold: [add]}
+      right: right{into: BitSet{} fold: [add]}  
+    }
 
   on {_left_ _right_} [
     on {sum overlap}
       let overlap := left & right
-      let overlap_vec := overlap{to Vec}
       overlap{to Vec}{sum}
-
     on {to BitSet}
       left | right
   ]

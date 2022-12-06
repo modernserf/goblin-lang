@@ -16,8 +16,9 @@ import {
   IRClassBuilder,
   stringClass,
   PrimitiveTypeError,
+  boolClass,
 } from "./primitive"
-import { IRStmt } from "./interface"
+import { IRStmt, Value } from "./interface"
 
 const cellInstance = new IRClassBuilder()
   .addPrimitive("get", (self) => self.value)
@@ -183,6 +184,64 @@ const debugModule = new ObjectValue(
   []
 )
 
+const bigIntClass: IRClass = new IRClassBuilder()
+  .addPrimitive("=:", (self, [arg]) => {
+    return new PrimitiveValue(boolClass, self === bigIntValue(arg))
+  })
+  .addPrimitive("!=:", (self, [arg]) => {
+    return new PrimitiveValue(boolClass, self !== bigIntValue(arg))
+  })
+  .addPrimitive("&:", (self, [arg]) => {
+    return new PrimitiveValue(bigIntClass, self & bigIntValue(arg))
+  })
+  .addPrimitive("|:", (self, [arg]) => {
+    return new PrimitiveValue(bigIntClass, self | bigIntValue(arg))
+  })
+  .addPrimitive("<<:", (self, [arg]) => {
+    return new PrimitiveValue(bigIntClass, self << bigIntValue(arg))
+  })
+  .addPrimitive(">>:", (self, [arg]) => {
+    return new PrimitiveValue(bigIntClass, self >> bigIntValue(arg))
+  })
+  .addPrimitive("popcount", (self: bigint) => {
+    let count = 0
+    while (self !== 0n) {
+      let n = Number(BigInt.asIntN(32, self))
+      if (n !== 0) {
+        n = n - ((n >> 1) & 0x55555555)
+        n = (n & 0x33333333) + ((n >> 2) & 0x33333333)
+        n = (((n + (n >> 4)) & 0xf0f0f0f) * 0x1010101) >> 24
+        count += n
+      }
+      self = self >> 32n
+    }
+    return new PrimitiveValue(intClass, count)
+  })
+  .addPrimitive("to Int", (self) => {
+    return new PrimitiveValue(intClass, Number(self))
+  })
+  .build()
+
+function bigIntValue(value: Value): bigint {
+  if (value.instanceof(bigIntClass)) {
+    return value.primitiveValue
+  }
+  if (value.instanceof(intClass)) {
+    return BigInt(value.primitiveValue)
+  }
+  throw new PrimitiveTypeError("(big) integer")
+}
+
+const bigIntModule = new ObjectValue(
+  new IRClassBuilder()
+    .addPrimitive(":", (_, [arg]) => {
+      const value = bigIntValue(arg)
+      return new PrimitiveValue(bigIntClass, value)
+    })
+    .build(),
+  []
+)
+
 const nativeClass = new IRClassBuilder()
   .addConst("String", stringModule)
   .addConst("Cell", cellModule)
@@ -195,6 +254,7 @@ const nativeClass = new IRClassBuilder()
   .addConst("false", falseVal)
   .addConst("loop", loopModule)
   .addConst("debug", debugModule)
+  .addConst("bigint", bigIntModule)
   .build()
 
 const native = new PrimitiveValue(nativeClass, null)
