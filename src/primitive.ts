@@ -239,6 +239,12 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("to String", (self) => {
     return new PrimitiveValue(stringClass, String(self))
   })
+  .addPrimitive("popcount", (n) => {
+    n = n - ((n >> 1) & 0x55555555)
+    n = (n & 0x33333333) + ((n >> 2) & 0x33333333)
+    n = (((n + (n >> 4)) & 0xf0f0f0f) * 0x1010101) >> 24
+    return new PrimitiveValue(intClass, n)
+  })
   .addPrimitive(
     "js debug",
     /* istanbul ignore next */ (self) => {

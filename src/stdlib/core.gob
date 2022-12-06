@@ -315,7 +315,7 @@ export let Control := [
     }
 ]
 
-let Iter := [
+export let Iter := [
   # instance
   on {: iterable} [
     on {next}
@@ -805,6 +805,23 @@ export let HashMap := [
     on {remove: k}
       let next_state := state{remove: k hash: k{hash}}
       HashMap{state: next_state}
+    on {size}
+      state{size}
+  ]
+]
+
+export let HashSet := [
+  on {}
+    HashSet{state: HM{empty}}
+  on {state: state} [
+    on {has: k}
+      state{key: k hash: k{hash}}{is some}
+    on {add: k}
+      let next_state := state{entry: [key: k value: ()] hash: k{hash}}
+      HashSet{state: next_state}
+    on {remove: k}
+      let next_state := state{remove: k hash: k{hash}}
+      HashSet{state: next_state}
     on {size}
       state{size}
   ]
