@@ -1,3 +1,10 @@
+import [_Assert_ _Array_ _Panic_ _Log_ _File_] := "native"
+export let Assert := Assert
+export let Array := Array
+export let Panic := Panic
+export let Log := Log
+export let File := File
+
 import [_debug_] := "native"
 export let Debug := [
   on {: value} debug{: value}
@@ -29,221 +36,11 @@ export let BigInt := [
 import [_Ord_] := "core/ord"
 export let Ord := Ord
 
-# Option & Result in single value for mutual recursion
-let OR := [
-  on {some: value} [
-    on {: do f}
-      f{some: value}
-    on {some!}
-      value
-    on {is some}
-      true
-    on {is none}
-      false
-    on {map: do f}
-      OR{some: f{: value}}
-    on {chain: do f}
-      f{: value}
-    on {chain none: do f}
-      self
-    on {or: default}
-      value
-    on {or do: do f}
-      value
-    on {=: other} other{:
-      on {some: x} x = value
-      else false
-    }
-    on {!=: other}
-      !(self = other)
-    # 'dynamic' boolean logic, does not check other operand
-    on {&&: other}
-      other
-    on {||: other}
-      self
-    # conversions
-    on {to Option}
-      self
-    on {to Result}
-      OR{ok: value}
-    # ordering {none} < any {some: value}
-    on {order: other}
-      other{:
-        on {some: x}
-          value{order: x}
-        on {none}
-          Ord{>}
-      }
-    on {<: val}   <self{order: val}
-    on {<=: val} <=self{order: val}
-    on {>=: val} >=self{order: val}
-    on {>: val}   >self{order: val}
-  ]
-
-  on {none} [
-    on {: do f}
-      f{none}
-    # no {some!}
-    on {is some}
-      false
-    on {is none}
-      true
-    on {map: do f}
-      self
-    on {chain: do f}
-      self
-    on {chain none: do f}
-      f{}
-    on {or: default}
-      default
-    on {or do: do f}
-      f{}
-    on {=: other} other{:
-      on {none} true
-      else false
-    }
-    on {!=: other}
-      !(self = other)
-    on {&&: other}
-      self
-    on {||: other}
-      other
-    on {to Option}
-      self
-    on {to Result}
-      OR{error: ()}
-    on {order: other}
-      other{:
-        on {some: __}
-          Ord{<}
-        on {none}
-          Ord{=}
-      }
-    on {<: val}   <self{order: val}
-    on {<=: val} <=self{order: val}
-    on {>=: val} >=self{order: val}
-    on {>: val}   >self{order: val}
-  ]
-  
-  on {ok: value} [
-    on {: do f}
-      f{ok: value}
-    on {ok!}
-      value
-    # no {error!}
-    on {is ok}
-      true
-    on {is error}
-      false
-    on {map: do f}
-      OR{ok: f{: value}}
-    on {map error: do f}
-      self
-    on {chain: do f}
-      f{: value}
-    on {chain error: do f}
-      self
-    on {ok or: default}
-      value
-    on {error or: default}
-      default
-    on {ok or do: do f}
-      value
-    on {error or do: do f}
-      f{: value}
-    on {=: other} other{:
-      on {ok: x} x = value
-      else false
-    }
-    on {!=: other}
-      !(self = other)
-    on {&&: other}
-      other
-    on {||: other}
-      self
-    on {to Option}
-      OR{some: value}
-    on {to Result}
-      self
-    # ordering any {error: err} < any {ok: value}
-    on {order: other}
-      other{:
-        on {ok: x}
-          value{order: x}
-        on {error: __}
-          Ord{>}
-      }
-    on {<: val}   <self{order: val}
-    on {<=: val} <=self{order: val}
-    on {>=: val} >=self{order: val}
-    on {>: val}   >self{order: val}
-  ]
-
-  on {error: err} [
-    on {: do f}
-      f{error: err}
-    # no {ok!}
-    on {error!}
-      err
-    on {is ok}
-      false
-    on {is error}
-      true
-    on {map: do f}
-      self
-    on {map error: do f}
-      OR{error: f{: err}}
-    on {chain: do f}
-      self
-    on {chain error: do f}
-      f{: err}
-    on {ok or: default}
-      default
-    on {ok or do: do f}
-      f{: err}
-    on {error or: default}
-      err
-    on {error or do: do f}
-      err
-    on {=: other} other{:
-      on {error: e} e = err
-      else false
-    }
-    on {!=: other}
-      !(self = other)
-    on {&&: other}
-      self
-    on {||: other}
-      other
-    on {to Option}
-      OR{none}
-    on {to Result}
-      self
-    on {order: other}
-      other{:
-        on {ok: __}
-          Ord{<}
-        on {error: val}
-          err{order: val}
-      }
-    on {<: val}   <self{order: val}
-    on {<=: val} <=self{order: val}
-    on {>=: val} >=self{order: val}
-    on {>: val}   >self{order: val}
-  ]
-]
-
 import [_Option_] := "core/option"
 export let Option := Option 
 
-export let Result := [
-  on {: value}
-    OR{ok: value}
-  on {ok: value}
-    OR{ok: value}
-  on {error: err}
-    OR{error: err}
-]
+import [_Result_] := "core/result"
+export let Result := Result
 
 import [Cell: cell] := "native"
 export let Cell := [
@@ -262,13 +59,6 @@ export let Cell := [
         self
     ]
 ]
-
-import [_Assert_ _Array_ _Panic_ _Log_ _File_] := "native"
-export let Assert := Assert
-export let Array := Array
-export let Panic := Panic
-export let Log := Log
-export let File := File
 
 import [_loop_] := "native"
 export let Control := [

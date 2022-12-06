@@ -1,0 +1,87 @@
+import [_Panic_ _true_ _false_] := "native"
+import [_Ord_] := "core/ord"
+import [_Option_] := "core/option"
+
+export let Result := [
+  on {from Option: opt with error: err := ()}
+    opt{:
+      on {some: value} Result{ok: value}
+      on {none} Result{error: err}
+    }
+  on {: value}
+    Result{ok: value}
+  on {ok: value} [
+    on {: do f} f{ok: value}
+    on {ok!} value
+    on {ok!: __} value
+    on {error!} Panic{message: "unwrapped an ok value as error"}
+    on {error!: msg} Panic{message: msg}
+    on {is ok} true
+    on {is error}  false
+    on {map: do f} Result{ok: f{: value}}
+    on {map error: do f} self
+    on {chain: do f} f{: value}
+    on {chain error: do f} self
+    on {ok or: default} value
+    on {error or: default}  default
+    on {ok or do: do f} value
+    on {error or do: do f} f{: value}
+    on {=: other} other{:
+      on {ok: x} x = value
+      else false
+    }
+    on {!=: other} !(self = other)
+    on {&&: other} other
+    on {||: other}  self
+    # ordering any {error: err} < any {ok: value}
+    on {order: other}
+      other{:
+        on {ok: x}
+          value{order: x}
+        on {error: __}
+          Ord{>}
+      }
+    on {<: val}   <self{order: val}
+    on {<=: val} <=self{order: val}
+    on {>=: val} >=self{order: val}
+    on {>: val}   >self{order: val}
+    on {to Option} Option{some: value}
+  ]
+
+  on {error: err} [
+    on {: do f} f{error: err}
+    on {ok!} Panic{message: "unwrapped an error value as ok"}
+    on {ok!: msg} Panic{message: msg}
+    on {error!} err
+    on {error!: __} err 
+    on {is ok} false
+    on {is error} true
+    on {map: do f} self
+    on {map error: do f} Result{error: f{: err}}
+    on {chain: do f} self
+    on {chain error: do f} f{: err}
+    on {ok or: default} default
+    on {ok or do: do f} f{: err}
+    on {error or: default} err
+    on {error or do: do f} err
+    on {=: other} other{:
+      on {error: e} e = err
+      else false
+    }
+    on {!=: other} !(self = other)
+    on {&&: other} self
+    on {||: other} other
+    on {order: other}
+      other{:
+        on {ok: __}
+          Ord{<}
+        on {error: val}
+          err{order: val}
+      }
+    on {<: val}   <self{order: val}
+    on {<=: val} <=self{order: val}
+    on {>=: val} >=self{order: val}
+    on {>: val}   >self{order: val}
+    on {to Option} Option{none}
+  ]
+]

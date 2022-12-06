@@ -22,6 +22,7 @@ export function run(source: string) {
       ["core/option", compileFile("./src/stdlib/option.gob")],
       ["core/ord", compileFile("./src/stdlib/ord.gob")],
       ["core/range", compileFile("./src/stdlib/range.gob")],
+      ["core/result", compileFile("./src/stdlib/result.gob")],
       ["parse", compileFile("./src/stdlib/parse.gob")],
     ])
   )

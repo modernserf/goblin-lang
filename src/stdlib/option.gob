@@ -1,4 +1,4 @@
-import [_true_ _false_] := "native"
+import [_Panic_ _true_ _false_] := "native"
 import [_Ord_] := "core/ord"
 
 export let Option := [
@@ -9,6 +9,7 @@ export let Option := [
   on {some: value} [
     on {: do f} f{some: value}
     on {some!} value
+    on {some!: __} value
     on {is some} true
     on {is none} false
     on {map: do f} Option{some: f{: value}}
@@ -36,10 +37,14 @@ export let Option := [
     on {<=: val} <=self{order: val}
     on {>=: val} >=self{order: val}
     on {>: val}   >self{order: val}
+    on {to Result}
+      import [_Result_] := "core/result"
+      Result{ok: value}
   ]
   on {none} [
     on {: do f} f{none}
-    # no {some!}
+    on {some!} Panic{message: "unwrapped a none value"}
+    on {some!: message} Panic{message: message} 
     on {is some} false
     on {is none} true
     on {map: do f} self
@@ -65,5 +70,8 @@ export let Option := [
     on {<=: val} <=self{order: val}
     on {>=: val} >=self{order: val}
     on {>: val}   >self{order: val}
+    on {to Result}
+      import [_Result_] := "core/result"
+      Result{error: ()}
   ]
 ]

@@ -35,3 +35,6 @@ Assert{: (Option{none} || Option{some: 2}){some!} = 2}
 
 Assert{: Option{none} < Option{some: -1000}}
 Assert{: Option{some: 0} < Option{some: 1}}
+
+Assert{: Option{some: 1}{to Result}{ok!} = 1}
+Assert{: Option{none}{to Result}{is error}}

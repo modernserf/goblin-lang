@@ -1,0 +1,12 @@
+import [_Assert_] := "core"
+import [_Result_] := "core/result"
+
+Assert{: Result{ok: 1}{ok!} = 1}
+Assert{: Result{error: [foo]}{error!} = [foo]}
+Assert{: Result{ok: 1}{is ok}}
+Assert{: Result{error: [foo]}{is error}}
+
+Assert{: Result{ok: 1}{map: [+: 1]}{ok!} = 2}
+Assert{: Result{error: [foo]}{map: [+: 1]}{error!} = [foo]}
+Assert{: Result{ok: 1}{map error: [+: 1]}{ok!} = 1}
+Assert{: Result{error: [foo]}{map error: {: __} [bar]}{error!} = [bar]}
