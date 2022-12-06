@@ -50,6 +50,7 @@ export let Ord := [
   ]
 ]
 
+
 # Option & Result in single value for mutual recursion
 let OR := [
   on {some: value} [
@@ -312,6 +313,239 @@ export let Control := [
       f{: i} ? f{}
       set i{+: 1}
     }
+]
+
+let Iter := [
+  # instance
+  on {: iterable} [
+    on {next}
+      iterable{next}{:
+        on {value: value next: next}
+          [value: value next: Iter{: next}]
+        on {done}
+          [done]
+      }
+    # eager handlers: produce a result, run immediately, can take do blocks
+    on {each: do f}
+      var state := iterable
+      Control{loop: {}
+        state{next}{:
+          on {value: value next: next} 
+            f{:value}
+            set state := next
+          on {done} return self
+        }
+      }
+    on {into: init_state fold: do f}
+      var state := init_state
+      self{each: {: value}
+        set state := f{: value into: state}
+      }
+      state
+    on {enumerate}
+      let indexes := self{into: -1 scan: [{: __ into: i} i + 1]}
+      Iter{value: [index: () value: ()]}
+        {into: [index] join: indexes}
+        {into: [value] join: self}
+    on {last}
+      var last := Option{none}
+      self{each: {: value} 
+        set last := Option{some:value}
+      }
+      last
+    on {count}
+      var count := 0
+      self{each: {: __} 
+        set count{+: 1}
+      }
+      count
+    on {nth: start_index}
+      var index := 0
+      self{each: {: value}
+        if index = start_index then return Option{some: value} end
+        set index{+: 1}
+      }
+      return Option{none}
+    on {any: do f}
+      self{each: {: value}
+        if f{: value} then return true end
+      }
+      return false
+    on {every: do f}
+      self{each: {: value}
+        if !f{: value} then return false end
+      }
+      return true
+    on {find: do f}
+      self{each: {: value}
+        if f{: value} then return Option{some: value} end
+      }
+      return Option{none}
+    on {find index: do f}
+      self{enumerate}{each: {: [index: i value: v]}
+        if f{: v} then return Option{some: i} end
+      }
+      return Option{none}
+    # lazy handlers: produce an iterator
+    on {map: f} Iter{:[
+      on {next} iterable{next}{:
+        on {value: value next: next}
+          [value: f{: value} next: next{map: f}]
+        on {done}
+          [done]
+      }
+    ]}
+    on {filter: f} Iter{:[
+      on {next}
+        var current := iterable
+        Control{loop: {}
+          current{next}{:
+            on {value: value next: next}
+              if f{: value} then
+                return [value: value next: next{filter: f}]
+              else
+                set current := next{filter: f}
+              end
+            on {done}
+              return [done]
+          }
+        }
+    ]}
+    on {filter map: f} Iter{:[
+      on {next} 
+        var current := iterable
+        Control{loop: {}
+          current{next}{:
+            on {value: value next: next}
+              f{: value}{:
+                on {some: result}
+                  return [value: result next: next{filter map: f}]
+                on {none}
+                  set current := next{filter map: f}
+              }
+            on {done}
+              return [done]
+          }
+        }
+    ]}
+    on {,: item} {push: item} Iter{:[
+      on {next}
+        iterable{next}{:
+          on {value: value next: next}
+            [value: value next: next{push: item}]
+          on {done}
+            [value: item next: Iter{}]
+        }
+    ]}
+    on {++: other} {append: other} Iter{:[
+      on {next}
+        iterable{next}{:
+          on {value: value next: next}
+            [value: value next: next{append: other}]
+          on {done}
+            other{next}
+        }
+    ]}
+    on {chain: f} Iter{:[
+      on {next}
+        iterable{next}{:
+          on {value: value next: next}
+            f{: value}{append: next}{next}
+          on {done}
+            [done]
+        }
+    ]}
+    # cycle has init & running states, so that empty iterators do not infinite loop
+    on {cycle} Iter{:[
+      on {next}
+        iterable{next}{:
+          on {value: value next: next}
+            [value: value next: next{cycle: iterable}]
+          on {done}
+            [done]
+        }
+    ]}
+    on {cycle: state} Iter{:[
+      on {next}
+        iterable{next}{:
+          on {value: value next: next}
+            [value: value next: next{cycle: state}]
+          on {done}
+            state{cycle}{next}
+        }
+    ]}
+    on {pair: other} Iter{:[
+      on {next}
+        [0: iterable{next} 1: other{next}]{:
+          on {0: [value: v0 next: next0] 1: [value: v1 next: next1]}
+            [value: [0: v0 1: v1] next: next0{pair: next1}]
+          else
+            [done]
+        }
+    ]}
+    on {into: f join: other} Iter{:[
+      on {next}
+        [0: iterable{next} 1: other{next}]{:
+          on {0: [value: v0 next: next0] 1: [value: v1 next: next1]}
+            [value: f{: v1 into: v0} next: next0{into: f join: next1}]
+          else
+            [done]
+        }
+    ]}
+    on {into: state scan: f} Iter{:[
+      on {next}
+        iterable{next}{:
+          on {value: value next: next}
+            let next_state := f{: value into: state}
+            [value: next_state next: next{into: next_state scan: f}]
+          on {done}
+            [done]
+        }
+    ]}
+    on {take while: f} Iter{:[
+      on {next}
+        iterable{next}{:
+          on {value: value next: next}
+            if f{:value} then [value: value next: next]
+            else [done] end
+          on {done}[done]
+        }
+    ]}
+    on {drop while: f} Iter{:[
+      on {next}
+        var current := iterable
+        Control{loop: {}
+          current{next}{:
+            on {value: value next: next}
+              if !f{:value} then return [value: value next: next] end
+            on {done}
+              return [done]
+          }
+        }
+    ]}
+    on {take: count}
+      iterable
+        {enumerate}
+        {take while: [{: p} p{index} <= count]}
+        {map: [value]}
+
+    on {drop: count}
+      iterable
+        {enumerate}
+        {drop while: [{: p} p{index} <= count]}
+        {map: [value]}
+  ]
+  # additional constructors
+  # no items
+  on {} Iter{:[
+    on {next}
+      [done]
+  ]}
+  # repeats the same item, used as applicative base
+  on {value: value} Iter{: [
+    on {next}
+      [value: value next: Iter{value: value}]
+  ]}
 ]
 
 let VecImpl := [
@@ -601,3 +835,4 @@ export let Range := [
       Range{from: next_start to: next_end}
   ]
 ]
+
