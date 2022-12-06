@@ -35,10 +35,17 @@ export class ReturnStmt implements ParseStmt {
 }
 
 export class ImportStmt implements ParseStmt {
-  constructor(private binding: ParseBinding, private source: ParseExpr) {}
+  constructor(
+    private binding: ParseBinding,
+    private source: ParseExpr,
+    private hasExport: boolean
+  ) {}
   compile(scope: Scope): IRStmt[] {
     if (!this.source.importSource) throw new InvalidImportSourceError()
     const source = this.source.importSource(scope)
+    if (this.hasExport) {
+      this.binding.export(scope)
+    }
     return this.binding.import(scope, source)
   }
 }

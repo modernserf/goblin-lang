@@ -1,6 +1,6 @@
 const test = require("node:test")
 import assert from "node:assert/strict"
-import { EmptyArrayError, IndexOutOfRangeError } from "./core"
+import { EmptyArrayError, IndexOutOfRangeError } from "./native"
 import { run } from "./index"
 
 test("index out of range", () => {

@@ -346,9 +346,21 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
   switch (token.tag) {
     case "export": {
       lexer.advance()
-      mustToken(lexer, "let")
-      const { binding, expr } = assign(lexer)
-      return new LetStmt(binding, expr, true)
+      const token = lexer.peek()
+      switch (token.tag) {
+        case "let": {
+          lexer.advance()
+          const { binding, expr } = assign(lexer)
+          return new LetStmt(binding, expr, true)
+        }
+        case "import": {
+          lexer.advance()
+          const { binding, expr } = assign(lexer)
+          return new ImportStmt(binding, expr, true)
+        }
+        default:
+          throw new ParseError("let | import", token.tag)
+      }
     }
     case "let": {
       lexer.advance()
@@ -363,7 +375,7 @@ function parseStmt(lexer: Lexer): ParseStmt | null {
     case "import": {
       lexer.advance()
       const { binding, expr } = assign(lexer)
-      return new ImportStmt(binding, expr)
+      return new ImportStmt(binding, expr, false)
     }
     case "set": {
       lexer.advance()

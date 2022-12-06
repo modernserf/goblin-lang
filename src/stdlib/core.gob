@@ -1,14 +1,16 @@
-export let [_true_ _false_ String: string _debug_ _bigint_] := native
-
+import [_debug_] := "native"
 export let Debug := [
   on {: value} debug{: value}
 ]
 
+import [_true_ _false_] := "native"
 export let Bool := [
   on {true} true
   on {false} false
 ]
+export let [_true_ _false_] := Bool
 
+import [String: string] := "native"
 export let String := [
   on {from char code: code}
     string{from char code: code}
@@ -18,6 +20,7 @@ export let String := [
     string{from char code: 9}
 ]
 
+import [_bigint_] := "native"
 export let BigInt := [
   on {: value}
     bigint{: value}
@@ -280,9 +283,10 @@ export let Result := [
     OR{error: err}
 ]
 
+import [Cell: cell] := "native"
 export let Cell := [
   on {: value} 
-    let instance := native{Cell}{: value}
+    let instance := cell{: value}
     return [
       on {}
         instance{get}
@@ -297,17 +301,14 @@ export let Cell := [
     ]
 ]
 
-export let Assert := native{Assert}
+import [_Assert_ _Array_ _Panic_ _Log_ _File_] := "native"
+export let Assert := Assert
+export let Array := Array
+export let Panic := Panic
+export let Log := Log
+export let File := File
 
-export let Array := native{Array}
-
-export let Panic := native{Panic}
-
-export let Log := native{Log}
-
-export let File := native{File}
-
-let loop := native{loop}
+import [_loop_] := "native"
 export let Control := [
   on {loop: do f}
     loop{loop: f}
