@@ -1,0 +1,76 @@
+import [_Assert_ _Vec_ _Option_] := "core"
+import [_Iter_] := "core/iter"
+
+Assert{received: Iter{}{next} expected: [done]}
+Assert{received: Iter{value: 1}{next}{value} expected: 1}
+Assert{received: Iter{value: 1}{next}{next}{next}{value} expected: 1}
+
+let iter := Iter{}, 1, 2, 3
+Assert{: iter{to Vec} = (Vec{}, 1, 2, 3)}
+
+var sum := 0
+iter{each: {: value}
+  set sum{+: value}
+}
+Assert{: sum = 6}
+
+Assert{: iter{count} = 3}
+
+Assert{: iter{last} = Option{some: 3}}
+Assert{: Iter{}{last} = Option{none}}
+
+Assert{: iter{nth: 1} = Option{some: 2}}
+Assert{: Iter{}{nth: 1} = Option{none}}
+
+Assert{: iter{any: [>: 2]}}
+Assert{false: iter{any: [>: 10]}}
+Assert{: iter{every: [>=: 0]}}
+Assert{false: iter{every: [>: 2]}}
+
+let is_even := [{: x} x & 1 = 0]
+Assert{: iter{find: is_even} = Option{some: 2}}
+Assert{: iter{find index: is_even} = Option{some: 1}}
+Assert{: iter{find: [>: 10]} = Option{none}}
+Assert{: iter{find index: [>: 10]} = Option{none}}
+
+let left := Iter{}, 1, 2, 3
+let right := Iter{}, 2, 4, 6, 8
+let zipped := Iter{value: [left: () right: ()]}
+  {with: [left] join: left}
+  {with: [right] join: right}
+  {to Vec}
+Assert{
+  received: zipped
+  expected: Vec{}, [left: 1 right: 2], [left: 2 right: 4], [left: 3 right: 6]
+}
+
+Assert{
+  received: iter{enumerate}{to Vec}
+  expected: Vec{}, [value: 1 index: 0], [value: 2 index: 1], [value: 3 index: 2]
+}
+
+let left := Iter{}, 1, 2, 3
+let right := Iter{}, 4, 5
+Assert{: (left ++ right){to Vec} = (Vec{}, 1, 2, 3, 4, 5)}
+
+let iter := Iter{}, 1, 2, 3
+Assert{: iter{map: [*: 2]}{to Vec} = (Vec{}, 2, 4, 6)}
+Assert{: iter{filter: is_even}{to Vec} = (Vec{}, 2)}
+Assert{
+  received: iter{filter map: [{: value} 
+    if value > 2 then Option{some: value * 2} else Option{none} end
+  ]}{to Vec}
+  expected: Vec{}, 6
+}
+Assert{
+  received: iter{chain: [{: value} Iter{}, value, value]}{to Vec}
+  expected: Vec{}, 1, 1, 2, 2, 3, 3
+}
+Assert{
+  received: iter{cycle}{take: 5}{to Vec}
+  expected: Vec{}, 1, 2, 3, 1, 2
+}
+Assert{
+  received: iter{drop: 2}{to Vec}
+  expected: Vec{}, 3
+}

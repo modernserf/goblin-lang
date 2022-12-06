@@ -20,10 +20,12 @@ export function run(source: string) {
       ["native", [nativeModule]],
       ["core", compileFile("./src/stdlib/core.gob")],
       ["core/control", compileFile("./src/stdlib/control.gob")],
+      ["core/iter", compileFile("./src/stdlib/iter.gob")],
       ["core/option", compileFile("./src/stdlib/option.gob")],
       ["core/ord", compileFile("./src/stdlib/ord.gob")],
       ["core/range", compileFile("./src/stdlib/range.gob")],
       ["core/result", compileFile("./src/stdlib/result.gob")],
+      ["core/vec", compileFile("./src/stdlib/vec.gob")],
       ["parse", compileFile("./src/stdlib/parse.gob")],
     ])
   )

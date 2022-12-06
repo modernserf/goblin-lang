@@ -65,9 +65,9 @@ let right_result := Parser{try match: [{: ch}
 let space := Parser{token: " "}
 
 let round_1 := Parser{ok: [opponent: () player: ()]}
-  {into: [opponent] parse: left_hand}
+  {with: [opponent] join: left_hand}
   {skip: space}
-  {into: [player] parse: right_hand}
+  {with: [player] join: right_hand}
   {skip: Parser{newline}}
   {map: [{: [_player_ _opponent_]}
     let result := query{player: player opponent: opponent}
@@ -75,9 +75,9 @@ let round_1 := Parser{ok: [opponent: () player: ()]}
   ]}
 
 let round_2 := Parser{ok: [opponent: () result: ()]}
-  {into: [opponent] parse: left_hand}
+  {with: [opponent] join: left_hand}
   {skip: space}
-  {into: [result] parse: right_result}
+  {with: [result] join: right_result}
   {skip: Parser{newline}}
   {map: [{: [_opponent_ _result_]}
     let player := query{opponent: opponent result: result}

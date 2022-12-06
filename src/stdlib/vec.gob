@@ -1,0 +1,186 @@
+import [_Panic_ _Array_ _true_ _false_] := "native"
+import [_Control_] := "core/control"
+import [_Option_] := "core/option"
+
+let VecImpl := [
+  on {_array_ _length_} 
+    let private := [
+      on {copy}
+        VecImpl{
+          array: array{from: 0 to: length} 
+          length: length 
+        }
+      on {index: index}
+        if index >= length then Panic{message: "index out of range"} end
+        # TODO: handle negative index wraparound
+        index
+      on {sort: arr by: do f lo: lo hi: hi}
+        if (lo >= 0) && (hi >= 0) && (lo < hi) then
+          let p := self{partition: arr by: f lo: lo hi: hi}
+          self{sort: arr by: f lo: lo hi: p}
+          self{sort: arr by: f lo: p + 1 hi: hi}
+        end
+      on {partition: arr by: do f lo: lo hi: hi}
+        let pivot := arr{at: (hi + lo) >> 1}
+        var left_idx := lo - 1 
+        var right_idx := hi + 1
+        Control{loop: {}
+          private{
+            inc: var left_idx 
+            while: {: i} <f{left: arr{at: i} right: pivot}
+          }
+          private{
+            dec: var right_idx
+            while: {: i} >f{left: arr{at: i} right: pivot}
+          }
+          if left_idx >= right_idx then return right_idx end
+          arr{at: left_idx swap: right_idx}
+        }
+      on {inc: var i while: do f}
+        Control{loop: {}
+          set i{+: 1}
+          if !f{: i} then return end
+        }
+      on {dec: var i while: do f}
+        Control{loop: {}
+          set i{-: 1}
+          if !f{: i} then return end
+        }
+      on {to Iter: index}
+        import [_Iter_] := "core/iter"
+        return Iter{:[
+          on {next}
+            if index < length then
+              [value: array{at: index} next: private{to Iter: index + 1}]
+            else
+              [done]
+            end
+        ]}
+    ]
+    return [
+      on {length}
+        length
+      on {at: index}
+        array{at: private{index: index}}
+      on {at: index value: val}
+        VecImpl{
+          array: array{copy}{at: private{index: index} value: val} 
+          length: length
+        }
+      on {,: val}
+        {push: val}
+        if array{length} = length then
+          array{push: val}
+          VecImpl{array: array length: length + 1}
+        else
+          private{copy}{push: val}
+        end
+      on {pop}
+        let len := private{index: length - 1}
+        # TODO: should periodically reallocate array so unused items can be GC'd
+        return [
+          most: VecImpl{array: array length: len}
+          last: array{at: len}
+        ]
+      on {each: do f}
+        Control{times: length do: {: i}
+          let value := array{at: i}
+          f{: value} ? f{: value index: i}
+        }
+        self
+      on {map: do f}
+        let out := Array{}
+        Control{times: length do: {: i}
+          let value := array{at: i}
+          out{push: f{: value} ? f{: value index: i}}
+        }
+        VecImpl{array: out length: length}
+      on {filter: do f}
+        let out := Array{}
+        Control{times: length do: {: i}
+          let value := array{at: i}
+          if f{: array{at: i}} then
+            out{push: value}
+          end
+        }
+        VecImpl{array: out length: out{length}}
+      on {find: do f}
+        Control{times: length do: {: i}
+          let value := array{at: i}
+          if f{: array{at: i}} then
+            return Option{some: value}
+          end
+          Option{none}
+        }
+      on {into: init fold: do f}
+        var result := init
+        Control{times: length do: {: i}
+          let value := array{at: i}
+          set result := f{: value into: result}
+        }
+        result
+      on {sum}
+        var result := 0
+        Control{times: length do: {: i}
+          set result{+: array{at: i}}
+        }
+        result
+      on {to Iter}
+        private{to Iter: 0}
+      on {=: other}
+        let len := other{length} ? (return false)
+        if len != length then return false end
+        Control{times: length do: {: i}
+          let val := other{at: i} ? (return false)
+          if array{at: i} != val then return false end 
+        }
+        return true
+
+      # slicing
+      on {from: f to: t}
+        let next := array{from: f to: t}
+        let len := next{length}
+        VecImpl{array: next length: len}
+      on {from: f}
+        self{from: f to: self{length}}
+      on {to: t}
+        self{from: 0 to: t}
+
+      on {++: other}
+        {append: other}
+        var next := self
+        Control{times: other{length} do: {: i}
+          set next{push: other{at: i}}
+        }
+        next
+      
+      # sorting
+      on {sort}
+        self{sort: [asc]}
+      on {sort: direction}
+        self{sort: direction by key: {: x} x}
+      on {sort by key: do f}
+        self{sort: [asc] by key: f}
+      on {sort: direction by key: do f}
+        direction{:
+          on {asc}
+            self{sort by: {left: l right: r} f{:l}{order: f{: r}}}
+          on {desc}
+            self{sort by: {left: l right: r} f{:r}{order: f{: l}}}
+        }
+      on {sort by: do f}
+        if length <= 1 then return self end
+        let out := array{from: 0 to: length}
+        private{sort: out by: f lo: 0 hi: length - 1}
+        return VecImpl{array: out length: length}
+    ]
+]
+
+export let Vec := [
+  on {}
+    VecImpl{array: Array{} length: 0}
+  on {pop: var vec}
+    let res := vec{pop}
+    set vec := res{most}
+    return res{last}
+]

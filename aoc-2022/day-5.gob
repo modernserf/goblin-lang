@@ -24,11 +24,11 @@ let init_state := Vec{}
 
 let line := Parser{ok: [count: () source: () dest: ()]}
   {skip: Parser{string: "move "}}
-  {into: [count] parse: Parser{integer}}
+  {with: [count] join: Parser{integer}}
   {skip: Parser{string: " from "}}
-  {into: [source] parse: Parser{integer} |>> [-: 1]}
+  {with: [source] join: Parser{integer} |>> [-: 1]}
   {skip: Parser{string: " to "}}
-  {into: [dest] parse: Parser{integer} |>> [-: 1]}
+  {with: [dest] join: Parser{integer} |>> [-: 1]}
   {skip: Parser{newline}}
 
 let input := File{read text sync: "./aoc-2022/day-5.input.txt"}

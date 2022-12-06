@@ -3,9 +3,9 @@ import [_Range_] := "core/range"
 import [_Parser_] := "parse"
 
 let parse_range := Parser{ok: Range{}}
-  {into: [from] parse: Parser{integer}}
+  {with: [from] join: Parser{integer}}
   {skip: Parser{token: "-"}}
-  {into: [to] parse: Parser{integer} |>> [+: 1]}
+  {with: [to] join: Parser{integer} |>> [+: 1]}
 
 let parse_range_pair := parse_range
   .>> Parser{token: ","}
