@@ -2,7 +2,7 @@ import { Lexer } from "./lexer"
 import { program as parse } from "./parser"
 import { module, program as compile } from "./compiler"
 import { program as interpret } from "./interpreter"
-import { native } from "./native"
+import { nativeModule } from "./primitive"
 import { IRStmt } from "./interface"
 import { readFileSync } from "fs"
 
@@ -17,7 +17,7 @@ export function run(source: string) {
   return interpret(
     ir,
     new Map([
-      ["native", [native]],
+      ["native", [nativeModule]],
       ["core", compileFile("./src/stdlib/core.gob")],
       ["parse", compileFile("./src/stdlib/parse.gob")],
     ])

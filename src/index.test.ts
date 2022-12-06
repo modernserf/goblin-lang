@@ -4,7 +4,6 @@ import "./parser.test"
 import "./compiler.test"
 import "./interpreter.test"
 import "./primitive.test"
-import "./core.test"
 import { run } from "./index"
 
 function testFile(name: string, path: string) {
