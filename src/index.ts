@@ -20,6 +20,7 @@ export function run(source: string) {
       ["native", [nativeModule]],
       ["core", compileFile("./src/stdlib/core.gob")],
       ["core/control", compileFile("./src/stdlib/control.gob")],
+      ["core/hash", compileFile("./src/stdlib/hash.gob")],
       ["core/iter", compileFile("./src/stdlib/iter.gob")],
       ["core/option", compileFile("./src/stdlib/option.gob")],
       ["core/ord", compileFile("./src/stdlib/ord.gob")],

@@ -1,0 +1,21 @@
+import [_Assert_ _Option_] := "core"
+import [_HashMap_ _HashSet_] := "core/hash"
+
+let map := HashMap{}
+  {key: "foo" value: 1}
+  {key: "bar" value: 2}
+  {key: "baz" value: 3}
+
+Assert{received: map{size} expected: 3}
+Assert{received: map{key: "quux"} expected: Option{none}}
+Assert{received: map{key: "foo"} expected: Option{some: 1}}
+Assert{received: map{key: "bar"} expected: Option{some: 2}}
+Assert{received: map{key: "baz"} expected: Option{some: 3}}
+
+let map := map{key: "bar" value: 5}
+Assert{received: map{size} expected: 3}
+Assert{received: map{key: "bar"} expected: Option{some: 5}}
+
+let map := map{remove: "foo"}
+Assert{received: map{size} expected: 2}
+Assert{received: map{key: "foo"} expected: Option{none}}

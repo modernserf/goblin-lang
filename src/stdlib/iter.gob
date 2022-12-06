@@ -188,7 +188,7 @@ export let Iter := [
             other{next}{:
               on {done} 
                 [value: [left: left] next: next_left{pair: Iter{}}]
-              on {value: v1 next: next_right}
+              on {value: right next: next_right}
                 [value: [left: left right: right] next: next_left{pair: next_right}]
             }
         }
