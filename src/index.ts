@@ -19,6 +19,7 @@ export function run(source: string) {
     new Map([
       ["native", [nativeModule]],
       ["core", compileFile("./src/stdlib/core.gob")],
+      ["core/control", compileFile("./src/stdlib/control.gob")],
       ["core/option", compileFile("./src/stdlib/option.gob")],
       ["core/ord", compileFile("./src/stdlib/ord.gob")],
       ["core/range", compileFile("./src/stdlib/range.gob")],

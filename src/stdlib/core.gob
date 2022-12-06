@@ -42,6 +42,9 @@ export let Option := Option
 import [_Result_] := "core/result"
 export let Result := Result
 
+import [_Control_] := "core/control"
+export let Control := Control
+
 import [Cell: cell] := "native"
 export let Cell := [
   on {: value} 
@@ -58,19 +61,6 @@ export let Cell := [
         instance{set: next}
         self
     ]
-]
-
-import [_loop_] := "native"
-export let Control := [
-  on {loop: do f}
-    loop{loop: f}
-  on {times: times do: do f}
-    var i := 0
-    Control{loop: {}
-      if i >= times then return end
-      f{: i} ? f{}
-      set i{+: 1}
-    }
 ]
 
 export let Iter := [

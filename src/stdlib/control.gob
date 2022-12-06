@@ -1,0 +1,25 @@
+import [_loop_] := "native"
+
+export let Control := [
+  on {loop: do f}
+    loop{loop: f}
+  on {times: times do: do f}
+    var i := 0
+    loop{loop: {}
+      if i >= times then return end
+      f{: i} ? f{}
+      set i{+: 1}
+    }
+  # this is maybe a bit too clever
+  on {: do f}
+    loop{loop: {}
+      f{while}{:
+        on {true} f{do: ()} ? f{do}
+        on {false} return ()
+        on {some: value} f{do: value} ? f{do}
+        on {none} return ()
+        on {ok: value} f{do: value} ? f{do}
+        on {error: err} return err
+      }
+    }
+]

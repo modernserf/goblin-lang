@@ -208,7 +208,9 @@ class SendScope extends BasicScope {
     }
   }
   lookupVarIndex(key: string): number {
-    if (this.borrows.has(key)) throw new VarDoubleBorrowError()
+    // FIXME: this should throw for duplicate var args
+    // but not for a do object that closes over the same var in multiple handlers
+    // if (this.borrows.has(key)) throw new VarDoubleBorrowError()
     this.borrows.add(key)
     return super.lookupVarIndex(key)
   }
