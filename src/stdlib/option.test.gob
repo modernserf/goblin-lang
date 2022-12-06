@@ -1,0 +1,37 @@
+import [_Assert_] := "core"
+import [_Option_] := "core/option"
+
+Assert{: Option{none}{is none}}
+Assert{: Option{some: 1}{is some}}
+
+Assert{: Option{some: 1}{map: [+: 1]}{some!} = 2}
+Assert{: Option{none}{map: [+: 1]}{is none}}
+
+Assert{: Option{some: 1}{chain:{: value} 
+  Option{some: value + 1}
+}{some!} = 2}
+Assert{: Option{some: 1}{chain: {:__} Option{none}}{is none}}
+Assert{: Option{none}{chain: {: __} Option{some: 1}}{is none}}
+
+Assert{: Option{some: 1}{chain none: {} Option{some: 2}}{some!} = 1}
+Assert{: Option{none}{chain none: {} Option{some: 2}}{some!} = 2}
+
+Assert{: Option{some: 1}{or: 3} = 1}
+Assert{: Option{none}{or: 3} = 3}
+
+Assert{: Option{some: 1}{or do: {} 4} = 1}
+Assert{: Option{none}{or do: {} 4} = 4}
+
+Assert{: Option{some: 1} = Option{some: 1}}
+Assert{: Option{some: 1} != Option{some: 2}}
+Assert{: Option{none} = Option{none}}
+
+Assert{: (Option{some: 1} && Option{some: 2}){some!} = 2}
+Assert{: (Option{some: 1} || Option{some: 2}){some!} = 1}
+Assert{: (Option{some: 1} && Option{none}){is none}}
+Assert{: (Option{some: 1} || Option{none}){some!} = 1}
+Assert{: (Option{none} && Option{some: 2}){is none}}
+Assert{: (Option{none} || Option{some: 2}){some!} = 2}
+
+Assert{: Option{none} < Option{some: -1000}}
+Assert{: Option{some: 0} < Option{some: 1}}

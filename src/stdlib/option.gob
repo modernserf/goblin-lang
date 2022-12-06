@@ -1,0 +1,69 @@
+import [_true_ _false_] := "native"
+import [_Ord_] := "core/ord"
+
+export let Option := [
+  on {}
+    Option{none}
+  on {: value}
+    Option{some: value}
+  on {some: value} [
+    on {: do f} f{some: value}
+    on {some!} value
+    on {is some} true
+    on {is none} false
+    on {map: do f} Option{some: f{: value}}
+    on {chain: do f} f{: value}
+    on {chain none: do f} self
+    on {or: default} value
+    on {or do: do f} value
+    on {=: other} other{:
+      on {some: x} x = value
+      else false
+    }
+    on {!=: other} !(self = other)
+    # 'dynamic' boolean logic, does not check other operand
+    on {&&: other} other
+    on {||: other} self
+    # ordering {none} < any {some: value}
+    on {order: other}
+      other{:
+        on {some: x}
+          value{order: x}
+        on {none}
+          Ord{>}
+      }
+    on {<: val}   <self{order: val}
+    on {<=: val} <=self{order: val}
+    on {>=: val} >=self{order: val}
+    on {>: val}   >self{order: val}
+  ]
+  on {none} [
+    on {: do f} f{none}
+    # no {some!}
+    on {is some} false
+    on {is none} true
+    on {map: do f} self
+    on {chain: do f} self
+    on {chain none: do f} f{}
+    on {or: default} default
+    on {or do: do f} f{}
+    on {=: other} other{:
+      on {none} true
+      else false
+    }
+    on {!=: other} !(self = other)
+    on {&&: other} self
+    on {||: other} other
+    on {order: other}
+      other{:
+        on {some: __}
+          Ord{<}
+        on {none}
+          Ord{=}
+      }
+    on {<: val}   <self{order: val}
+    on {<=: val} <=self{order: val}
+    on {>=: val} >=self{order: val}
+    on {>: val}   >self{order: val}
+  ]
+]

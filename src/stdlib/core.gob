@@ -233,16 +233,8 @@ let OR := [
   ]
 ]
 
-export let Option := [
-  on {} 
-    OR{none}
-  on {: value}
-    OR{some: value}
-  on {some: value}
-    OR{some: value}
-  on {none}
-    OR{none}
-]
+import [_Option_] := "core/option"
+export let Option := Option 
 
 export let Result := [
   on {: value}
