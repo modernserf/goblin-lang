@@ -1,4 +1,5 @@
-import [_File_ _Log_ _String_ _Range_] := "core"
+import [_File_ _Log_ _String_] := "core"
+import [_Range_] := "core/range"
 import [_Parser_] := "parse"
 
 let parse_range := Parser{ok: Range{}}

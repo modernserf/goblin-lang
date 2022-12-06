@@ -1,0 +1,33 @@
+import [_true_ _false_] := "native"
+
+# - orderable objects respond to {order: other} with an Ord instance
+# - operators (note: prefix!) can be used for quickly deriving relevant methods from {order: other}
+export let Ord := [
+  on {<} [
+    on {: do f} f{<}
+    on {<} true
+    on {<=} true
+    on {=} false
+    on {!=} true
+    on {>=} false
+    on {>} false
+  ]
+  on {=} [
+    on {: do f} f{=}
+    on {<} false
+    on {<=} true
+    on {=} true
+    on {!=} false
+    on {>=} true
+    on {>} false
+  ]
+  on {>} [
+    on {: do f} f{=}
+    on {<} false
+    on {<=} false
+    on {=} false
+    on {!=} true
+    on {>=} true
+    on {>} true
+  ]
+]

@@ -26,38 +26,8 @@ export let BigInt := [
     bigint{: value}
 ]
 
-# - orderable objects respond to {order: other} with an Ord instance
-# - operators (note: prefix!) can be used for quickly deriving relevant methods from {order: other}
-export let Ord := [
-  on {<} [
-    on {: do f} f{<}
-    on {<} true
-    on {<=} true
-    on {=} false
-    on {!=} true
-    on {>=} false
-    on {>} false
-  ]
-  on {=} [
-    on {: do f} f{=}
-    on {<} false
-    on {<=} true
-    on {=} true
-    on {!=} false
-    on {>=} true
-    on {>} false
-  ]
-  on {>} [
-    on {: do f} f{=}
-    on {<} false
-    on {<=} false
-    on {=} false
-    on {!=} true
-    on {>=} true
-    on {>} true
-  ]
-]
-
+import [_Ord_] := "core/ord"
+export let Ord := Ord
 
 # Option & Result in single value for mutual recursion
 let OR := [
@@ -869,31 +839,5 @@ let BitSetImpl := [
 export let BitSet := [
   on {} 
     BitSetImpl{: BigInt{: 0}}
-]
-
-export let Range := [
-  on {}
-    Range{from: 0 to: 0}
-  on {from: range_start to: range_end} [
-    on {from}
-      range_start
-    on {from: value}
-      Range{from: value to: range_end}
-    on {to}
-      range_end
-    on {to: value}
-      Range{from: range_start to: value}
-    on {size}
-      if range_end >= range_start then range_end - range_start else 0 end
-    on {is superset: other}
-      (range_start <= other{from}) && (other{to} <= range_end)
-    on {has: value}
-      (range_start <= value) && (value < range_end)
-    
-    on {&: other} {intersection: other}
-      let next_start := range_start{max: other{from}}
-      let next_end := range_end{min: other{to}}
-      Range{from: next_start to: next_end}
-  ]
 ]
 

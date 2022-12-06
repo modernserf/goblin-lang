@@ -1,0 +1,31 @@
+export let Range := [
+  on {}
+    Range{from: 0 to: 0}
+  # TODO: public constructor asserts from < to
+  on {from: range_start := 0 to: range_end} [
+    on {from}
+      range_start
+    on {from: value}
+      Range{from: value to: range_end}
+    on {to}
+      range_end
+    on {to: value}
+      Range{from: range_start to: value}
+    on {size}
+      if range_end >= range_start then range_end - range_start else 0 end
+    on {is superset: other}
+      (range_start <= other{from}) && (other{to} <= range_end)
+    on {has: value}
+      (range_start <= value) && (value < range_end)
+    
+    on {&: other} {intersection: other}
+      let next_start := range_start{max: other{from}}
+      let next_end := range_end{min: other{to}}
+      if next_start < next_end then
+        Range{from: next_start to: next_end}
+      else
+        Range{}
+      end
+  ]
+]
+

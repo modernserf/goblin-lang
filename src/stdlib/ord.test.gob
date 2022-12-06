@@ -1,0 +1,23 @@
+import [_Assert_] := "core"
+import [_Ord_] := "core/ord"
+
+let Pair := [
+  on {left: left right: right} [
+    on {left} left
+    on {right} right
+    on {order: other} 
+      let left_ord := left{order: other{left}}
+      if left_ord{!=} then return left_ord end
+      right{order: other{right}}
+    on {<: val}   <self{order: val}
+    on {<=: val} <=self{order: val}
+    on {=: val}   =self{order: val}
+    on {!=: val} !=self{order: val}
+    on {>=: val} >=self{order: val}
+    on {>: val}   >self{order: val}
+  ]
+]
+
+Assert{:Pair{left: 0 right: 1} < Pair{left: 1 right: 0}}
+Assert{:Pair{left: 0 right: 1} < Pair{left: 0 right: 2}}
+Assert{:Pair{left: 0 right: 1} = Pair{left: 0 right: 1}}
