@@ -502,11 +502,17 @@ const bigIntClass: IRClass = new IRClassBuilder()
   .addPrimitive("!=:", (self, [arg]) => {
     return new PrimitiveValue(boolClass, self !== bigIntValue(arg))
   })
+  .addPrimitive("~", (self) => {
+    return new PrimitiveValue(bigIntClass, ~self)
+  })
   .addPrimitive("&:", (self, [arg]) => {
     return new PrimitiveValue(bigIntClass, self & bigIntValue(arg))
   })
   .addPrimitive("|:", (self, [arg]) => {
     return new PrimitiveValue(bigIntClass, self | bigIntValue(arg))
+  })
+  .addPrimitive("^:", (self, [arg]) => {
+    return new PrimitiveValue(bigIntClass, self ^ bigIntValue(arg))
   })
   .addPrimitive("<<:", (self, [arg]) => {
     return new PrimitiveValue(bigIntClass, self << bigIntValue(arg))

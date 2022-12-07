@@ -1,4 +1,4 @@
-import [_Assert_ _Array_ _Cell_ _Vec_ _Option_ _HashMap_ _BitSet_] := "core"
+import [_Assert_ _Array_ _Cell_ _Vec_ _Option_ _HashMap_] := "core"
 
 # cell
 let a := Cell{: 0}
@@ -43,28 +43,3 @@ let base := Array{}, 1, 2, 3
 let slice := base{from: 1 to: 3}
 Assert{received: slice{length} expected: 2}
 Assert{received: slice{at: 0} expected: 2}
-
-var bs := BitSet{}
-set bs{add: 1}
-set bs{add: 30}
-set bs{add: 58}
-Assert{:bs{has: 1}}
-Assert{:bs{has: 30}}
-Assert{:bs{has: 58}}
-Assert{false: bs{has: 20}}
-Assert{false: bs{has: 63}}
-
-let cs := (Vec{}, 4, 30, 22){into: BitSet{} fold: [add]}
-Assert{:cs{has: 4}}
-Assert{:cs{has: 30}}
-Assert{:cs{has: 22}}
-
-let intersect := bs & cs
-Assert{: intersect{has: 30}}
-Assert{false: intersect{has: 1}}
-Assert{false: intersect{has: 4}}
-
-Assert{
-  expected: bs{to Vec}
-  received: Vec{}, 1, 30, 58
-}

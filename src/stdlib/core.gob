@@ -1,11 +1,9 @@
-export import [_Assert_ _Array_ _Panic_ _Log_ _File_ _Debug_ _BigInt_] := "native"
+export import [_true_ _false_ _Assert_ _Array_ _Panic_ _Log_ _File_ _Debug_ _BigInt_] := "native"
 
-import [_true_ _false_] := "native"
 export let Bool := [
   on {true} true
   on {false} false
 ]
-export let [_true_ _false_] := Bool
 
 import [String: string] := "native"
 export let String := [
@@ -16,7 +14,6 @@ export let String := [
   on {tab} 
     string{from char code: 9}
 ]
-
 
 export import [_Ord_] := "core/ord"
 export import [_Option_] := "core/option"
@@ -43,43 +40,3 @@ export let Cell := [
         self
     ]
 ]
-
-
-let b0 := BigInt{: 0}
-let b1 := BigInt{: 1}
-let BitSetImpl := [
-  on {: value} [
-    on {to BigInt}
-      value
-    on {add: num}
-      BitSetImpl{: value | (b1 << BigInt{: num})}
-    on {has: num}
-      value & (b1 << BigInt{: num}) != b0
-    on {&: other}
-      BitSetImpl{: value & other{to BigInt}}
-    on {|: other}
-      BitSetImpl{: value | other{to BigInt}}
-    on {size}
-      value{popcount}
-    on {to Vec}
-      var vec := Vec{}
-      var bits := value
-      var i := 0
-      # TODO: unroll this loop
-      Control{loop: {}
-        if bits = b0 then 
-          return vec 
-        end
-        if (bits & b1) = b1 then 
-          set vec{push: i} 
-        end
-        set i{+: 1}
-        set bits{>>: b1}
-      }
-  ]
-]
-export let BitSet := [
-  on {} 
-    BitSetImpl{: BigInt{: 0}}
-]
-

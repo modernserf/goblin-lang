@@ -1,4 +1,5 @@
-import [_Vec_ _File_ _Log_ _Control_ _BitSet_] := "core"
+import [_Vec_ _File_ _Log_ _Control_] := "core"
+import [_BitSet_] := "bitset"
 
 let find_unique_substring := [{: input size: size}
   let a_code := "a"{code at: 0}

@@ -1,0 +1,34 @@
+import [_Assert_ _Vec_] := "core"
+import [_BitSet_] := "bitset"
+
+let bs := BitSet{}, 1, 30, 58
+Assert{:bs{size} = 3}
+Assert{:bs{has: 1}}
+Assert{:bs{has: 30}}
+Assert{:bs{has: 58}}
+Assert{false: bs{has: 20}}
+Assert{false: bs{has: 63}}
+
+Assert{received: bs{toggle: 30} expected: BitSet{}, 1, 58}
+Assert{received: bs{toggle: 32} expected: BitSet{}, 1, 30, 32, 58}
+
+Assert{received: bs{remove: 1} expected: BitSet{}, 30, 58}
+Assert{received: bs{remove: 5} expected: bs}
+
+Assert{
+  received: (BitSet{}, 1, 30, 58) & (BitSet{}, 4, 30, 22)
+  expected: BitSet{}, 30
+}
+Assert{
+  received: (BitSet{}, 1, 30, 58) | (BitSet{}, 4, 30, 22)
+  expected: BitSet{}, 1, 4, 22, 30, 58
+}
+Assert{
+  received: (BitSet{}, 1, 30, 58) - (BitSet{}, 4, 30, 22)
+  expected: BitSet{}, 1, 58
+}
+
+Assert{
+  expected: bs{to Iter}{to Vec}
+  received: Vec{}, 1, 30, 58
+}

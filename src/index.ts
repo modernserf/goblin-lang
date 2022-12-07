@@ -28,6 +28,7 @@ export function run(source: string) {
       ["core/result", compileFile("./src/stdlib/result.gob")],
       ["core/vec", compileFile("./src/stdlib/vec.gob")],
       ["parse", compileFile("./src/stdlib/parse.gob")],
+      ["bitset", compileFile("./src/stdlib/bitset.gob")],
     ])
   )
 }

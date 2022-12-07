@@ -1,5 +1,6 @@
-import [_File_ _Control_ _Vec_ _Log_ _Assert_ _BitSet_] := "core"
+import [_File_ _Control_ _Vec_ _Log_ _Assert_] := "core"
 import [_Parser_] := "parse"
+import [_BitSet_] := "bitset"
 
 let Rucksack := [
   on {: vec}
@@ -15,7 +16,7 @@ let Rucksack := [
   on {_left_ _right_} [
     on {sum overlap}
       let overlap := left & right
-      overlap{to Vec}{sum}
+      overlap{to Iter}{into: 0 fold: [+]}
     on {to BitSet}
       left | right
   ]

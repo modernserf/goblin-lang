@@ -1,0 +1,50 @@
+import [_BigInt_ _Control_ _Iter_] := "core"
+
+let b0 := BigInt{: 0}
+let b1 := BigInt{: 1}
+
+let BitSetIter := [
+  on {value: value index: index} Iter{:[
+    on {next}
+      if value = b0 then return [done] end
+      var bits := value
+      var i := index
+      Control{loop: {}
+        if (bits & b1) = b1 then 
+          return [value: i next: BitSetIter{value: bits{>>: b1} index: i + 1}]
+        end
+        set i{+: 1}
+        set bits{>>: b1}
+      }
+  ]}
+]
+
+let BitSetImpl := [
+  on {: value} [
+    on {to BigInt}
+      value
+    on {,: num} {add: num}
+      BitSetImpl{: value | (b1 << BigInt{: num})}
+    on {toggle: num}
+      BitSetImpl{: value ^ (b1 << BigInt{: num})}
+    on {remove: num}
+      BitSetImpl{: value & ~(b1 << BigInt{: num})}
+    on {has: num}
+      value & (b1 << BigInt{: num}) != b0
+    on {&: other} {intersection: other}
+      BitSetImpl{: value & other{to BigInt}}
+    on {|: other} {union: other}
+      BitSetImpl{: value | other{to BigInt}}
+    on {-: other} {difference: other}
+      BitSetImpl{: value & (value ^ other{to BigInt})}
+    on {size}
+      value{popcount}
+    on {to Iter}
+      BitSetIter{value: value index: 0}
+  ]
+]
+export let BitSet := [
+  on {} 
+    BitSetImpl{: BigInt{: 0}}
+]
+
