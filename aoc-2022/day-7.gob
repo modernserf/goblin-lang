@@ -1,0 +1,217 @@
+import [_true_ _false_ _String_ _Vec_ _HashMap_ _File_ _Log_ _Assert_ _Result_ _Iter_ _Debug_] := "core"
+import [_Parser_] := "parse"
+
+let Tree := [
+  on {file: name size: size} [
+    on {is dir} false
+    on {name} name
+    on {size} size
+    on {to Iter} Iter{}, self
+    on {to String}
+      self{to String with indent: ""}
+    on {to String with indent: indent} 
+      indent ++ "- " ++ name ++ " (file, size=" ++ size ++ ")" ++ String{newline}
+  ]
+  on {dir: name items: items := HashMap{}} [
+    on {is dir} true
+    on {name} name
+    on {size}
+      items{to Iter}{map: [value]}{map: [size]}{into: 0 fold: [+]}
+    on {to Iter}
+      let spread_children := items{to Iter}
+        {map: [value]}
+        {map: [to Iter]}
+        {into: Iter{} fold: [++]}
+      Iter{}, self ++ spread_children
+    on {to String}
+      self{to String with indent: ""}
+    on {to String with indent: indent}
+      let root := indent ++ "- " ++ name ++ " (dir)" ++ String{newline}
+      items{to Iter}
+        {map: [value]}
+        {map: [to String with indent: indent ++ "  "]}
+        {into: root fold: [++]}
+
+    on {add: item at path: path}
+      if path{length} = 0 then
+        Tree{
+          dir: name 
+          items: items{key: item{name} value: item}
+        }
+      else
+        Tree{
+          dir: name
+          items: items{
+            key: path{at: 0}
+            value: item
+            or update: [add: item at path: path{from: 1}]
+          }
+        }
+      end
+  ]
+]
+
+let file_char := Parser{range: "a" through: "z"} | Parser{token: "."}
+let filename := file_char{repeat1}{map: [into: "" fold: [++]]}
+
+Assert{
+  received: Parser{parse: "foo.bar" with: filename}{ok!}
+  expected: "foo.bar"
+}
+Assert{
+  received: Parser{parse: "foo" with: filename}{ok!}
+  expected: "foo"
+}
+
+let file := Parser{ok: [file: () size: ()]}
+  {with: [size] join: Parser{integer}}
+  {skip: Parser{token: " "}}
+  {with: [file] join: filename}
+  {map: [{: p} p{:Tree}]}
+
+let dir := Parser{string: "dir "} 
+  {then: filename}
+  {map: [{: name} Tree{dir: name}]}
+let entry := file | dir
+
+Assert{
+  received: Parser{parse: "105963 mhqs.zrn" with: entry}{ok!}
+  expected: Tree{file: "mhqs.zrn" size: 105963}
+}
+Assert{
+  received: Parser{parse: "dir wfbvtfmr" with: entry}{ok!}
+  expected: Tree{dir: "wfbvtfmr"}
+}
+
+let entries := entry{skip: Parser{newline}}{repeat}
+
+let command := (Parser{string: "$ cd /"} >>. Parser{ok: [cd/]} .>> Parser{newline})
+  | (Parser{string: "$ cd .."} >>. Parser{ok: [cd..]} .>> Parser{newline})
+  | (Parser{string: "$ cd "} >>. filename |>> [{: dir} [cd: dir]] .>> Parser{newline})
+  | (Parser{string: "$ ls"} >>. Parser{newline} >>. entries |>> [{: items} [ls: items]])
+
+let nl := String{newline}
+Assert{
+  received: Parser{parse: "$ cd /" ++ nl with: command}{ok!}
+  expected: [cd/]
+}
+Assert{
+  received: Parser{parse: "$ cd .." ++ nl with: command}{ok!}
+  expected: [cd..]
+}
+Assert{
+  received: Parser{parse: "$ cd wfbvtfmr" ++ nl with: command}{ok!}
+  expected: [cd: "wfbvtfmr"]
+}
+Assert{
+  received: Parser{parse: "$ ls" ++ nl with: command}{ok!}
+  expected: [ls: Vec{}]
+}
+let listing := "$ ls
+208557 slwshm.nwr
+283449 vjw
+dir wfbvtfmr
+"
+Assert{
+  received: Parser{parse: listing with: command}{ok!}
+  expected: [ls: Vec{}, 
+    Tree{file: "slwshm.nwr" size: 208557},
+    Tree{file: "vjw" size: 283449},
+    Tree{dir: "wfbvtfmr"}
+  ]
+}
+
+let input := "$ cd /
+$ ls
+dir a
+14848514 b.txt
+8504156 c.dat
+dir d
+$ cd a
+"
+Assert{
+  received: Parser{parse: input with: *command}{ok!}
+  expected: Vec{},
+    [cd /],
+    [ls: Vec{},
+      Tree{dir: "a"},
+      Tree{file: "b.txt" size: 14848514},
+      Tree{file: "c.dat" size: 8504156},
+      Tree{dir: "d"}
+    ],
+    [cd: "a"]
+}
+
+
+let FileSystem := [
+  on {}
+    let root := Tree{dir: "/"}
+    FileSystem{root: root path: Vec{}}
+  on {root: root path: path} [
+    on {cd/}
+      FileSystem{_root_ path: Vec{}}
+    on {cd..}
+      FileSystem{_root_ path: path{pop}{most}}
+    on {cd: dir}
+      FileSystem{_root_ path: path{push: dir}}
+    on {ls: items}
+      let next_root := items{into: root fold: {: item into: dir}
+        dir{add: item at path: path}
+      }
+      FileSystem{root: next_root path: path}
+    on {to String}
+      root{to String}
+    on {sum small dirs}
+      root{to Iter}
+        {filter: [is dir]}
+        {map: [size]}
+        {filter: [<=: 100000]}
+        {into: 0 fold: [+]}
+    on {size of dir to delete}
+      let total_size := 70000000
+      let needed_space := 30000000
+      let space_remaining := total_size - root{size}
+      let space_to_find := needed_space - space_remaining
+
+      root{to Iter}
+        {filter: [is dir]}
+        {map: [size]}
+        {filter: [>=: space_to_find]}
+        {into: total_size fold: [min]}
+  ]
+]
+
+let input := "$ cd /
+$ ls
+dir a
+14848514 b.txt
+8504156 c.dat
+dir d
+$ cd a
+$ ls
+dir e
+29116 f
+2557 g
+62596 h.lst
+$ cd e
+$ ls
+584 i
+$ cd ..
+$ cd ..
+$ cd d
+$ ls
+4060174 j
+8033020 d.log
+5626152 d.ext
+7214296 k
+"
+
+let input := File{read text sync: "./aoc-2022/day-7.input.txt"}
+let commands := Parser{parse: input with: *command}{ok!}
+let file_system := commands{into: FileSystem{} fold: {: cmd into: fs} 
+  cmd{: fs}
+}
+
+# Log{: file_system{to String}}
+Log{: "part 1: " ++ file_system{sum small dirs}}
+Log{: "part 2: " ++ file_system{size of dir to delete}}

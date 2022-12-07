@@ -1,5 +1,5 @@
 import { IRExpr, IRParam, IRStmt } from "./interface"
-import { IRClass } from "./value"
+import { IRClass, PrimitiveValue } from "./value"
 import {
   IRIvarExpr,
   IRLocalExpr,
@@ -18,7 +18,7 @@ import {
   IRValueArg,
 } from "./ir-handler"
 import { constObject } from "./optimize"
-import { falseVal, trueVal } from "./primitive"
+import { falseVal, stringClass, trueVal } from "./primitive"
 
 export class IRClassBuilder extends IRClass {
   constructor() {
@@ -171,6 +171,15 @@ export function frame(
           []
         ),
       ]
+    )
+  }
+
+  if (!frameClass.try("debug")) {
+    // TODO: recur through args
+    frameClass.addFrame(
+      "debug",
+      [],
+      [new PrimitiveValue(stringClass, `[${selector}]`)]
     )
   }
 

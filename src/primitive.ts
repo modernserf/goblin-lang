@@ -35,8 +35,11 @@ export function boolValue(arg: Value): boolean {
 }
 
 export const boolClass: IRClass = new IRClassBuilder()
-  .addPrimitive(":", (value, [arg], ctx) => {
-    const selector = value ? "true" : "false"
+  .addPrimitive("debug", (self) => {
+    return new PrimitiveValue(stringClass, self ? "true" : "false")
+  })
+  .addPrimitive(":", (self, [arg], ctx) => {
+    const selector = self ? "true" : "false"
     return arg.send(ctx, selector, [], null)
   })
   .addPrimitive("=:", (self, [arg]) => {
@@ -88,6 +91,9 @@ export const stringClass: IRClass = new IRClassBuilder()
       return arg.primitiveValue !== self ? trueVal : falseVal
     }
     return trueVal
+  })
+  .addPrimitive("debug", (self) => {
+    return new PrimitiveValue(stringClass, self)
   })
   .addPrimitive("to String", (self) => {
     return new PrimitiveValue(stringClass, self)
@@ -238,6 +244,9 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("<:", (self, [arg]) => {
     return numericCompare(self, arg, (a, b) => a < b)
   })
+  .addPrimitive("debug", (self) => {
+    return new PrimitiveValue(stringClass, String(self))
+  })
   .addPrimitive("to String", (self) => {
     return new PrimitiveValue(stringClass, String(self))
   })
@@ -268,6 +277,10 @@ export function floatValue(arg: Value): number {
 }
 
 export const floatClass: IRClass = new IRClassBuilder()
+  .addPrimitive("debug", (self: number) => {
+    const str = self === (self | 0) ? `${self}.0` : `${self}`
+    return new PrimitiveValue(stringClass, str)
+  })
   .addPrimitive("+:", (self, [arg]) => {
     return new PrimitiveValue(floatClass, self + floatValue(arg))
   })
@@ -304,6 +317,15 @@ export const floatClass: IRClass = new IRClassBuilder()
   .build()
 
 const cellInstance = new IRClassBuilder()
+  .addPrimitive("debug", (self: { value: Value }, _, ctx) => {
+    const str = self.value.send(
+      ctx,
+      "debug",
+      [],
+      new PrimitiveValue(stringClass, "<unknown>")
+    ).primitiveValue
+    return new PrimitiveValue(stringClass, `Cell{:${str}}`)
+  })
   .addPrimitive("get", (self) => self.value)
   .addPrimitive("set:", (self, [arg]) => {
     self.value = arg

@@ -78,6 +78,22 @@ let HM := [
             item{size} + sum
           }
       }
+    on {to Iter}
+      import [_Iter_] := "core/iter"
+      var iter := Iter{}
+      entry{:
+        on {empty} ()
+        on {key: k value: v}
+          set iter{push: [key: k value: v]}
+      }
+      children{:
+        on {none} ()
+        on {some: cs}
+          cs{each: {: child}
+            set iter{append: child{to Iter}}
+          }
+      }
+      iter
   ]
 ]
 
@@ -90,11 +106,19 @@ export let HashMap := [
     on {key: k value: v}
       let next_state := state{entry: [key: k value: v] hash: k{hash}}
       HashMap{state: next_state}
+    on {key: k value: inserted or update: do f}
+      let next := self{key: k}{:
+        on {some: value} f{: value}
+        on {none} inserted
+      }
+      self{key: k value: next}
     on {remove: k}
       let next_state := state{remove: k hash: k{hash}}
       HashMap{state: next_state}
     on {size}
       state{size}
+    on {to Iter}
+      state{to Iter}
   ]
 ]
 

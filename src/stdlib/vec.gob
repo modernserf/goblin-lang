@@ -137,6 +137,7 @@ let VecImpl := [
         return true
 
       # slicing
+      # TODO: what if slice shared array & just changed offsets?
       on {from: f to: t}
         let next := array{from: f to: t}
         let len := next{length}

@@ -19,3 +19,35 @@ Assert{received: map{key: "bar"} expected: Option{some: 5}}
 let map := map{remove: "foo"}
 Assert{received: map{size} expected: 2}
 Assert{received: map{key: "foo"} expected: Option{none}}
+
+Assert{received: HashMap{}{to Iter}{count} expected: 0}
+Assert{
+  received: HashMap{}
+    {key: "foo" value: 1}
+    {to Iter}
+    {count}
+  expected: 1
+}
+
+Assert{
+  received: HashMap{}
+    {key: "foo" value: 1}
+    {key: "bar" value: 2}
+    {key: "baz" value: 3}
+    {to Iter}
+    {count}
+  expected: 3
+}
+
+let map := HashMap{}
+  {key: "foo" value: 1}
+  {key: "bar" value: 2}
+  {key: "baz" value: 3}
+
+let roundtrip := map
+  {to Iter}
+  {into: HashMap{} fold: {: item into: map}
+    map{key: item{key} value: item{value}}
+  }
+
+Assert{received: roundtrip expected: map}

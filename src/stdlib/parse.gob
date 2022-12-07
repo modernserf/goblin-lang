@@ -129,14 +129,16 @@ export let Parser := [
   on {newline}
     Parser{token: String{newline}}{map error: [expected: [newline]]}
 
-  # accept a sequence of characters
+  # accept a sequence of characters, backtracking on failure
   on {string: str} Parser{:[
     on {parse: var state}
+      let prev_state := state
       Control{times: str{length} do: {: i}
         if state{peek} = str{at: i} then
           set state{next}
         else
           let fail_str := str{from: 0 to: i} ++ state{peek}
+          set state := prev_state
           return Err{expected: [string: str] received: fail_str}
         end
       }
@@ -168,6 +170,24 @@ export let Parser := [
     on {map error: f} Parser{:[
       on {parse: var state}
         parser{parse: var state}{map error: f}
+    ]}
+
+    # accept a token if this parser does _not_ match or advance input
+    on {!} {not} Parser{:[
+      on {parse: var state}
+        let init_state := state
+        let peek := state{peek}
+        parser{parse: var state}{:
+          on {ok: __}
+            return Err{expected: [not: peek] received: peek}
+          on {error: err}
+            if state{index} = init_state{index} then
+              state{next}
+              return Result{ok: peek}
+            else
+              return Result{error: err}
+            end
+        }
     ]}
 
     # match a sequence of parsers and produce the results as a pair
