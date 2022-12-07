@@ -99,6 +99,11 @@ test("parse errors", () => {
       set [x: p] := [x: 2]
     `)
   }, ParseError)
+  assert.throws(() => {
+    parse(`
+      export var x := 1
+    `)
+  }, ParseError)
 })
 
 test("other errors thrown at parse time", () => {

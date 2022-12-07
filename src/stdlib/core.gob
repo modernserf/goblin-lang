@@ -1,14 +1,4 @@
-import [_Assert_ _Array_ _Panic_ _Log_ _File_] := "native"
-export let Assert := Assert
-export let Array := Array
-export let Panic := Panic
-export let Log := Log
-export let File := File
-
-import [_debug_] := "native"
-export let Debug := [
-  on {: value} debug{: value}
-]
+export import [_Assert_ _Array_ _Panic_ _Log_ _File_ _Debug_ _BigInt_] := "native"
 
 import [_true_ _false_] := "native"
 export let Bool := [
@@ -27,29 +17,14 @@ export let String := [
     string{from char code: 9}
 ]
 
-import [_bigint_] := "native"
-export let BigInt := [
-  on {: value}
-    bigint{: value}
-]
 
-import [_Ord_] := "core/ord"
-export let Ord := Ord
-
-import [_Option_] := "core/option"
-export let Option := Option 
-
-import [_Result_] := "core/result"
-export let Result := Result
-
-import [_Control_] := "core/control"
-export let Control := Control
-
-import [_Iter_] := "core/iter"
-export let Iter := Iter
-
-import [_Vec_] := "core/vec"
-export let Vec := Vec
+export import [_Ord_] := "core/ord"
+export import [_Option_] := "core/option"
+export import [_Result_] := "core/result"
+export import [_Control_] := "core/control"
+export import [_Iter_] := "core/iter"
+export import [_Vec_] := "core/vec"
+export import [_HashMap_ _HashSet_] := "core/hash"
 
 import [Cell: cell] := "native"
 export let Cell := [
@@ -69,9 +44,6 @@ export let Cell := [
     ]
 ]
 
-import [_HashMap_ _HashSet_] := "core/hash"
-export let HashMap := HashMap
-export let HashSet := HashSet
 
 let b0 := BigInt{: 0}
 let b1 := BigInt{: 1}

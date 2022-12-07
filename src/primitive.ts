@@ -565,8 +565,8 @@ export const nativeModule = new ObjectValue(
     .addConst("true", trueVal)
     .addConst("false", falseVal)
     .addConst("loop", loopModule)
-    .addConst("debug", debugModule)
-    .addConst("bigint", bigIntModule)
+    .addConst("Debug", debugModule)
+    .addConst("BigInt", bigIntModule)
     .build(),
   []
 )

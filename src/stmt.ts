@@ -43,10 +43,11 @@ export class ImportStmt implements ParseStmt {
   compile(scope: Scope): IRStmt[] {
     if (!this.source.importSource) throw new InvalidImportSourceError()
     const source = this.source.importSource(scope)
+    const result = this.binding.import(scope, source)
     if (this.hasExport) {
       this.binding.export(scope)
     }
-    return this.binding.import(scope, source)
+    return result
   }
 }
 
