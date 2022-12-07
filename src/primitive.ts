@@ -425,6 +425,12 @@ const assertModule = new ObjectValue(
       assert(boolValue(arg) === false)
       return unit
     })
+    .addPrimitive("panics:", (_, [arg], ctx) => {
+      assert.throws(() => {
+        arg.send(ctx, "", [], null)
+      })
+      return unit
+    })
     .build(),
   []
 )

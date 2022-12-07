@@ -1,4 +1,4 @@
-import [_true_ _false_ _String_ _Vec_ _HashMap_ _File_ _Log_ _Assert_ _Result_ _Iter_ _Debug_] := "core"
+import [_true_ _false_ _String_ _Vec_ _HashMap_ _File_ _Log_ _Assert_ _Iter_] := "core"
 import [_Parser_] := "parse"
 
 let Tree := [
@@ -43,7 +43,7 @@ let Tree := [
           dir: name
           items: items{
             key: path{at: 0}
-            value: item
+            value: ()
             or update: [add: item at path: path{from: 1}]
           }
         }
@@ -208,7 +208,7 @@ $ ls
 
 let input := File{read text sync: "./aoc-2022/day-7.input.txt"}
 let commands := Parser{parse: input with: *command}{ok!}
-let file_system := commands{into: FileSystem{} fold: {: cmd into: fs} 
+let file_system := commands{into: FileSystem{} fold: {: cmd into: fs}
   cmd{: fs}
 }
 

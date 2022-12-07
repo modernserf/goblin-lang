@@ -1,6 +1,11 @@
 import [
-    _Bool_ _true_ _false_ _Cell_ _Assert_
+    _Bool_ _true_ _false_ _Cell_ _Assert_ _Panic_
 ] := "core"
+
+# error handling
+Assert{panics: [{}
+  Panic{message: "hello"}
+]}
 
 # operator precedence
 Assert{
