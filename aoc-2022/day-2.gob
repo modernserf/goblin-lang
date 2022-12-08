@@ -1,9 +1,9 @@
-import [_File_ _Log_ _Vec_ _Option_] := "core"
+import [_File_ _Log_ _Slice_ _Option_] := "core"
 import [_Parser_] := "parse"
 
 let result_scores := [win: 6 draw: 3 lose: 0]
 let shape_scores := [rock: 1 paper: 2 scissors: 3]
-let rules := Vec{}
+let rules := Slice{}
   , [a: [rock] b: [rock] c: [draw]]
   , [a: [rock] b: [paper] c: [lose]]
   , [a: [rock] b: [scissors] c: [win]]
@@ -19,11 +19,11 @@ let query := [
   on {player: a opponent: b}
     rules{find: {: row}
       (row{a} = a) && (row{b} = b)
-    }{some!}{c}
+    }{some!: "at player:opponent:"}{c}
   on {opponent: b result: c}
     rules{find: {: row}
       (row{b} = b) && (row{c} = c)
-    }{some!}{a}
+    }{some!: "at opponent:result:"}{a}
 ]
 
 let left_hand := Parser{try match: [{: ch}

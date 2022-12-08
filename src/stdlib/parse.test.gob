@@ -1,4 +1,4 @@
-import [_Result_ _Assert_ _Vec_] := "core"
+import [_Result_ _Assert_ _Slice_] := "core"
 import [_Parser_] := "parse"
 
 Assert{
@@ -10,11 +10,11 @@ Assert{
   expected: Result{ok: "h"}
 }
 Assert{
-  received: Parser{parse: Vec{}, 3 with: Parser{match: [>: 1]}}
+  received: Parser{parse: Slice{}, 3 with: Parser{match: [>: 1]}}
   expected: Result{ok: 3}
 }
 Assert{
-  received: Parser{parse: Vec{}, 0 with: Parser{match: [>: 1]}}
+  received: Parser{parse: Slice{}, 0 with: Parser{match: [>: 1]}}
   expected: Result{error: [expected: [match: [>: 1]] received: 0]}
 }
 Assert{

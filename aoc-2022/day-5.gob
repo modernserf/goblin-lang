@@ -1,4 +1,4 @@
-import [_Vec_ _File_ _Log_ _Control_ _Assert_] := "core"
+import [_Slice_ _File_ _Log_ _Control_ _Assert_] := "core"
 import [_Parser_] := "parse"
 
 #     [C]         [Q]         [V]    
@@ -11,16 +11,16 @@ import [_Parser_] := "parse"
 # [N] [J] [M] [L] [P] [C] [H] [Z] [R]
 #  1   2   3   4   5   6   7   8   9 
 
-let init_state := Vec{}
-  {push: Vec{}, "N", "R", "G", "P"}
-  {push: Vec{}, "J", "T", "B", "L", "F", "G", "D", "C"}
-  {push: Vec{}, "M", "S", "V"}
-  {push: Vec{}, "L", "S", "R", "C", "Z", "P"}
-  {push: Vec{}, "P", "S", "L", "V", "C", "W", "D", "Q"}
-  {push: Vec{}, "C", "T", "N", "W", "D", "M", "S"}
-  {push: Vec{}, "H", "D", "G", "W", "P"}
-  {push: Vec{}, "Z", "L", "P", "H", "S", "C", "M", "V"}
-  {push: Vec{}, "R", "P", "F", "L", "W", "G", "Z"}
+let init_state := Slice{}
+  {push: Slice{}, "N", "R", "G", "P"}
+  {push: Slice{}, "J", "T", "B", "L", "F", "G", "D", "C"}
+  {push: Slice{}, "M", "S", "V"}
+  {push: Slice{}, "L", "S", "R", "C", "Z", "P"}
+  {push: Slice{}, "P", "S", "L", "V", "C", "W", "D", "Q"}
+  {push: Slice{}, "C", "T", "N", "W", "D", "M", "S"}
+  {push: Slice{}, "H", "D", "G", "W", "P"}
+  {push: Slice{}, "Z", "L", "P", "H", "S", "C", "M", "V"}
+  {push: Slice{}, "R", "P", "F", "L", "W", "G", "Z"}
 
 let line := Parser{ok: [count: () source: () dest: ()]}
   {skip: Parser{string: "move "}}
@@ -38,7 +38,7 @@ let end_state := lines{into: init_state fold: {: line into: state}
   var source := state{at: line{source}}
   var dest := state{at: line{dest}}
   Control{times: line{count} do: {: __}
-    let popped := Vec{pop: var source}
+    let popped := Slice{pop: var source}{some!}
     set dest{push: popped}
   }
   state
@@ -46,7 +46,7 @@ let end_state := lines{into: init_state fold: {: line into: state}
     {at: line{dest} value: dest}
 }
 
-let part_1 := end_state{map: [pop]}{map: [last]}{into: "" fold: [++]}
+let part_1 := end_state{map: [at: -1]}{into: "" fold: [++]}
 
 Log{: "Part 1: " ++ part_1}
 
@@ -63,7 +63,7 @@ let end_state := lines{into: init_state fold: {: line into: state}
 }
 
 let part_2 := end_state{into: "" fold: {: stack into: str} 
-  str ++ stack{pop}{last}
+  str ++ stack{at: -1}
 }
 
 Log{: "Part 2: " ++ part_2}

@@ -24,7 +24,7 @@ let TopThree := [
 
 # TODO: sep by newline
 let number_line := Parser{integer} .>> Parser{newline}
-let block_sum := +number_line .>> Parser{newline} |>> [sum]
+let block_sum := +number_line .>> Parser{newline} |>> [into: 0 fold: [+]]
 let all_sums := *block_sum |>> [into: TopThree{} fold: [add]]
 
 let input := File{read text sync: "./aoc-2022/day-1.input.txt"}

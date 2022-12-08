@@ -1,4 +1,4 @@
-import [_Result_ _Vec_ _String_ _Control_] := "core"
+import [_Result_ _Slice_ _String_ _Control_] := "core"
 
 let ParseState := [
   on {source: src index: idx := 0} [
@@ -240,10 +240,10 @@ export let Parser := [
     on {between: open_parser and: close_parser}
       open_parser >>. self .>> close_parser
    
-    # repeatedly try to match a parser & collect results into vec
+    # repeatedly try to match a parser & collect results into slice
     on {repeat: min} Parser{:[
       on {parse: var state}
-        var result := Vec{}
+        var result := Slice{}
         Control{loop: {}
           let prev_state := state
           let item := parser{parse: var state}{:

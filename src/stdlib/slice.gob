@@ -88,7 +88,7 @@ let Slice := [
       self{from: 0 to: to_offset}
     on {from: from_offset to: to_offset}
       let len := self{length}
-      let from_offset := from_offset % len
+      let from_offset := if from_offset = len then len else from_offset % len end
       let to_offset := if to_offset = len then len else to_offset % len end
       if from_offset >= to_offset then return Slice{} end
       Slice{array: array from: from + from_offset to: from + to_offset}
@@ -153,8 +153,8 @@ let Slice := [
         if f{: item} ? f{: item index: index} then
           return Option{some: [value: item index: index]}
         end
-        return Option{none}
       }
+      return Option{none}
     on {into: init fold: do f}
       var result := init
       self{each: {: item index: index}
@@ -187,5 +187,23 @@ export let Slice := [
     SliceImpl{}
   on {from Iter: iter}
     iter{into: SliceImpl{} fold: [push]}
+  on {pop: var slice}
+    let res := slice{pop}
+    res{:
+      on {some: [_most_ _last_]}
+        set slice := most
+        return Option{some: last}
+      on {none}
+        return Option{none}
+    }
+  on {shift: var slice}
+    let res := slice{shift}
+    res{:
+      on {some: [_first_ _rest_]}
+        set slice := rest
+        return Option{some: first}
+      on {none}
+        return Option{none}
+    }
 ]
 

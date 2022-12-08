@@ -13,9 +13,10 @@ set longer{at: 1 value: "foo"}
 Assert{: longer{at: 1} = "foo"}
 Assert{: slice{at: 1} = 2}
 
-let trimmed := longer{from: 2}
-Assert{: trimmed{length} = 3}
-Assert{: trimmed{at: 1} = 4}
+let longer := Slice{}, 1, 2, 3, 4, 5
+Assert{: longer{from: 2} = (Slice{}, 3, 4, 5)}
+Assert{: longer{to: -1} = (Slice{}, 1, 2, 3, 4)}
+Assert{: longer{from: 1 to: 3} = (Slice{}, 2, 3)}
 
 var concat := (Slice{}, 1, 2, 3) ++ (Slice{}, 4, 5)
 Assert{: concat{length} = 5}

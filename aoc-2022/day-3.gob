@@ -1,4 +1,4 @@
-import [_File_ _Control_ _Vec_ _Log_ _Assert_] := "core"
+import [_File_ _Control_ _Slice_ _Log_ _Assert_] := "core"
 import [_Parser_] := "parse"
 import [_BitSet_] := "bitset"
 
@@ -36,12 +36,14 @@ let line := +letter .>> Parser{newline} |>> Rucksack
 let line_group := line{map: [to BitSet]} 
   {with: [&] join: line{map: [to BitSet]}}
   {with: [&] join: line{map: [to BitSet]}}
-  {map: [to Vec]}
-  {map: [at: 0]}
+  {map: [to Iter]}
+  {map: [first]}
+  {map: [some!]}
 
-let line_sum := *line |>> [map: [sum overlap]] |>> [sum]
 
-let group_sum := *line_group |>> [sum]
+let line_sum := *line |>> [map: [sum overlap]] |>> [into: 0 fold: [+]]
+
+let group_sum := *line_group |>> [into: 0 fold: [+]]
 
 let input := File{read text sync: "./aoc-2022/day-3.input.txt"}
 

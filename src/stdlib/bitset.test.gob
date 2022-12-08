@@ -1,4 +1,4 @@
-import [_Assert_ _Vec_] := "core"
+import [_Assert_ _Slice_] := "core"
 import [_BitSet_] := "bitset"
 
 let bs := BitSet{}, 1, 30, 58
@@ -29,6 +29,6 @@ Assert{
 }
 
 Assert{
-  expected: bs{to Iter}{to Vec}
-  received: Vec{}, 1, 30, 58
+  expected: bs{to Iter}{to Slice}
+  received: Slice{}, 1, 30, 58
 }

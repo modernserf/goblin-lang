@@ -33,9 +33,11 @@ export let Iter := [
         set state := f{: value into: state}
       }
       state
-    on {to Vec}
-      import [_Vec_] := "core/vec"
-      self{into: Vec{} fold: [push]}
+    on {to Slice}
+      import [_Slice_] := "core/slice"
+      self{into: Slice{} fold: [push]}
+    on {first}
+      self{nth: 0}
     on {last}
       var last := Option{none}
       self{each: {: value} 

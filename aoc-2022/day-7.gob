@@ -1,4 +1,4 @@
-import [_true_ _false_ _String_ _Vec_ _HashMap_ _File_ _Log_ _Assert_ _Iter_] := "core"
+import [_true_ _false_ _String_ _Slice_ _HashMap_ _File_ _Log_ _Assert_ _Iter_] := "core"
 import [_Parser_] := "parse"
 
 let Tree := [
@@ -105,7 +105,7 @@ Assert{
 }
 Assert{
   received: Parser{parse: "$ ls" ++ nl with: command}{ok!}
-  expected: [ls: Vec{}]
+  expected: [ls: Slice{}]
 }
 let listing := "$ ls
 208557 slwshm.nwr
@@ -114,7 +114,7 @@ dir wfbvtfmr
 "
 Assert{
   received: Parser{parse: listing with: command}{ok!}
-  expected: [ls: Vec{}, 
+  expected: [ls: Slice{}, 
     Tree{file: "slwshm.nwr" size: 208557},
     Tree{file: "vjw" size: 283449},
     Tree{dir: "wfbvtfmr"}
@@ -131,9 +131,9 @@ $ cd a
 "
 Assert{
   received: Parser{parse: input with: *command}{ok!}
-  expected: Vec{},
+  expected: Slice{},
     [cd /],
-    [ls: Vec{},
+    [ls: Slice{},
       Tree{dir: "a"},
       Tree{file: "b.txt" size: 14848514},
       Tree{file: "c.dat" size: 8504156},
@@ -146,12 +146,12 @@ Assert{
 let FileSystem := [
   on {}
     let root := Tree{dir: "/"}
-    FileSystem{root: root path: Vec{}}
+    FileSystem{root: root path: Slice{}}
   on {root: root path: path} [
     on {cd/}
-      FileSystem{_root_ path: Vec{}}
+      FileSystem{_root_ path: Slice{}}
     on {cd..}
-      FileSystem{_root_ path: path{pop}{most}}
+      FileSystem{_root_ path: path{to: path{length} - 1}}
     on {cd: dir}
       FileSystem{_root_ path: path{push: dir}}
     on {ls: items}

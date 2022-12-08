@@ -1,12 +1,12 @@
 import [_Option_] := "core/option"
 import [_Control_] := "core/control"
-import [_Vec_] := "core/vec"
+import [_Slice_] := "core/slice"
 
 let HM := [
   on {empty}
     HM{entry: [empty] children: Option{none}}
   on {init children}
-    var cs := Vec{}
+    var cs := Slice{}
     Control{times: 32 do: {}
       set cs{push: HM{empty}}
     }

@@ -20,7 +20,7 @@ export import [_Option_] := "core/option"
 export import [_Result_] := "core/result"
 export import [_Control_] := "core/control"
 export import [_Iter_] := "core/iter"
-export import [_Vec_] := "core/vec"
+export import [_Slice_] := "core/slice"
 export import [_HashMap_ _HashSet_] := "core/hash"
 
 import [Cell: cell] := "native"
