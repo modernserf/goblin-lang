@@ -1,10 +1,5 @@
-import [_Assert_] := "core" 
+import [_Assert_ _Slice_] := "core" 
 import [_Range_] := "core/range"
-
-# empty range
-let empty := Range{}
-Assert{received: empty{size} expected: 0}
-Assert{false: empty{has: 0}}
 
 # range with values 
 let r := Range{to: 5}
@@ -35,5 +30,9 @@ Assert{
   expected: Range{from: 3 to: 5}}
 Assert{
   received: r & Range{from: 10 to: 20}
-  expected: Range{}
+  expected: Range{from: 0 to: 0}
 }
+
+# infinite range
+let r := Range{from: 2}
+Assert{:r{to Iter}{take: 3}{to Slice} = (Slice{}, 2, 3, 4)}

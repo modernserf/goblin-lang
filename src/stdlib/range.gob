@@ -1,31 +1,91 @@
-export let Range := [
-  on {}
-    Range{from: 0 to: 0}
-  # TODO: public constructor asserts from < to
-  on {from: range_start := 0 to: range_end} [
-    on {from}
-      range_start
-    on {from: value}
-      Range{from: value to: range_end}
-    on {to}
-      range_end
-    on {to: value}
-      Range{from: range_start to: value}
+import [_Panic_ _true_ _false_] := "native"
+
+let RangeIter := [
+  on {from: from to: to} 
+    import [_Iter_] := "core/iter"
+    return Iter{:[
+      on {next}
+        if from = to then return [done] end
+        [value: from next: RangeIter{from: from + 1 to: to}]
+    ]}
+  on {from: from}
+    import [_Iter_] := "core/iter"
+    return Iter{:[
+      on {next}
+        [value: from next: RangeIter{from: from + 1}]
+    ]}
+]
+
+let RangeImpl := [
+  on {from: range_start to: range_end} [
+    on {: do f}
+      f{from: range_start to: range_end}
+    on {is finite} true
+    on {is empty} range_end = range_start
     on {size}
-      if range_end >= range_start then range_end - range_start else 0 end
-    on {is superset: other}
-      (range_start <= other{from}) && (other{to} <= range_end)
+      range_end - range_start
     on {has: value}
       (range_start <= value) && (value < range_end)
-    
+    on {is subset: other}
+      other{:
+        on {from: from to: to}
+          (from <= range_start) && (range_end <= to)
+        on {from: from} 
+          from <= range_start
+      }
+    on {is superset: other}
+      other{is subset: self}
     on {&: other} {intersection: other}
-      let next_start := range_start{max: other{from}}
-      let next_end := range_end{min: other{to}}
-      if next_start < next_end then
-        Range{from: next_start to: next_end}
+      let p := other{:
+        on {from: from}
+          [from: range_start{max: from} to: range_end]
+        on {from: from to: to}
+          [from: range_start{max: from} to: range_end{min: to}]
+      }
+      if p{from} < p{to} then
+        p{: RangeImpl}
       else
-        Range{}
+        RangeImpl{from: 0 to: 0}
       end
+    on {to Iter}
+      RangeIter{from: range_start to: range_end}
   ]
+  on {from: range_start} [
+    on {: do f}
+      f{from: range_start}
+    on {is finite} false
+    on {is empty} false
+    on {size}
+      Panic{: "open range has infinite size"}
+    on {has: value}
+      range_start <= value
+    on {is subset: other}
+      other{:
+        on {from: __ to: __} false
+        on {from: from} from <= range_start
+      }
+    on {is superset: other}
+      other{is subset: self}
+    on {&: other} {intersection: other}
+      other{:
+        on {from: from}
+          RangeImpl{from: range_start{max: from}}
+        on {from: from to: to}
+          RangeImpl{from: range_start{max: from} to: to}
+      }
+    on {to Iter}
+      RangeIter{from: range_start}
+  ]
+]
+
+export let Range := [
+  on {from: from to: to}
+    if from > to then Panic{: "invalid range params"} end
+    RangeImpl{from: from to: to}
+  on {to: to}
+    if to < 0 then Panic{: "invalid range params"} end
+    RangeImpl{from: 0 to: to}
+  on {from: from}
+    RangeImpl{from: from}
 ]
 

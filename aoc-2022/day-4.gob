@@ -2,10 +2,11 @@ import [_File_ _Log_ _String_] := "core"
 import [_Range_] := "core/range"
 import [_Parser_] := "parse"
 
-let parse_range := Parser{ok: Range{}}
+let parse_range := Parser{ok: [from: () to: ()]}
   {with: [from] join: Parser{integer}}
   {skip: Parser{token: "-"}}
   {with: [to] join: Parser{integer} |>> [+: 1]}
+  {map: {: p} p{: Range}}
 
 let parse_range_pair := parse_range
   .>> Parser{token: ","}
