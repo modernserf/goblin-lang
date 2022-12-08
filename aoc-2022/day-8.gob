@@ -1,0 +1,103 @@
+import [_Assert_ _Log_ _File_ _Slice_ _true_ _Control_ _Iter_] := "core"
+import [_Parser_] := "parse" 
+
+let row := Parser{digit}{repeat}
+let plot := row{skip: Parser{newline}}{repeat}
+
+let input := "30373
+25512
+65332
+33549
+35390
+"
+
+let input := File{read text sync: "./aoc-2022/day-8.input.txt"}
+let grid := Parser{parse: input with: plot}{ok!}
+
+let init_distances := Slice{},0,0,0,0,0,0,0,0,0,0
+let Visibility := [
+  on {} 
+    Visibility{
+      max: -1 
+      distances: init_distances
+      visible: true
+      score: 0
+    }
+  on {max: max visible: visible distances: ds score: score} [
+    on {next: height}
+      let next_ds := ds{map: {: d index: i}
+        if i <= height then 1 else d + 1 end
+      }
+      Visibility{
+        max: height{max: max} 
+        distances: next_ds
+        visible: height > max 
+        score: ds{at: height}
+      }
+    on {visible}
+      visible
+    on {score}
+      score
+  ]
+]
+
+let left_visibility := grid{map: {: row}
+  row{to Iter}
+    {into: Visibility{} scan: [next]}
+    {to Slice}
+}
+
+let right_visibility := grid{map: {: row}
+  row{reverse}{to Iter}
+    {into: Visibility{} scan: [next]}
+    {to Slice}{reverse}
+}
+
+let flipped := (
+  var cols := Slice{}
+  Control{times: grid{length} do: {: x}
+    let col := grid{map: [at: x]}
+    set cols{push: col}
+  }
+  cols
+)
+
+let top_visibility := flipped{map: {: col}
+  col{to Iter}
+    {into: Visibility{} scan: [next]}
+    {to Slice}
+}
+
+let bottom_visibility := flipped{map: {: col}
+  col{reverse}{to Iter}
+    {into: Visibility{} scan: [next]}
+    {to Slice}{reverse}
+}
+
+let visible_at := [{x: x y: y} 
+  left_visibility{at: y}{at: x}{visible} ||
+  right_visibility{at: y}{at: x}{visible} ||
+  top_visibility{at: x}{at: y}{visible} ||
+  bottom_visibility{at: x}{at: y}{visible}
+]
+
+let score_at := [{x: x y: y}
+  left_visibility{at: y}{at: x}{score} *
+  right_visibility{at: y}{at: x}{score} *
+  top_visibility{at: x}{at: y}{score} *
+  bottom_visibility{at: x}{at: y}{score}
+]
+
+var visible_count := 0
+var max_score := 0
+Control{times: grid{length} do: {: x}
+  Control{times: grid{length} do: {: y}
+    if visible_at{x: x y: y} then
+      set visible_count{+: 1}
+    end
+    set max_score{max: score_at{x: x y: y}}
+  }
+}
+
+Log{: "Part 1: " ++ visible_count}
+Log{: "Part 2: " ++ max_score}

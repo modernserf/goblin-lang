@@ -47,6 +47,17 @@ let Slice := [
         from: 0
         to: next_array{length}
       }
+    on {at: index update: do f}
+      if self{is empty} then Panic{: "cannot update at index in empty slice"} end
+      let index := index % self{length}
+      let next_array := array{from: from to: to}
+      let next_value := f{: next_array{at: index}}
+      next_array{at: index value: next_value}
+      Slice{
+        array: next_array
+        from: 0
+        to: next_array{length}
+      }
 
     # constructing
     on {,: value} {push: value}
