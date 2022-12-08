@@ -14,7 +14,18 @@ let SliceIter := [
           next: SliceIter{array: array from: from + 1 to: to}
         ]
     ]}
+  on {array: array from: from down to: to}
+    import [_Iter_] := "core/iter"
+    return Iter{:[
+      {next}
+        if from = to then return [done] end
+        return [
+          value: array{at: from} 
+          next: SliceIter{array: array from: from - 1 down to: to}
+        ]
+    ]}
 ]
+
 
 let Slice := [
   on {}
@@ -119,6 +130,8 @@ let Slice := [
     # iterating
     on {to Iter}
       SliceIter{array: array from: from to: to}
+    on {to reverse Iter}
+      SliceIter{array: array from: to - 1 down to: from - 1}
     on {each: do f}
       Control{times: self{length} do: {: index}
         let item := array{at: index + from}

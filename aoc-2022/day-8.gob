@@ -1,4 +1,4 @@
-import [_Assert_ _Log_ _File_ _Slice_ _true_ _Control_ _Iter_] := "core"
+import [_Assert_ _Log_ _File_ _Slice_ _true_ _Control_] := "core"
 import [_Parser_] := "parse" 
 
 let row := Parser{digit}{repeat}
@@ -48,19 +48,14 @@ let left_visibility := grid{map: {: row}
 }
 
 let right_visibility := grid{map: {: row}
-  row{reverse}{to Iter}
+  row{to reverse Iter}
     {into: Visibility{} scan: [next]}
     {to Slice}{reverse}
 }
 
-let flipped := (
-  var cols := Slice{}
-  Control{times: grid{length} do: {: x}
-    let col := grid{map: [at: x]}
-    set cols{push: col}
-  }
-  cols
-)
+let flipped := grid{at: 0}{map: {: __ index: x}
+  grid{map: [at: x]}
+}
 
 let top_visibility := flipped{map: {: col}
   col{to Iter}
@@ -69,7 +64,7 @@ let top_visibility := flipped{map: {: col}
 }
 
 let bottom_visibility := flipped{map: {: col}
-  col{reverse}{to Iter}
+  col{to reverse Iter}
     {into: Visibility{} scan: [next]}
     {to Slice}{reverse}
 }
