@@ -1,0 +1,191 @@
+import [_Array_ _Panic_ _true_ _false_] := "native"
+import [_Option_] := "core/option"
+import [_Control_] := "core/control"
+import [_Sortable_] := "core/sortable"
+
+let SliceIter := [
+  on {array: array from: from to: to}
+    import [_Iter_] := "core/iter"
+    return Iter{:[
+      {next}
+        if from = to then return [done] end
+        return [
+          value: array{at: from} 
+          next: SliceIter{array: array from: from + 1 to: to}
+        ]
+    ]}
+]
+
+let Slice := [
+  on {}
+    Slice{array: Array{} from: 0 to: 0}
+  on {array: array from: from to: to} [
+    # matching
+    on {: do f}
+      if to = from then
+        f{empty}
+      else
+        f{first: array{at: from} rest: self{from: 1}} ?
+        f{most: self{to: to - 1} last: array{at: to - 1}}
+      end
+    # reading
+    on {is empty}
+      to = from
+    on {length}
+      to - from
+    on {at: index}
+      if self{is empty} then Panic{: "cannot get item from empty slice"} end
+      let index := index % self{length}
+      array{at: index + from}
+    on {at: index value: val}
+      if self{is empty} then Panic{: "cannot set at index in empty slice"} end
+      let index := index % self{length}
+      let next_array := array{from: from to: to}
+      next_array{at: index value: val}
+      Slice{
+        array: next_array
+        from: 0
+        to: next_array{length}
+      }
+
+    # constructing
+    on {,: value} {push: value}
+      if (from = 0) && (to = array{length}) then
+        array{push: value}
+        Slice{array: array from: 0 to: array{length}}
+      else
+        let next := array{from: from to: to}
+        next{push: value}
+        Slice{array: next from: 0 to: next{length}}
+      end
+    on {++: other} {append: other}
+      var next := self
+      other{each: {: value}
+        set next{push: value}
+      }
+      next
+    # destructing
+    on {first} self{shift}{map: [first]}
+    on {rest} self{shift}{map: [rest]}
+    on {shift}
+      if self{is empty} then return Option{none} end
+      Option{some: [
+        first: array{at: from}
+        rest: Slice{array: array from: from + 1 to: to}
+      ]}
+    on {most} self{pop}{map: [most]}
+    on {last} self{pop}{map: [last]}
+    on {pop}
+      if self{is empty} then return Option{none} end
+      Option{some: [
+        most: Slice{array: array from: from to: to - 1}
+        last: array{at: to - 1}
+      ]}
+    # slicing
+    on {from: from_offset}
+      self{from: from_offset to: self{length}}
+    on {to: to_offset}
+      self{from: 0 to: to_offset}
+    on {from: from_offset to: to_offset}
+      let len := self{length}
+      let from_offset := from_offset % len
+      let to_offset := if to_offset = len then len else to_offset % len end
+      if from_offset >= to_offset then return Slice{} end
+      Slice{array: array from: from + from_offset to: from + to_offset}
+
+    # comparing
+    on {=: other}
+        let len := other{length} ? (return false)
+        if len != self{length} then return false end
+        Control{times: len do: {: i}
+          let val := other{at: i} ? (return false)
+          if array{at: i + from} != val then return false end 
+        }
+        return true
+    on {!=: other}
+      return !(self = other)
+
+    # iterating
+    on {to Iter}
+      SliceIter{array: array from: from to: to}
+    on {each: do f}
+      Control{times: self{length} do: {: index}
+        let item := array{at: index + from}
+        f{: item index: index} ? f{: item}
+      }
+      self
+    on {map: do f}
+      var out := Slice{}
+      self{each: {: item index: index}
+        let mapped := f{: item} ? f{: item index: index}
+        set out{push: mapped}
+      }
+      out
+    on {filter: do f}
+      var out := Slice{}
+      self{each: {: item index: index}
+        if f{: item} ? f{: item index: index} then
+          set out{push: item}
+        end
+      }
+      out
+    on {filter map: do f}
+      var out := Slice{}
+      self{each: {: item index: index}
+        let filter_mapped := f{: item} ? f{: item index: index}
+        filter_mapped{:
+          on {some: value} set out{push: value}
+          on {none} ()
+        }
+      }
+      out
+    on {flat map: do f} {chain: do f}
+      var out := Slice{}
+      self{each: {: item index: index}
+        let flatmapped := f{: item} ? f{: item index: index}
+        set out{append: flatmapped}
+      }
+      out
+    on {find: do f} self{find entry: f}{map: [value]}
+    on {find index: do f} self{find entry: f}{map: [index]}
+    on {find entry: do f}
+      self{each: {: item index: index}
+        if f{: item} ? f{: item index: index} then
+          return Option{some: [value: item index: index]}
+        end
+        return Option{none}
+      }
+    on {into: init fold: do f}
+      var result := init
+      self{each: {: item index: index}
+        set result := f{: item into: result} ? f{: item into: result index: index}
+      }
+      result
+
+    # transforming
+    on {reverse}
+      let out := array{from: from to: to}
+      out{reverse}
+      Slice{array: out from: 0 to: out{length}}
+    
+    on {sort} Sortable{: self}{sort}
+    on {sort: direction} Sortable{: self}{sort: direction}
+    on {sort by key: do f} Sortable{: self}{sort by key: f}
+    on {sort: direction by key: do f}
+      Sortable{: self}{sort: direction by key: f}
+    on {sort by: do f}
+      if from >= (to - 1) then return self end
+      let out := array{from: from to: to}
+      out{sort by: f}
+      Slice{array: out from: 0 to: out{length}}
+  ]
+]
+
+let SliceImpl := Slice
+export let Slice := [
+  on {}
+    SliceImpl{}
+  on {from Iter: iter}
+    iter{into: SliceImpl{} fold: [push]}
+]
+

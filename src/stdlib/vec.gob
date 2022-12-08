@@ -11,7 +11,7 @@ let VecImpl := [
           length: length 
         }
       on {index: index}
-        if index >= length then Panic{message: "index out of range"} end
+        if index >= length then Panic{: "index out of range"} end
         # TODO: handle negative index wraparound
         index
       on {sort: arr by: do f lo: lo hi: hi}

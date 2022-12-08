@@ -14,8 +14,8 @@ export let Result := [
     on {: do f} f{ok: value}
     on {ok!} value
     on {ok!: __} value
-    on {error!} Panic{message: "unwrapped an ok value as error"}
-    on {error!: msg} Panic{message: msg}
+    on {error!} Panic{: "unwrapped an ok value as error"}
+    on {error!: msg} Panic{: msg}
     on {is ok} true
     on {is error}  false
     on {map: do f} Result{ok: f{: value}}
@@ -50,8 +50,8 @@ export let Result := [
 
   on {error: err} [
     on {: do f} f{error: err}
-    on {ok!} Panic{message: "unwrapped an error value as ok"}
-    on {ok!: msg} Panic{message: msg}
+    on {ok!} Panic{: "unwrapped an error value as ok"}
+    on {ok!: msg} Panic{: msg}
     on {error!} err
     on {error!: __} err 
     on {is ok} false

@@ -4,7 +4,7 @@ import [
 
 # error handling
 Assert{panics: [{}
-  Panic{message: "hello"}
+  Panic{: "hello"}
 ]}
 
 # operator precedence

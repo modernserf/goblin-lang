@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFileSync } from "fs"
 import { Interpreter, IRHandler, Value } from "./interface"
 import { IRModuleExpr } from "./ir-expr"
-import { IRConstHandler, IRPrimitiveHandler } from "./ir-handler"
+import { IRConstHandler, IRPrimitiveHandler, IRValueArg } from "./ir-handler"
 import { unit, PrimitiveValue, IRClass, ObjectValue } from "./value"
 
 export class IRClassBuilder {
@@ -210,6 +210,11 @@ export const intClass: IRClass = new IRClassBuilder()
     }
     return trueVal
   })
+  .addPrimitive("%:", (self, [arg]) => {
+    const argValue = intValue(arg)
+    const value = self % argValue
+    return new PrimitiveValue(intClass, value < 0 ? value + argValue : value)
+  })
   .addPrimitive("order:", (self, [arg], ctx) => {
     const other = intValue(arg)
     const selector = self === other ? "=" : self > other ? ">" : "<"
@@ -396,6 +401,25 @@ const arrayInstance: IRClass = new IRClassBuilder()
     }
     return new PrimitiveValue(arrayInstance, self.concat(other.primitiveValue))
   })
+  .addPrimitive("reverse", (self) => {
+    self.reverse()
+    return new PrimitiveValue(arrayInstance, self)
+  })
+  .addPrimitive("sort by:", (self: any[], [f], ctx) => {
+    self.sort(
+      (left, right) =>
+        f
+          .send(
+            ctx,
+            "left:right:",
+            [new IRValueArg(left), new IRValueArg(right)],
+            null
+          )
+          .send(ctx, "to JS", [], null).primitiveValue
+    )
+
+    return new PrimitiveValue(arrayInstance, self)
+  })
   .build()
 
 const arrayModule = new ObjectValue(
@@ -437,7 +461,7 @@ const assertModule = new ObjectValue(
 
 const panicModule = new ObjectValue(
   new IRClassBuilder()
-    .addPrimitive("message:", (_, [message]) => {
+    .addPrimitive(":", (_, [message]) => {
       throw new Error(strValue(message))
     })
     .build(),

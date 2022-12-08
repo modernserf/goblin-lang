@@ -1,0 +1,19 @@
+# helpers for generating sorting-related handlers
+# sortable implements {sort by: {left:right:}} handler
+export let Sortable := [
+  on {: sortable} [
+    on {sort}
+      self{sort: [asc]}
+    on {sort: direction}
+      self{sort: direction by key: {: x} x}
+    on {sort by key: do f}
+      self{sort: [asc] by key: f}
+    on {sort: direction by key: do f}
+      direction{:
+        on {asc}
+          sortable{sort by: {left: l right: r} f{:l}{order: f{: r}}}
+        on {desc}
+          sortable{sort by: {left: l right: r} f{:r}{order: f{: l}}}
+      }
+  ] 
+]

@@ -7,7 +7,7 @@ test("panic", () => {
   assert.throws(() => {
     run(`
       import [_Panic_] := "core"
-      Panic{message: "error message"}
+      Panic{: "error message"}
     `)
   }, new Error("error message"))
 })

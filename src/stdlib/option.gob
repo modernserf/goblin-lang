@@ -43,8 +43,8 @@ export let Option := [
   ]
   on {none} [
     on {: do f} f{none}
-    on {some!} Panic{message: "unwrapped a none value"}
-    on {some!: message} Panic{message: message} 
+    on {some!} Panic{: "unwrapped a none value"}
+    on {some!: message} Panic{: message} 
     on {is some} false
     on {is none} true
     on {map: do f} self
