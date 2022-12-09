@@ -209,6 +209,12 @@ let SliceImpl := Slice
 export let Slice := [
   on {}
     SliceImpl{}
+  on {fill: times with: value} 
+    var slice := SliceImpl{}
+    Control{times: times do: {: __}
+      set slice{push: value}
+    }
+    slice
   on {from Iter: iter}
     iter{into: SliceImpl{} fold: [push]}
   on {pop: var slice}

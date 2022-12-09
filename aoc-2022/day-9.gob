@@ -1,4 +1,4 @@
-import [_Assert_ _File_ _Control_ _Slice_ _HashMap_ _Log_] := "core"
+import [_Assert_ _File_ _Control_ _Slice_ _HashMap_ _Log_ _Panic_] := "core"
 import [_Parser_] := "parse"
 
 let adjacent := [{:a to: b}
@@ -43,68 +43,71 @@ let Link := [
   ]
 ]
 
-let Rope := [
-  on {} 
-    Rope{head: Link{x: 0 y: 0} tail: Link{x: 0 y: 0}}
-  on {head: head tail: tail} [
-    on {tail} tail
+let Chain := [
+  on {length: length}
+    if length < 1 then Panic{: "invalid chain length"} end
+    Chain{items: Slice{fill: length with: Link{x: 0 y: 0}}}
+  on {items: items} [
+    on {tail}
+      items{at: -1}
     on {up}
-      let head := head{+y}
-      let tail := tail{follow: head}
-      Rope{head: head tail: tail}
+      self{update: [+y]}
     on {down}
-      let head := head{-y}
-      let tail := tail{follow: head}
-      Rope{head: head tail: tail}
+      self{update: [-y]}
     on {left}
-      let head := head{-x}
-      let tail := tail{follow: head}
-      Rope{head: head tail: tail}
+      self{update: [-x]}
     on {right}
-      let head := head{+x}
-      let tail := tail{follow: head}
-      Rope{head: head tail: tail}
+      self{update: [+x]}
+    on {update: f}
+      let [_first_ _rest_] := items{shift}{some!}
+
+      Chain{items: rest{
+        into: Slice{}, f{: first}
+        fold: {: link into: chain}
+          let prev := chain{at: -1}
+          let next := link{follow: prev}
+          chain{push: next}
+      }}
   ]
 ]
 
 [{}
+  let rope := Chain{length: 2}
   # init
-  Assert{: Rope{}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: rope{tail}{xy} = [x: 0 y: 0]}
   # no movement
-  Assert{: Rope{}{up}{tail}{xy} = [x: 0 y: 0]}
-  Assert{: Rope{}{down}{tail}{xy} = [x: 0 y: 0]}
-  Assert{: Rope{}{left}{tail}{xy} = [x: 0 y: 0]}
-  Assert{: Rope{}{right}{tail}{xy} = [x: 0 y: 0]}
-  Assert{: Rope{}{up}{left}{tail}{xy} = [x: 0 y: 0]}
-  Assert{: Rope{}{down}{right}{tail}{xy} = [x: 0 y: 0]}
-  Assert{: Rope{}{left}{down}{tail}{xy} = [x: 0 y: 0]}
-  Assert{: Rope{}{right}{up}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: rope{up}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: rope{down}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: rope{left}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: rope{right}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: rope{up}{left}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: rope{down}{right}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: rope{left}{down}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: rope{right}{up}{tail}{xy} = [x: 0 y: 0]}
   # horizontal
   Assert{
-    received: Rope{}{right}{right}{tail}{xy}
+    received: rope{right}{right}{tail}{xy}
     expected: [x: 1 y: 0]
   }
   Assert{
-    received: Rope{}{left}{left}{tail}{xy}
+    received: rope{left}{left}{tail}{xy}
     expected: [x: -1 y: 0]
   }
   # vertical
   Assert{
-    received: Rope{}{up}{up}{tail}{xy}
+    received: rope{up}{up}{tail}{xy}
     expected: [x: 0 y: 1]
   }
   Assert{
-    received: Rope{}{down}{down}{tail}{xy}
+    received: rope{down}{down}{tail}{xy}
     expected: [x: 0 y: -1]
   }
   # diagonal
   Assert{
-    received: Rope{}{up}{right}{up}{tail}{xy}
+    received: rope{up}{right}{up}{tail}{xy}
     expected: [x: 1 y: 1]
   }
 ]{}
-
-
 
 let direction := 
   | (Parser{token: "L"} >>. Parser{ok: [left]})
@@ -144,8 +147,8 @@ R 2
   }
 ]{}
 
-let part_1 := [{: commands}
-  var rope := Rope{}
+let tail_visits := [{commands: commands rope: init_rope}
+  var rope := init_rope
   var visited := HashMap{}
   set visited{key: rope{tail} value: 1}
   commands{each: {: command}
@@ -154,16 +157,11 @@ let part_1 := [{: commands}
       set visited{key: rope{tail} value: 1 or update: [+: 1]}
     }
   }
-  # visited{to Iter}{each: {: entry}
-  #   Log{: "x: " ++ entry{key}{x} 
-  #     ++ " y: " ++ entry{key}{y} 
-  #     ++ " count: " ++ entry{value}
-  #   }
-  # }
   visited{size}
 ]
 
 let input := File{read text sync: "./aoc-2022/day-9.input.txt"}
 let commands := Parser{parse: input with: parser}{ok!}
-Log{: "Part 1: " ++ part_1{: commands}}
+Log{: "Part 1: " ++ tail_visits{commands: commands rope: Chain{length: 2}}}
+Log{: "Part 2: " ++ tail_visits{commands: commands rope: Chain{length: 10}}}
 
