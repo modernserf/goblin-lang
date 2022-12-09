@@ -1,0 +1,169 @@
+import [_Assert_ _File_ _Control_ _Slice_ _HashMap_ _Log_] := "core"
+import [_Parser_] := "parse"
+
+let adjacent := [{:a to: b}
+  (a = b) || (a = (b + 1)) || (a = (b - 1))
+]
+[{}
+  Assert{: adjacent{: 0 to: 0}}
+  Assert{: adjacent{: 1 to: 0}}
+  Assert{: adjacent{: -1 to: 0}}
+  Assert{false: adjacent{: 2 to: 0}}
+  Assert{false: adjacent{: -2 to: 0}}
+]{}
+
+let Link := [
+  on {x: x y: y} [
+    on {x} x
+    on {y} y
+    on {xy} [x: x y: y]
+    on {=: other}
+      (x = other{x}) && (y = other{y})
+    on {hash}
+      (x << 8) + y
+    on {+x}
+      Link{x: x + 1 y: y}
+    on {-x}
+      Link{x: x - 1 y: y}
+    on {+y}
+      Link{x: x y: y + 1}
+    on {-y}
+      Link{x: x y: y - 1}
+
+    on {follow: h}
+      if adjacent{: h{x} to: x} &&
+        adjacent{: h{y} to: y} 
+      then
+        return self
+      end
+
+      let dx := (h{x} - x){min: -1 max: 1}
+      let dy := (h{y} - y){min: -1 max: 1}
+      Link{x: x + dx y: y + dy}
+  ]
+]
+
+let Rope := [
+  on {} 
+    Rope{head: Link{x: 0 y: 0} tail: Link{x: 0 y: 0}}
+  on {head: head tail: tail} [
+    on {tail} tail
+    on {up}
+      let head := head{+y}
+      let tail := tail{follow: head}
+      Rope{head: head tail: tail}
+    on {down}
+      let head := head{-y}
+      let tail := tail{follow: head}
+      Rope{head: head tail: tail}
+    on {left}
+      let head := head{-x}
+      let tail := tail{follow: head}
+      Rope{head: head tail: tail}
+    on {right}
+      let head := head{+x}
+      let tail := tail{follow: head}
+      Rope{head: head tail: tail}
+  ]
+]
+
+[{}
+  # init
+  Assert{: Rope{}{tail}{xy} = [x: 0 y: 0]}
+  # no movement
+  Assert{: Rope{}{up}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: Rope{}{down}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: Rope{}{left}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: Rope{}{right}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: Rope{}{up}{left}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: Rope{}{down}{right}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: Rope{}{left}{down}{tail}{xy} = [x: 0 y: 0]}
+  Assert{: Rope{}{right}{up}{tail}{xy} = [x: 0 y: 0]}
+  # horizontal
+  Assert{
+    received: Rope{}{right}{right}{tail}{xy}
+    expected: [x: 1 y: 0]
+  }
+  Assert{
+    received: Rope{}{left}{left}{tail}{xy}
+    expected: [x: -1 y: 0]
+  }
+  # vertical
+  Assert{
+    received: Rope{}{up}{up}{tail}{xy}
+    expected: [x: 0 y: 1]
+  }
+  Assert{
+    received: Rope{}{down}{down}{tail}{xy}
+    expected: [x: 0 y: -1]
+  }
+  # diagonal
+  Assert{
+    received: Rope{}{up}{right}{up}{tail}{xy}
+    expected: [x: 1 y: 1]
+  }
+]{}
+
+
+
+let direction := 
+  | (Parser{token: "L"} >>. Parser{ok: [left]})
+  | (Parser{token: "R"} >>. Parser{ok: [right]})
+  | (Parser{token: "U"} >>. Parser{ok: [up]})
+  | (Parser{token: "D"} >>. Parser{ok: [down]})
+
+let line := Parser{ok: [direction: () count: ()]}
+  {with: [direction] join: direction}
+  {skip: Parser{token: " "}}
+  {with: [count] join: Parser{integer}}
+
+let parser := line{skip: Parser{newline}}{repeat}
+
+let input := "R 4
+U 4
+L 3
+D 1
+R 4
+D 1
+L 5
+R 2
+"
+
+[{}
+  Assert{
+    received: Parser{parse: input with: parser}{ok!}
+    expected: Slice{},
+      [direction: [right] count: 4],
+      [direction: [up]    count: 4],
+      [direction: [left]  count: 3],
+      [direction: [down]  count: 1],
+      [direction: [right] count: 4],
+      [direction: [down]  count: 1],
+      [direction: [left]  count: 5],
+      [direction: [right] count: 2]
+  }
+]{}
+
+let part_1 := [{: commands}
+  var rope := Rope{}
+  var visited := HashMap{}
+  set visited{key: rope{tail} value: 1}
+  commands{each: {: command}
+    Control{times: command{count} do: {: __}
+      set rope := command{direction}{: rope}
+      set visited{key: rope{tail} value: 1 or update: [+: 1]}
+    }
+  }
+  # visited{to Iter}{each: {: entry}
+  #   Log{: "x: " ++ entry{key}{x} 
+  #     ++ " y: " ++ entry{key}{y} 
+  #     ++ " count: " ++ entry{value}
+  #   }
+  # }
+  visited{size}
+]
+
+let input := File{read text sync: "./aoc-2022/day-9.input.txt"}
+let commands := Parser{parse: input with: parser}{ok!}
+Log{: "Part 1: " ++ part_1{: commands}}
+

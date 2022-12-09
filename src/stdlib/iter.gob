@@ -1,4 +1,4 @@
-import [_true_ _false_] := "native"
+import [_true_ _false_ _Panic_] := "native"
 import [_Option_] := "core/option"
 import [_Control_] := "core/control"
 
@@ -33,6 +33,14 @@ export let Iter := [
         set state := f{: value into: state}
       }
       state
+    on {fold: do f}
+      iterable{next}{:
+        on {done}
+          Panic{: "cannot fold empty iterator"}
+        on {value: value next: next}
+          next{into: value fold: f}
+      }
+
     on {to Slice}
       import [_Slice_] := "core/slice"
       self{into: Slice{} fold: [push]}

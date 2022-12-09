@@ -18,7 +18,7 @@ import {
   IRValueArg,
 } from "./ir-handler"
 import { constObject } from "./optimize"
-import { falseVal, stringClass, trueVal } from "./primitive"
+import { falseVal, intClass, stringClass, trueVal } from "./primitive"
 
 export class IRClassBuilder extends IRClass {
   constructor() {
@@ -180,6 +180,27 @@ export function frame(
       "debug",
       [],
       [new PrimitiveValue(stringClass, `[${selector}]`)]
+    )
+  }
+
+  if (!frameClass.try("hash")) {
+    frameClass.addFrame(
+      "hash",
+      [],
+      [
+        args.reduce(
+          (acc, _, i) =>
+            new IRSendDirectExpr("^:", intClass.get("^:"), acc, [
+              new IRValueArg(new IRSendExpr("hash", new IRIvarExpr(i), [])),
+            ]),
+          new IRSendDirectExpr(
+            "hash",
+            stringClass.get("hash"),
+            new PrimitiveValue(stringClass, selector),
+            []
+          )
+        ),
+      ]
     )
   }
 

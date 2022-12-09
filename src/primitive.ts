@@ -112,7 +112,7 @@ export const stringClass: IRClass = new IRClassBuilder()
     return new PrimitiveValue(stringClass, ch)
   })
   // TODO: return option value
-  .addPrimitive("code at:", (self, [arg]) => {
+  .addPrimitive("code at:", (self: string, [arg]) => {
     const index = intValue(arg)
     const code = index < self.length ? self.charCodeAt(index) : -1
     return new PrimitiveValue(intClass, code)
@@ -186,6 +186,9 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("|:", (self, [arg]) => {
     return new PrimitiveValue(intClass, self | intValue(arg))
   })
+  .addPrimitive("^:", (self, [arg]) => {
+    return new PrimitiveValue(intClass, self ^ intValue(arg))
+  })
   .addPrimitive(">>:", (self, [arg]) => {
     return new PrimitiveValue(intClass, self >> intValue(arg))
   })
@@ -230,6 +233,14 @@ export const intClass: IRClass = new IRClassBuilder()
   .addPrimitive("min:", (self, [arg]) => {
     const other = intValue(arg)
     return new PrimitiveValue(intClass, self < other ? self : other)
+  })
+  .addPrimitive("max:min:", (self, [max, min]) => {
+    const maxInt = intValue(max)
+    const minInt = intValue(min)
+    return new PrimitiveValue(
+      intClass,
+      Math.max(minInt, Math.min(self, maxInt))
+    )
   })
   .addPrimitive("==:", (self, [arg]) => {
     return numericCompare(self, arg, (a, b) => a === b)

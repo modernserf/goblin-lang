@@ -221,6 +221,10 @@ export let Parser := [
         }
     ]}
 
+    # a no-op so you can write or-sequences with every segment aligned
+    on {|}
+      self
+
     # try matching one, then the other parser
     on {|: next_parser} 
       {or: next_parser} Parser{:[
